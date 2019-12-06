@@ -64,15 +64,18 @@ def WORKING_auto_pose_estimation(camera_config, reference_camera):
         # Get all the poses
         if pose_method == 'common':
             world_locations, world_orientations = common_pose_estimation(camera_config,
-                                                                         cam_image_points, cam_charuco_ids,
-                                                                         camera_matrices, distortion_coefficients)
+                                                                         cam_image_points,
+                                                                         cam_charuco_ids,
+                                                                         camera_matrices,
+                                                                         distortion_coefficients)
         else:
           return[]
 
 
     #if pose_strategy == 'stereo_sequential':
-    export_pose_estimation(os.path.join(camera_config['folder_path'], 'pose_estimation'), camera_config['camera_names'],
-                           world_locations, world_orientations)
+    export_pose_estimation(os.path.join(camera_config['folder_path'], 'pose_estimation'),
+                           camera_config['camera_names'], world_locations, world_orientations)
+    
     return world_locations, world_orientations
 
 
@@ -144,7 +147,9 @@ def one_shot_multi_PnP(camera_config, camera_matrices, distortion_coefficients,
         # Get the image points
         # Detect the aruco markers and IDs
         corners, ids, rejected_points = cv2.aruco.detectMarkers(world_image, charuco_dict)
-        _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(corners, ids, world_image, charuco_board)
+        _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(corners, ids,
+                                                                              world_image,
+                                                                              charuco_board)
         # Get the optimal camera matrix
         temp_optim, _ = cv2.getOptimalNewCameraMatrix(camera_matrices[cam],
                                                       distortion_coefficients[cam],
@@ -170,8 +175,11 @@ def one_shot_multi_PnP(camera_config, camera_matrices, distortion_coefficients,
     return world_locations, world_orientations
 
 
-def common_pose_estimation(camera_config, cam_image_points, detection_logit, camera_matrices, distortion_coefficients):
-    ''' If there are sufficient shared world points across all cameras then camera pose can be estimated from all of them simultaneously.'''
+def common_pose_estimation(camera_config, cam_image_points, detection_logit, camera_matrices,
+                           distortion_coefficients):
+    ''' If there are sufficient shared world points across all cameras then camera pose can
+        be estimated from all of them simultaneously. This allows for more points to be used
+        than with the one_shot method.'''
     #
     num_cameras = len(camera_config['camera_names'])
     # Determine the reference camera
@@ -194,7 +202,8 @@ def common_pose_estimation(camera_config, cam_image_points, detection_logit, cam
       filtered_image_points = [[] for cam in range(num_cameras)]
 
       for image in range(len(cam_image_points)):
-        point_logit = np.zeros((len(world_points), num_cameras), dtype = bool) # Empty array with a spot for each corner and ID
+        # Empty array with a spot for each corner and ID
+        point_logit = np.zeros((len(world_points), num_cameras), dtype = bool) 
         for cam in range(num_cameras):
           temp = detection_logit[image][cam] # Get the array specific to the camera and image
           if isinstance(temp, np.ndarray):
@@ -202,7 +211,8 @@ def common_pose_estimation(camera_config, cam_image_points, detection_logit, cam
               point_logit[int(corner),cam] = True # Assign true to the logit array
 
         sum_point_logit = np.sum(point_logit.astype(int),1)
-        common_points = sum_point_logit == num_cameras # Find which points are shared across all cameras
+        # Find which points are shared across all cameras
+        common_points = sum_point_logit == num_cameras 
 
         if np.sum(common_points) >= 6:
           # Append only those points

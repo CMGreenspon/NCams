@@ -59,7 +59,8 @@ def charuco_board_detector(camera_config):
         num_images[0, cam] = len(image_list)
         cam_image_list.append(image_list)
 
-    # Crucial: Each camera must have the same number of images so that we can assume the order is maintained and that they are synced
+    # Crucial: Each camera must have the same number of images so that we can assume the order is
+    # maintained and that they are synced
     if not np.ma.allequal(num_images, np.mean(num_images)):
         raise Exception('Image lists are of unequal size and may not be synced.')
 
@@ -214,7 +215,8 @@ def make_projection_matrix(camera_matrix, orientation, translation):
     return projection_matrix
 
 
-def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector, relative_rotations, relative_translations):
+def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector,
+                                     relative_rotations, relative_translations):
     adjusted_rotation_vectors = []
     adjusted_translation_vectors = []
 

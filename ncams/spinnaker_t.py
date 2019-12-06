@@ -258,9 +258,9 @@ def init_sync_settings(cam_objs, primary_idx, secondary_idx, frame_rate = 30, nu
         if cam_objs[cam].IsStreaming():
             cam_objs[cam].EndAcquisition()
 
-        # Set buffers for all cameras
+        # Set buffers for all cameras to oldest first to ensure they are pulled in order
         nodemap.append(cam_objs[cam].GetTLStreamNodeMap())
-        PySpin.CEnumerationPtr(nodemap[cam].GetNode('StreamBufferHandlingMode')).SetIntValue(0) # Oldest first
+        PySpin.CEnumerationPtr(nodemap[cam].GetNode('StreamBufferHandlingMode')).SetIntValue(0) 
 
         # Acquisition mode
         if num_images is None:
@@ -292,7 +292,7 @@ def init_sync_settings(cam_objs, primary_idx, secondary_idx, frame_rate = 30, nu
         cam_objs[cam].TriggerSource.SetValue(PySpin.TriggerSource_Line3)
         cam_objs[cam].TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
         cam_objs[cam].TriggerMode.SetValue(PySpin.TriggerMode_On)
-        cam_objs[cam].AcquisitionFrameRateEnable.SetValue(False) # As is being controlled by the trigger
+        cam_objs[cam].AcquisitionFrameRateEnable.SetValue(False) # Controlled by trigger
         cam_objs[cam].BeginAcquisition() # This should only prime the cameras
 
 
@@ -325,16 +325,13 @@ def init_sync_settings_serials(cam_dicts, primary_serial,
 
     # Primary cam settings
     # Triggering
-    cam_dicts[primary_serial]['obj'].LineSelector.SetValue(
-        PySpin.LineSelector_Line2)
+    cam_dicts[primary_serial]['obj'].LineSelector.SetValue(PySpin.LineSelector_Line2)
     cam_dicts[primary_serial]['obj'].LineMode.SetValue(PySpin.LineMode_Output)
-    cam_dicts[primary_serial]['obj'].TriggerSource.SetValue(
-        PySpin.TriggerSource_Software)
+    cam_dicts[primary_serial]['obj'].TriggerSource.SetValue(PySpin.TriggerSource_Software)
     # Frame rate
     cam_dicts[primary_serial]['obj'].AcquisitionFrameRateEnable.SetValue(True)
     cam_dicts[primary_serial]['obj'].AcquisitionFrameRate.SetValue(frame_rate)
-    cam_dicts[primary_serial]['obj'].TriggerMode.SetValue(
-        PySpin.TriggerMode_On)
+    cam_dicts[primary_serial]['obj'].TriggerMode.SetValue(PySpin.TriggerMode_On)
     # Enable acquisition - won't start until trigger mode is turned off
     cam_dicts[primary_serial]['obj'].BeginAcquisition()
 
@@ -350,7 +347,8 @@ def init_sync_settings_serials(cam_dicts, primary_serial,
         cam_dict['obj'].BeginAcquisition()
 
 
-def synced_capture_sequence(cam_objs, primary_idx, secondary_idx, num_images, output_folder = None, separate_folders = True):
+def synced_capture_sequence(cam_objs, primary_idx, secondary_idx, num_images, output_folder = None,
+                            separate_folders = True):
     # Sort out file storage
     if output_folder is None:
         output_folder = os.getcwd()
@@ -371,7 +369,8 @@ def synced_capture_sequence(cam_objs, primary_idx, secondary_idx, num_images, ou
     # Hit it
     init_time, thread_list = [], []
     cam_objs[primary_idx].TriggerMode.SetValue(PySpin.TriggerMode_Off)
-    for i in tqdm(range(num_images)): # We want to offload from images in order across cameras to reduce buffer load equally
+    # We want to offload from images in order across cameras to reduce buffer load equally
+    for i in tqdm(range(num_images)):
         for cam in range(len(cam_objs)):
             image = cam_objs[cam].GetNextImage(500)
             f_id = image.GetFrameID()
@@ -383,7 +382,9 @@ def synced_capture_sequence(cam_objs, primary_idx, secondary_idx, num_images, ou
             else:
                 dest_folder = output_folder
 
-            thread_list.append(threading.Thread(target = save_image_thread, args = (image, dest_folder, f_id, init_time[cam], 'cam'+str(cam+1))))
+            thread_list.append(threading.Thread(
+                    target = save_image_thread, args = (image, dest_folder, f_id, init_time[cam],
+                                                        'cam'+str(cam+1))))
             thread_list[-1].start()
 
 
@@ -548,8 +549,7 @@ def synced_capture_sequence_serials_ram(
         image_lists[cam_serial] = []
     cam_dicts[primary_serial]['obj'].TriggerMode.SetValue(
         PySpin.TriggerMode_Off)
-    # We want to offload from images in order across cameras to reduce buffer
-    # load equally
+    # We want to offload from images in order across cameras to reduce buffer load equally
     print('capturing...')
     for i_image in tqdm.tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
@@ -702,7 +702,9 @@ def capture_sequence(cam_obj, num_images = 50, output_path = None, file_prefix =
         if idx == 0:
             init_time = image.GetTimeStamp()
 
-        thread_list.append(threading.Thread(target = save_image_thread, args = (image, output_path, idx, init_time, file_prefix)))
+        thread_list.append(threading.Thread(target = save_image_thread, args = (image, output_path,
+                                                                                idx, init_time,
+                                                                                file_prefix)))
         thread_list[-1].start()
         thread_list[-1].join()
 
@@ -752,7 +754,9 @@ def capture_sequence_GUI(cam_obj, num_images = 50, output_path = None, file_pref
                 init_time = image.GetTimeStamp()
             # Save images as threads
             if output_path is not None:
-                thread_list.append(threading.Thread(target = save_image_thread, args = (image, output_path, idx, init_time, file_prefix)))
+                thread_list.append(threading.Thread(
+                        target = save_image_thread, args = (image, output_path, idx, init_time,
+                                                            file_prefix)))
                 thread_list[-1].start()
                 thread_list[-1].join()
 
@@ -776,8 +780,8 @@ def capture_sequence_GUI(cam_obj, num_images = 50, output_path = None, file_pref
                 continue_recording = False
                 cam_obj.EndAcquisition()
 
-
-    except KeyboardInterrupt: # If early stopping is desired (the keyboard library does not run on linux)
+     # If early stopping is desired (the keyboard library does not run on linux)
+    except KeyboardInterrupt:
         mpl_pp.close()
         cam_obj.EndAcquisition()
         node_oldestfirst_mode = node_bufferhandling_mode.GetEntryByName('OldestFirst').GetValue()

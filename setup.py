@@ -21,7 +21,8 @@ setup(
     url='https://github.com/CMGreenspon/NCams',
     install_requires=[
         'deeplabcut',
-        'moviepy'],
+        'moviepy',
+        'cv2'],
     author='Charles M Greenspon',
     author_email='charles.greenspon@gmail.com',
     license='Apache 2.0',
