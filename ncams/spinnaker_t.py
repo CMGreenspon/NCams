@@ -1,8 +1,14 @@
-'''
-author(s): Charles M. Greenspon
-           Anton Sobinov
-lab: Sliman Bensmaia
-'''
+#!python3
+# -*- coding: utf-8 -*-
+"""
+NCams Toolbox
+Copyright 2019 Charles M Greenspon, Anton Sobinov
+https://github.com/CMGreenspon/NCams
+
+Please see AUTHORS for contributors.
+https://github.com/CMGreenspon/NCams/blob/master/README.md
+Licensed under the Apache License, Version 2.0
+"""
 
 import os
 import threading

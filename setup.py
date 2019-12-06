@@ -19,7 +19,9 @@ setup(
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     url='https://github.com/CMGreenspon/NCams',
-    install_requires=['deeplabcut'],
+    install_requires=[
+        'deeplabcut',
+        'moviepy'],
     author='Charles M Greenspon',
     author_email='charles.greenspon@gmail.com',
     license='Apache 2.0',
