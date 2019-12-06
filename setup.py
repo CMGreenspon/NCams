@@ -20,10 +20,17 @@ setup(
     long_description_content_type="text/markdown",
     url='https://github.com/CMGreenspon/NCams',
     install_requires=[
-        'deeplabcut',
+        'deeplabcut', # Do we need it to include deeplabcut? They might be using a different package for tracking
         'moviepy',
-        'cv2'],
-    author='Charles M Greenspon',
-    author_email='charles.greenspon@gmail.com',
+        'opencv-contrib-python',
+        'reportlab',
+        'pyyaml',
+        'matplotlib',
+        'numpy',
+        'scipy'],
+    author1='Charles M Greenspon',
+    author1_email='charles.greenspon@gmail.com',
+    author2='Anton Sobinov',
+    author2_email='a.sobinov@gmail.com',
     license='Apache 2.0',
     packages=find_packages())

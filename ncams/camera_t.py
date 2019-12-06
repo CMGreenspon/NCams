@@ -19,13 +19,16 @@ from copy import deepcopy
 import glob
 import pickle
 
-import reportlab
 import cv2
 import yaml
 import numpy as np
 import matplotlib.pyplot as mpl_pp
 
-from . import utils
+import reportlab
+import reportlab.lib
+import reportlab.platypus
+
+#from . import utils
 
 
 ### Board detectors
@@ -242,9 +245,9 @@ def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_ve
 ### Board functions
 def create_board(camera_config, output=False, plotting=False, dpi=300, output_format='pdf',
                  padding=0, target_size=None, dictionary=None):
-    '''Creates an aruco board image
+    '''Creates a board image
 
-    Creates an aruco board image that can be printed and used for camera calibration and pose
+    Creates either a checkerboard or charucoboard that can be printed and used for camera calibration and pose
     estimation.
 
     Arguments:
