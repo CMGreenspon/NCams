@@ -5,16 +5,14 @@ NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
-Please see AUTHORS for contributors.
-https://github.com/CMGreenspon/NCams/blob/master/README.md
-Licensed under the Apache License, Version 2.0
-
-Utilities for general use in multiple functions
+Utilities for general use in multiple functions.
 """
 
 import os
 import re
 from glob import glob
+
+import numpy as np
 
 
 def get_file_list(file_extensions, path=None, sort=True):
@@ -24,13 +22,13 @@ def get_file_list(file_extensions, path=None, sort=True):
         <path>/*.<file extension>
 
     Arguments:
-        file_extensions {list} -- file extensions to return, with or without the dot.
+        file_extensions {list of strings} -- file extensions to return, with or without the dot.
             If None or empty, returns all files with extensions.
     Keyword Arguments:
         path {string} -- directory to explore. (default: current directory)
         sort {bool} -- alphanumeric sort the output list (default: {True})
     Output:
-        strings {list} -- list of all filenames with specified extension.
+        strings {list of strings} -- list of all filenames with specified extension.
     '''
     if file_extensions is None or len(file_extensions) == 0:
         file_extensions = ('*', )
@@ -60,7 +58,7 @@ def get_image_list(path=None, sort=True):
         path {string} -- directory to explore. (default: current directory)
         sort {bool} -- alphanumeric sort the output list (default: {True})
     Output:
-        strings {list} -- list of all image filenames.
+        strings {list of strings} -- list of all image filenames.
     '''
 
     return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
@@ -77,11 +75,26 @@ def alphanumeric_sort(strings):
             give the desired result).
 
     Arguments:
-        strings {list} -- list of strings (e.g. filenames to be sorted)
+        strings {list of strings} -- list of strings (e.g. filenames to be sorted)
     Output:
-        strings {list} -- sorted list of strings
+        strings {list of strings} -- sorted list of strings
     '''
     convert = lambda text: int(text) if text.isdigit() else text
     alphanum_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
 
     return sorted(strings, key=alphanum_key)
+
+
+def dict_values_numpy_to_list(dic):
+    '''Checks each value of a dictionary and converts it to list if it was a np.ndarray.
+
+    Arguments:
+        dic {dict} -- any dictionary. Not immutable.
+    Output:
+        dic {dict} -- changed dictionary.
+    '''
+    for key in dic.keys():
+        if isinstance(dic[key], np.ndarray):
+            dic[key] = dic[key].to_list()
+
+    return dic

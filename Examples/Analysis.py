@@ -1,11 +1,11 @@
 #!python36
 # -*- coding: utf-8 -*-
 """
-Script for running a protocol. Not intended to be run in its entirety.
+NCams Toolbox
+Copyright 2019 Charles M Greenspon, Anton Sobinov
+https://github.com/CMGreenspon/NCams
 
-author(s): Charles M. Greenspon
-           Anton Sobinov
-lab: Sliman Bensmaia
+Script for running a protocol. Not intended to be run in its entirety.
 """
 
 # %% 0 Imports

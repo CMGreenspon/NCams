@@ -4,10 +4,6 @@
 NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
-
-Please see AUTHORS for contributors.
-https://github.com/CMGreenspon/NCams/blob/master/README.md
-Licensed under the Apache License, Version 2.0
 """
 
 import os
@@ -260,7 +256,7 @@ def init_sync_settings(cam_objs, primary_idx, secondary_idx, frame_rate = 30, nu
 
         # Set buffers for all cameras to oldest first to ensure they are pulled in order
         nodemap.append(cam_objs[cam].GetTLStreamNodeMap())
-        PySpin.CEnumerationPtr(nodemap[cam].GetNode('StreamBufferHandlingMode')).SetIntValue(0) 
+        PySpin.CEnumerationPtr(nodemap[cam].GetNode('StreamBufferHandlingMode')).SetIntValue(0)
 
         # Acquisition mode
         if num_images is None:

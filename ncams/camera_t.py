@@ -5,22 +5,77 @@ NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
-Please see AUTHORS for contributors.
-https://github.com/CMGreenspon/NCams/blob/master/README.md
-Licensed under the Apache License, Version 2.0
+General camera functions and tools used for calibration, pose estimation, etc.
 
-General camera functions and tools used for calibration, pose estimation, etc. Includes most file
-I/O functions
+Important structures:
+    camera_config {dict} -- information about camera configuration. Should have following keys:
+        date {datetime.date} -- date of the creation of the config.
+        serials {list of numbers} -- list of camera serials. Wherever camera-specific
+            information is not in a dictionary but is in a list, the order MUST adhere to the order
+            in serials.
+        dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict', see
+            below.
+        reference_camera_serial {number} -- serial number of the reference camera.
+        image_size {(height, width)} -- size of the images captured by the cameras.
+        board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
+        board_dim {list with 2 numbers} -- number of checks on the calibration board.
+        check_size {number} -- height and width of a single check mark, mm.
+        setup_path {string} -- directory where the camera setup is located, including config.yaml.
+        setup_filename {string} -- config has been loaded from os.path.join(
+            setup_path, setup_filename) and/or will be saved into this directory.
+        calibration_path {string} -- directory where calibration information is stored.
+        calibration_filename {string} -- name of the pickle file to store the calibration config
+            in/load from.
+        pose_estimation_path {string} -- directory where pose estimation information is stored.
+        pose_estimation_filename {string} -- name of the pickle file to store the pose estimation
+            config in/load from.
+
+    camera_dict {dict} -- information about a single camera. Should have following keys:
+        serial {number} -- serial number (ID) of the camera
+        name {string} -- unique string that identifies the camera. Usually, 'cam_'+str(serial) or
+            'top_left', 'top_right', etc.
+
+    calibration_config {dict} -- information on camera calibration and the results of said
+            calibraion. Order of each list MUST adhere to calibration_config['serials'] AND
+            camera_config['serials']. Should have following keys:
+        serials {list of numbers} -- list of camera serials.
+        distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+        camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
+        reprojection_errors {list of numbers} -- average error in pixels for each camera.
+        path {string} -- directory where calibration information is stored. Should be same as
+            information in camera_config.
+        filename {string} -- name of the pickle file to store the config in/load from.
+        dicts {dict of 'camera_calib_dict's} -- keys are serials, values are 'camera_calib_dict',
+            see below.
+
+    camera_calib_dict {dict} -- info on calibration of a single camera. Sould have following keys:
+        serial {number} -- UID of the camera.
+        distortion_coefficients {np.array 1x5} -- distortion coefficients for the camera.
+        camera_matrix {np.array 3x3} -- camera calibration matrix for the camera.
+        reprojection_error {number} -- reprojection error for the camera.
+
+    pose_estimation_config {dict} -- information on estimation of relative position of all cameras
+            and the results of said pose estimation. Order of each list MUST adhere to
+            pose_estimation_config['serials'] and camera_config['serials']. Should
+            have following keys:
+        serials {list of numbers} -- list of camera serials.
+        world_locations {list of np.arrays} -- world locations of each camera.
+        world_orientations {list of np.arrays} -- world orientation of each camera.
+        path {string} -- directory where pose estimation information is stored. Should be same as
+            information in camera_config.
+        filename {string} -- name of the YAML file to store the config in/load from.
+        dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
+            see below.
+
+    camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following keys:
+        serial {number} -- UID of the camera.
+        world_location {np.array} -- world location of the camera.
+        world_orientation {np.array} -- world orientation of the camera.
 """
 
 import os
-import datetime
-from copy import deepcopy
-import glob
-import pickle
 
 import cv2
-import yaml
 import numpy as np
 import matplotlib.pyplot as mpl_pp
 
@@ -28,198 +83,45 @@ import reportlab
 import reportlab.lib
 import reportlab.platypus
 
-#from . import utils
-
-
-### Board detectors
-def charuco_board_detector(camera_config):
-    '''Detects charuco board in all cameras
-
-    []
-
-    Arguments:
-        camera_config {dict} -- information about camera configuration:
-            camera_names
-            folder_path
-
-    Output:
-        cam_image_points {list} -- matching points
-        cam_charuco_ids {list} -- ids of points
-    '''
-    # Unpack the dict
-    cam_names = camera_config['camera_names']
-    folder_path = camera_config['folder_path']
-    folder_path = os.path.join(folder_path, 'pose_estimation')  ###### change
-    # Get number of cameras
-    num_cameras = len(cam_names)
-    charuco_dict, charuco_board, _ = create_board(camera_config)
-
-    # Get list of images for each camera
-    cam_image_list = []
-    num_images = np.zeros((1, num_cameras), dtype=int)
-    for cam in range(num_cameras):
-        image_list = utils.get_image_list(path=os.path.join(folder_path, cam_names[cam]))
-        num_images[0, cam] = len(image_list)
-        cam_image_list.append(image_list)
-
-    # Crucial: Each camera must have the same number of images so that we can assume the order is
-    # maintained and that they are synced
-    if not np.ma.allequal(num_images, np.mean(num_images)):
-        raise Exception('Image lists are of unequal size and may not be synced.')
-
-    num_images = num_images[0, 0]
-    cam_image_points, cam_charuco_ids = [], []
-    # Look at one synced image across cameras and find the matching points
-    for image in range(num_images):
-        im_ids, image_points = [], []  # reset for each image
-        for cam in range(num_cameras):
-            # Load the image
-            img = cv2.imread(os.path.join(folder_path, cam_names[cam], cam_image_list[cam][image]))
-            # Detect the aruco markers and get IDs
-            corners, ids, _ = cv2.aruco.detectMarkers(img, charuco_dict)
-            if ids is not None:
-                # Find the corners and IDs
-                _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
-                    corners, ids, img, charuco_board)
-                if isinstance(charuco_corners, np.ndarray):  # If present then append
-                    image_points.append(charuco_corners)
-                    im_ids.append(charuco_ids)
-                else: # For formatting/indexing
-                    image_points.append([])
-                    im_ids.append([])
-            else:
-                image_points.append([])
-                im_ids.append([])
-        # Concatenate them to get super list which can be parsed later
-        cam_image_points.append(image_points)
-        cam_charuco_ids.append(im_ids)
-
-    return cam_image_points, cam_charuco_ids
-
-
-def checkerboard_detector(camera_config, override=False):
-    '''Get all image points and determine which calibration mode is better. ???
-
-    Can only be run after cameras have been calibrated.
-
-    Arguments:
-        camera_config {dict} -- information about camera configuration:
-            cam_names: list of camera names ['cam1', 'cam2', ...]
-            board_dim: list with the number of checks [height, width]
-            check_size: height/width of the check in mm
-            folder_path: Path containing a 'cam_calibration' folder with subfolders with camera
-                names that contain images of boards.
-    Keyword Arguments:
-        override {bool} -- if True, the files will be automatically overriden. (default: {False})
-    Output:
-        cam_board_logit {list} -- if checkerboard: logical array (num_cameras, num_images)
-            indicating in which images each camera detected a checkerboard.
-        cam_image_points {list} -- if checkerboard: array of image points (num_cameras, image,
-            (x, y))
-        pose_strategy {string} -- string indicating which pose estimation strategy is ideal.
-    '''
-    # Unpack the dict
-    cam_names = camera_config['camera_names']
-    board_dim = camera_config['board_dim']
-    folder_path = camera_config['folder_path']
-    num_cameras = len(cam_names) # How many cameras are there
-    # Get the correct folder
-    cam_pose_path = os.path.join(folder_path, 'pose_estimation') # Append as appropriate for the pose folder
-    os.chdir(cam_pose_path)
-    # First check if there is a pose estimation file
-    if os.path.exists('pose_estimation.pickle') and override is False:
-        print('A pose estimation file for has been detected in the specified path.')
-        user_input = input("Would you like to load that file instead? 'Yes', 'No', or 'Abort'.\
-                           \nContinuing will replace that file.\n").lower()  # change
-        valid_input = False
-        while valid_input == False:
-            if user_input == 'yes': # Let's save the time and load that instead
-                #something, something = import_pose_estimate(os.path.join(cam_pose_path, 'camera_calib.pickle'))
-                valid_input = True
-                #return camera_matrices, camera_distortion_coefficients
-            elif user_input == 'no':
-                print('- Rerunning pose estimation.')
-                valid_input = True
-            elif user_input == 'abort':
-                valid_input = True
-                break
-            else:
-                user_input = input("Invalid response given.\nLoad previous pose estimation? 'Yes', 'No', 'Abort'.\n").lower()
-
-    # Begin the checkerboard detection for each camera
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001) # Default criteria
-    cam_board_logit = []
-    cam_image_points = []
-
-    print('Beginning checkerboard detection.')
-    for icam, cam_name in enumerate(cam_names):
-        print('- Camera ' + str(icam+1) + ' of', str(num_cameras) +'.')
-        os.chdir(os.path.join(cam_pose_path, cam_name))
-        cam_image_list = glob.glob('*.png') + glob.glob('*.jpg') + glob.glob('*.jpeg') + glob.glob('*.bmp')
-        # Analyze the images to get checkerboard corners
-        image_points = [] # x,y image points
-        board_logit = np.zeros((1,len(cam_image_list)), dtype = bool)
-
-        for iimage, image_name in enumerate(cam_image_list):
-            img = cv2.imread(image_name, 0) # Load as grayscale
-            board_logit[0, iimage], corners = cv2.findChessboardCorners(
-                img, (board_dim[0]-1, board_dim[1]-1), None)
-
-            # If a checkerboard was found then append the image points variable for calibration
-            if board_logit[0, iimage]:
-                corners_refined = cv2.cornerSubPix(img, corners, (11, 11), (-1, -1), criteria)
-                image_points.append(corners_refined)
-            else:
-                image_points.append([]) # To keep consistent with the board_logit list
-
-        # Add exports to list structure
-        cam_board_logit.append(board_logit)
-        cam_image_points.append(image_points)
-
-    print('* Checkerboard detection complete.')
-
-    combined_board_logit = np.sum(np.vstack(cam_board_logit), 0) # Combine and sum the logits
-    # See how many checkerboard detections are present across all cameras
-    num_common_cb = np.sum(combined_board_logit == num_cameras)
-
-    if num_common_cb < 10:
-        pose_strategy = 'stereo_sequential'
-    elif num_common_cb >= 10:
-        pose_strategy = 'common'
-
-    print('* Optimal pose strategy: \"' + pose_strategy + '\".')
-
-    return cam_board_logit, cam_image_points, pose_strategy
-
 
 #################### Accessory functions
-def make_projection_matrix(camera_matrix, orientation, translation):
-    '''Makes a projection matrix
-
-    [description]
+def make_projection_matrix(camera_matrix, world_orientation, world_location):
+    '''Makes a projection matrix from camera calibration and pose estimation info.
 
     Arguments:
-        camera_matrix {np.array} -- [description]
-        orientation {np.array} -- [description]
-        translation {np.array} -- [description]
+        camera_matrix {np.array} -- camera calibration matrix for the camera.
+        world_orientation {np.array} -- world orientation of the camera.
+        world_location {np.array} -- world location of the camera.
 
     Output:
-        projection_matrix {np.array} -- [description]
+        projection_matrix {np.array} -- projection matrix of the camera
     '''
     # Make matrix if necessary
-    if orientation.shape == (3, 1) or orientation.shape == (1, 3):
-        orientation = cv2.Rodrigues(orientation)[0]  # Convert to matrix
+    if world_orientation.shape == (3, 1) or world_orientation.shape == (1, 3):
+        world_orientation = cv2.Rodrigues(world_orientation)[0]  # Convert to matrix
 
-    if translation.shape == (1, 3):  # Format
-        translation = np.transpose(translation)
+    if world_location.shape == (1, 3):  # Format
+        world_location = np.transpose(world_location)
 
-    projection_matrix = np.matmul(camera_matrix, np.hstack((orientation, translation)))
+    projection_matrix = np.matmul(camera_matrix, np.hstack((world_orientation, world_location)))
 
     return projection_matrix
 
 
 def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector,
                                      relative_rotations, relative_translations):
+    '''Adjusts orientations and locations based on world rotation and translation.
+
+    Arguments:
+        world_rotation_vector {np.array} -- description
+        world_translation_vector {np.array} -- description
+        relative_rotations {list of 'np.array's} -- description
+        relative_translations {list of 'np.array's} -- description
+
+    Output:
+        adjusted_rotation_vectors {list of np.array} -- rotations in space of the world
+        adjusted_translation_vectors {list of np.array} -- locations in space of the world
+    '''
     adjusted_rotation_vectors = []
     adjusted_translation_vectors = []
 
@@ -242,32 +144,42 @@ def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_ve
     return adjusted_rotation_vectors, adjusted_translation_vectors
 
 
-### Board functions
+#################### Board functions
 def create_board(camera_config, output=False, plotting=False, dpi=300, output_format='pdf',
                  padding=0, target_size=None, dictionary=None):
-    '''Creates a board image
+    '''Creates a board image.
 
-    Creates either a checkerboard or charucoboard that can be printed and used for camera calibration and pose
-    estimation.
+    Creates either a checkerboard or charucoboard that can be printed and used for camera
+    calibration and pose estimation.
 
     Arguments:
-        camera_config {[type]} -- [description]
+        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+            board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
+            board_dim {list with 2 numbers} -- number of checks on the calibration board.
+            check_size {number} -- height and width of a single check mark, mm.
+            setup_path {string} -- directory where the camera setup is located, including
+                config.yaml.
 
     Keyword Arguments:
-        output {bool} -- [description] (default: {False})
-        plotting {bool} -- [description] (default: {False})
-        dpi {number} -- [description] (default: {300})
-        output_format {str} -- [description] (default: {'pdf'})
-        padding {number} -- [description] (default: {0})
-        target_size {[type]} -- [description] (default: {None})
-        dictionary {[type]} -- [description] (default: {None})
+        output {bool} -- save the image to the drive. (default: {False})
+        plotting {bool} -- plot the board as matplotlib image. (default: {False})
+        dpi {number} -- resolution, dots per inch. (default: {300})
+        output_format {str} -- file extension of the image printed to the drive (default: {'pdf'})
+        padding {number} -- add padding to the image (default: {0})
+        target_size {list (width, height)} -- size of the target printed image (default: {None})
+        dictionary {cv2.aruco.Dictionary} -- [description] (default: {None})
+
+    Output:
+        output_dict {cv2.aruco.Dictionary} -- [description]. None if checkerboard is selected.
+        output_board {[type]} -- [description]. None if checkerboard is selected.
+        board_img {np.array} -- board image.
     '''
     # Unpack dict
     board_type = camera_config['board_type']
     board_dim = camera_config['board_dim']
     check_size = camera_config['check_size']
     if output:
-        output_path = camera_config['folder_path']
+        output_path = camera_config['setup_path']
 
     dpmm = dpi / 25.4 # Convert inches to mm
 
@@ -277,7 +189,8 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
     # Make the board & array for image
     board_width = (board_dim[0] * check_size)
     board_height = (board_dim[1] * check_size)
-    board_img = np.zeros((int(board_width * dpmm) + board_dim[0], int(board_height * dpmm) + board_dim[1]))
+    board_img = np.zeros((int(board_width * dpmm) + board_dim[0],
+                          int(board_height * dpmm) + board_dim[1]))
 
     if board_type == 'checkerboard':
         # Litearlly just tile black and white squares
@@ -286,16 +199,16 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         white_check = np.zeros((check_length_in_pixels, check_length_in_pixels))
         board_img = np.empty((0, check_length_in_pixels*board_dim[0]), int)
 
-        idx = 1
+        white = True
         for _ in range(board_dim[1]):
             col = np.empty((check_length_in_pixels, 0), int)
             for __ in range(board_dim[0]):
-                if idx % 2 == 0:
-                    col = np.append(col, black_check, axis=1)
-                else:
+                if white:
                     col = np.append(col, white_check, axis=1)
+                else:
+                    col = np.append(col, black_check, axis=1)
+                white = not white
 
-                idx += 1
             board_img = np.append(board_img, col, axis=0)
     elif board_type == 'charuco':
         if dictionary is None:
@@ -308,12 +221,13 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         secondary_length = check_size * 0.6 # What portion of the check the aruco marker takes up
         output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1], check_size/100,
                                                      secondary_length/100, output_dict)
+
         # The board is compiled upside down so the top of the image is actually the bottom,
         # to avoid confusion it's rotated below
         board_img = np.rot90(output_board.draw((int(board_width * dpmm), int(board_height * dpmm)),
                                                board_img, 1, 1), 2)
     else:
-        raise ValueError('Invalid "board_type" given.')
+        raise ValueError('Unknown board_type given.')
 
     if plotting:
         ax = mpl_pp.subplots()[1]
@@ -333,18 +247,20 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         larger_board_img[r_off:r_off+board_img.shape[0], c_off:c_off+board_img.shape[1]] = board_img
         board_img = larger_board_img
 
-    if output is True:
+    if output:
         if output_format == 'pdf':
             output_name = os.path.join(output_path, board_type + '_board.png')
             cv2.imwrite(output_name, board_img)
             # To vertically center the board
             diff_in_vheight = ((reportlab.lib.pagesizes.letter[1]/72)*25.4 - board_height) / 2
+
             # Start building
             elements = []
             doc = reportlab.platypus.SimpleDocTemplate(
                 os.path.join(output_path, "charuco_board.pdf"),
                 pagesize=reportlab.lib.pagesizes.letter, topMargin=0, bottomMargin=0)
             elements.append(reportlab.platypus.Spacer(1, diff_in_vheight*reportlab.lib.units.mm))
+
             board_element = reportlab.platypus.Image(output_name)
             board_element.drawWidth = board_width*reportlab.lib.units.mm
             board_element.drawHeight = board_height*reportlab.lib.units.mm
@@ -354,21 +270,24 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
             cv2.imwrite(os.path.join(output_path, board_type+'_board.'+output_format), board_img)
 
     if board_type == 'checkerboard':
-        return [], [], board_img
+        return None, None, board_img
     if board_type == 'charuco':
         return output_dict, output_board, board_img
 
 
 def create_world_points(camera_config):
-    '''[summary]
+    '''Creates world points.
 
     [description]
 
     Arguments:
-        camera_config {dic} -- [description]
+        camera_config {dict} -- information about camera configuration. Should have following keys:
+            board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
+            board_dim {list with 2 numbers} -- number of checks on the calibration board.
+            check_size {number} -- height and width of a single check mark, mm.
 
     Output:
-        world_points {np.array} -- [description]
+        world_points {np.array} -- world points based on board.
     '''
     board_type = camera_config['board_type']
     board_dim = camera_config['board_dim']
@@ -387,7 +306,7 @@ def create_world_points(camera_config):
     return world_points
 
 
-### Camera plotting helper functions
+#################### Camera plotting helper functions
 def create_camera(scale_factor=1, rotation_vector=None, translation_vector=None):
     '''Create a typical camera shape.
 
@@ -468,9 +387,9 @@ def get_camera_vertices(cam_points):
     [description]
 
     Arguments:
-        cam_points {[type]} -- [description]
+        cam_points {list} -- 12-element array.
     Output:
-        cam_verts {[type]} -- [description]
+        cam_verts {list 9x4} -- [description]
     '''
     cam_verts = [
         [cam_points[0], cam_points[4], cam_points[5], cam_points[1]],
@@ -484,300 +403,3 @@ def get_camera_vertices(cam_points):
         [cam_points[8], cam_points[9], cam_points[10], cam_points[11]]]  # Back of body
 
     return cam_verts
-
-
-#################### IO Functions
-def load_camera_config(camera_config):
-    '''Load camera config from a pickle
-
-    Searches the subdirectories of the folder path in the camera_config dict
-    for relevant pickles. CHANGED to search more files
-
-    Arguments:
-        camera_config {dict} -- [description]
-    Output:
-        camera_matrices {np.array} -- [description]
-        distortion_coefficients {np.array} -- [description]
-        reprojection_errors {np.array} -- [description]
-        world_locations {np.array} -- [description]
-        world_orientations {np.array} -- [description]
-    '''
-    # Initalize variables just in case we need to export blanks
-    camera_matrices = None
-    distortion_coefficients = None
-    reprojection_errors = None
-    world_locations = None
-    world_orientations = None
-
-    # Get paths
-    if isinstance(camera_config, dict):
-        folder_path = camera_config['folder_path']
-    elif isinstance(camera_config, str):
-        folder_path = camera_config
-
-    camera_calib_file_paths = [
-        os.path.join(folder_path, 'cam_calibration', 'camera_calib.pickle'),
-        os.path.join(folder_path, 'calibration', 'camera_calib.pickle'),
-        os.path.join(folder_path, 'camera_calib.pickle')]
-    pose_estimation_file_paths = [
-        os.path.join(folder_path, 'pose_estimation', 'pose_estimate.pickle'),
-        os.path.join(folder_path, 'pose_estimate.pickle')]
-
-    # Load them if they exist
-    for ccfp in camera_calib_file_paths:
-        if os.path.isfile(ccfp):
-            (reprojection_errors, _, camera_matrices, distortion_coefficients
-             ) = import_calibration(
-                 ccfp, current_cam_serials=camera_config['camera_serials'])
-            print('Camera calibration loaded.')
-            break
-    if camera_matrices is None:
-        print('No camera calibration file found.')
-
-    for pefp in pose_estimation_file_paths:
-        if os.path.isfile(pefp):
-            (_, world_locations, world_orientations
-             ) = import_pose_estimation(pefp)
-            print('Pose estimation loaded.')
-            break
-    if world_locations is None:
-        print('No pose estimation file found.')
-
-    return (camera_matrices, distortion_coefficients, reprojection_errors,
-            world_locations, world_orientations)
-
-
-def config_to_yaml(camera_config, prefix='', output_path=None):
-    '''Export camera config into a YAML file.
-
-    [description]
-
-    Arguments:
-        camera_config {[type]} -- [description]
-
-    Keyword Arguments:
-        prefix {str} -- [description] (default: {''})
-        output_path {[type]} -- [description] (default: {None})
-    '''
-    date = datetime.date.today()
-
-    formatted_data = deepcopy(camera_config)
-    formatted_data['date'] = date
-    formatted_data['image_size'] = list(formatted_data['image_size'])
-
-    if output_path is None:
-        output_path = camera_config['folder_path']
-
-    filename = os.path.join(output_path, prefix + str(date) + '_config.yaml')
-
-    with open(filename, 'w') as yaml_output:
-        yaml.dump(formatted_data, yaml_output, default_flow_style=False)
-
-
-def yaml_to_config(path_to_file):
-    '''Imports camera config from a file
-
-    [description]
-
-    Arguments:
-        path_to_file {string} -- [description]
-
-    Output:
-        camera_config {dict} -- [description]
-    '''
-    camera_config = load_yaml(path_to_file)
-
-    camera_config['camera_serials'] = camera_config['camera_serials']
-    camera_config['image_size'] = (*camera_config['image_size'],)
-
-    return camera_config
-
-
-### Camera calibration IO functions
-def load_yaml(path_to_file):
-    '''Safely loads a YAML file.   ######### REMOVE
-
-    [description]
-
-    Arguments:
-        path_to_file {string} -- [description]
-
-    Output:
-        loaded file -- [description]
-    '''
-    with open(path_to_file, 'r') as stream:
-        data = yaml.safe_load(stream)
-
-    return data
-
-
-def calibration_to_yaml(cam_calib_filename, cam_name, cam_serial, camera_matrix,
-                        distortion_coefficients, reprojection_error):
-    '''Exports camera calibration info for a single camera into a YAML file.
-
-    Arguments:
-        cam_calib_filename {string} -- the filename where to save the calibration.
-        cam_name {string} -- camera name.
-        cam_serial {int} -- camera serial number
-        camera_matrix {np.array} -- camera calibration matrix
-        distortion_coefficients {np.array} -- distortion coefficients
-        reprojection_error {float} -- reprojection error ??
-    '''
-    calibration_data = {
-        'camera_name': cam_name,
-        'serial_number': cam_serial,
-        'camera_matrix': camera_matrix.tolist(),
-        'distortion_coefficients': distortion_coefficients.tolist(),
-        'reprojection_error': reprojection_error}
-
-    with open(cam_calib_filename, 'w') as yaml_output:
-        yaml.dump(calibration_data, yaml_output, default_flow_style=False)
-
-
-def yaml_to_calibration(cam_calib_filename):
-    '''Imports camera calibration info for a single camera from a YAML file.
-
-    Arguments:
-        cam_calib_filename {string} -- the filename from which to load the calibration.
-    Output:
-        camera_matrix {np.array} -- camera calibration matrix
-        distortion_coefficients {np.array} -- distortion coefficients
-        reprojection_error {float} -- reprojection error ??
-    '''
-    temp = load_yaml(cam_calib_filename)
-
-    camera_matrix = np.asarray(temp['camera_matrix'])
-    distortion_coefficients = np.asarray(temp['distortion_coefficients'])
-    reprojection_error = np.asarray(temp['reprojection_error'])
-
-    return camera_matrix, distortion_coefficients, reprojection_error
-
-
-def export_calibration(export_filename, cam_names, cam_serials, distortion_coefficients,
-                       camera_matrices, reprojection_errors):
-    '''Exports camera calibration info for all cameras in the setup into a pickle file.
-
-    Arguments:
-        export_filename {string} -- the filename where to save the calibration.
-        cam_names {list} -- list of strings with camera names.
-        cam_serials {list} -- camera serial numbers
-        camera_matrix {np.array} -- camera calibration matrices for each camera
-        distortion_coefficients {np.array} -- distortion coefficients for each camera
-        reprojection_errors {float} -- reprojection errors for each camera
-    '''
-    calibration_data = {
-        'camera_names': cam_names,
-        'camera_serials': cam_serials,
-        'camera_matrices': camera_matrices,
-        'distortion_coefficients': distortion_coefficients,
-        'reprojection_errors': reprojection_errors}
-
-    with open(export_filename, 'wb') as f:
-        pickle.dump(calibration_data, f)
-
-    print('Calibration file: ' + export_filename)
-
-
-def import_calibration(filename, current_cam_serials=None):
-    '''Imports camera calibration info for all cameras in the setup from a pickle file.
-
-    Arguments:
-        filename {string} -- the filename where to save the calibration.
-    Keyword Arguments:
-        current_cam_serials {list} -- camera serials of the cameras in the current setup in proper
-            order. If not None, returned lists will adhere to this order. (default: {None})
-    Output:
-        reprojection_errors {float} -- reprojection errors for each camera
-        cam_names {list} -- list of strings with camera names.
-        camera_matrices {np.array} -- camera calibration matrices for each camera
-        distortion_coefficients {np.array} -- distortion coefficients for each camera
-    '''
-    # Get the path name
-    if isinstance(filename, str):
-        path_to_file = filename
-    elif isinstance(filename, dict):
-        path_to_file = os.path.join(filename['folder_path'], 'cam_calibration',
-                                    'camera_calib.pickle')
-
-    # Load the file
-    with open(path_to_file, 'rb') as f:
-        calibration_data = pickle.load(f)
-
-    cam_names = calibration_data['camera_names']
-    cam_serials = calibration_data['camera_serials']
-    camera_matrices = calibration_data['camera_matrices']
-    distortion_coefficients = calibration_data['distortion_coefficients']
-    reprojection_errors = calibration_data['reprojection_errors']
-
-    # change order of calibration to match the current system
-    if current_cam_serials is not None:
-        l_cam_names = []
-        l_camera_matrices = []
-        l_cam_distortion_coeffs = []
-        l_reprojection_errors = []
-        for cam_serial in current_cam_serials:
-            cam_imp_id = cam_serials.index(cam_serial)
-            l_cam_names.append(cam_names[cam_imp_id])
-            l_camera_matrices.append(camera_matrices[cam_imp_id])
-            l_cam_distortion_coeffs.append(distortion_coefficients[cam_imp_id])
-            l_reprojection_errors.append(reprojection_errors[cam_imp_id])
-        cam_serials = current_cam_serials
-        cam_names = l_cam_names
-        camera_matrices = l_camera_matrices
-        distortion_coefficients = l_cam_distortion_coeffs
-        reprojection_errors = l_reprojection_errors
-
-    return (reprojection_errors, cam_names, camera_matrices, distortion_coefficients)
-
-
-def export_pose_estimation(export_path, cam_serials, world_locations, world_orientations):
-    '''Export pose estimation to YAML file.
-
-    [description]
-
-    Arguments:
-        export_path {[type]} -- [description]
-        cam_serials {[type]} -- [description]
-        world_locations {[type]} -- [description]
-        world_orientations {[type]} -- [description]
-    '''
-    pose_data = {
-        'camera_serials': cam_serials,
-        'world_locations': world_locations,
-        'world_orientations': world_orientations}
-
-    filename = os.path.join(export_path, 'pose_estimate.pickle')
-    with open(filename, 'wb') as pickle_file:
-        pickle.dump(pose_data, pickle_file)
-
-    print('Pose-estimation file: ' + filename)
-
-
-def import_pose_estimation(path_to_file_OR_dict):
-    '''Import pose estimation variables from YAML config file.
-
-    [description]
-
-    Arguments:
-        path_to_file_OR_dict {[type]} -- [description]
-
-    Output:
-        camera_serials {[type]} -- [description]
-        world_locations {[type]} -- [description]
-        world_orientations {[type]} -- [description]
-    '''
-    # Get the path name
-    if isinstance(path_to_file_OR_dict, str):
-        path_to_file = path_to_file_OR_dict
-    elif isinstance(path_to_file_OR_dict, dict):
-        path_to_file = os.path.join(path_to_file_OR_dict['folder_path'], 'pose_estimate.pickle')
-
-    # Load the file
-    with open(path_to_file, 'rb') as pickle_file:
-        pose_data = pickle.load(pickle_file)
-
-    camera_serials = pose_data['camera_serials']
-    world_locations = pose_data['world_locations']
-    world_orientations = pose_data['world_orientations']
-
-    return camera_serials, world_locations, world_orientations

@@ -1,6 +1,10 @@
 #!python36
 # -*- coding: utf-8 -*-
 """
+NCams Toolbox
+Copyright 2019 Charles M Greenspon, Anton Sobinov
+https://github.com/CMGreenspon/NCams
+
 Script for running an experimental protocol.
 
 Intended to be used in an interactive environment (e.g. Spyder).

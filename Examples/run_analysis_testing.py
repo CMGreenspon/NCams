@@ -1,3 +1,8 @@
+"""
+NCams Toolbox
+Copyright 2019 Charles M Greenspon, Anton Sobinov
+https://github.com/CMGreenspon/NCams
+"""
 import os
 import datetime
 
