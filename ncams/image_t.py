@@ -11,7 +11,7 @@ Licensed under the Apache License, Version 2.0
 """
 import os
 
-import moviepy.editor # A very easy way of using FFMPEG
+from moviepy import editor # A very easy way of using FFMPEG
 import cv2
 
 
@@ -112,5 +112,5 @@ def images_to_video(list_of_image_names, filename, fps=30, output_folder=None):
 
     output_name = os.path.join(output_folder, filename)
 
-    clip = moviepy.editor.ImageSequenceClip(list_of_image_names, fps=fps)
+    clip = editor.ImageSequenceClip(list_of_image_names, fps=fps)
     clip.write_videofile(output_name, fps=fps)

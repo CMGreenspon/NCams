@@ -400,34 +400,3 @@ def plot_poses(world_locations, world_orientations, scale_factor = 1):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
-
-
-def export_pose_estimation(export_path, cam_serials, world_locations, world_orientations):
-    pose_data = dict(
-        camera_serials = cam_serials,
-        world_locations = world_locations,
-        world_orientations = world_orientations)
-
-    filename = os.path.join(export_path, 'pose_estimate.pickle')
-    with open(filename, 'wb') as pickle_file:
-        pickle.dump(pose_data, pickle_file)
-
-    print('Pose-estimation file: ' + filename)
-
-
-def import_pose_estimation(path_to_file_OR_dict):
-    # Get the path name
-    if isinstance(path_to_file_OR_dict, str):
-        path_to_file = path_to_file_OR_dict
-    elif isinstance(path_to_file_OR_dict, dict):
-        path_to_file = os.path.join(path_to_file_OR_dict['folder_path'], 'pose_estimate.pickle')
-
-    # Load the file
-    with open(path_to_file, 'rb') as pickle_file:
-        pose_data = pickle.load(pickle_file)
-
-    camera_serials = pose_data['camera_serials']
-    world_locations = pose_data['world_locations']
-    world_orientations = pose_data['world_orientations']
-
-    return camera_serials, world_locations, world_orientations
