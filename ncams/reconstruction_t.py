@@ -25,10 +25,10 @@ import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
-import utils
-import image_t
-import camera_io
-import camera_t
+from . import utils
+from . import image_t
+from . import camera_io
+from . import camera_t
 
 
 FIG = None
@@ -37,42 +37,53 @@ AXS = None
 SLIDER = None
 
 
-def triangulate(camera_config, session_path, labeled_video_path,
-                threshold=0.9, images_3d_path=None, method='full_rank', best_pair_n=2,
-                num_frames_limit=None, output_csv=None):
+def triangulate(camera_config, session_config, calibration_config, pose_estimation_config,
+                labeled_csv_path, threshold=0.9, method='full_rank',
+                best_pair_n=2, num_frames_limit=None, output_csv=None):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
-    Input:
-        labeled_video_path: locations of csv's with marked points
-        threshold: only points with confidence above the threshold will be used for triangulation.
-            (default: 0.9)
-        images_3d_path: where you would like the 3d video and images to be stored.
-            (default: os.path.join(session_path, 'rec_3d'))
-        method: method for triangulation.
+    Arguments:
+        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+        session_config {dict} -- information about the session. This function uses following keys:
+            session_path {str} -- location of the session data.
+        calibration_config {dict} -- see help(ncams.camera_t).
+        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        labeled_csv_path {str} -- locations of csv's with marked points.
+    Keyword Arguments:
+        threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
+            be used for triangulation. (default: 0.9)
+        method {'full_rank' or 'best_pair'} -- method for triangulation.
             full_rank: uses all available cameras
-            best_pair: uses best 'best_pair_n' cameras to locate the point
+            best_pair: uses best 'best_pair_n' cameras to locate the point.
             (default: 'full_rank')
-        best_pair_n: how many cameras to use when best_pair method is used. (default: 2)
-        num_frames_limit: limit to the number of frames used for analysis. Useful for testing. If
-            None, then all frames will be analyzed. (default: None)
-        output_csv: file to save the triangulated points into.
-            (default: os.path.join(images_3d_path, 'triangulated_points_<method>.csv'))
+        best_pair_n {number} -- how many cameras to use when best_pair method is used. (default: 2)
+        num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
+            for testing. If None, then all frames will be analyzed. (default: None)
+        output_csv {type} -- file to save the triangulated points into.
+            (default: os.path.join(session_path, 'triangulated_points.csv'))]
+    Output:
+        output_csv {str} -- location of the output csv with all triangulated points.
     '''
-    cam_serials = camera_config['camera_serials']
+    cam_serials = camera_config['serials']
     cam_dicts = camera_config['dicts']
+    session_path = session_config['session_path']
 
-    (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = camera_io.load_camera_config(camera_config)
+    camera_matrices = calibration_config['camera_matrices']
+    distortion_coefficientss = calibration_config['distortion_coefficientss']
+    world_locations = pose_estimation_config['world_locations']
+    world_orientations = pose_estimation_config['world_orientations']
 
-    # Get files
+    # Get data files
     list_of_csvs = []
     for cam_serial in cam_serials:
         list_of_csvs += glob.glob(os.path.join(
-            labeled_video_path, cam_dicts[cam_serial]['name']+'*.csv'))
+            labeled_csv_path, cam_dicts[cam_serial]['name']+'*.csv'))
     if not len(list_of_csvs) == len(cam_serials):
         print('Detected {} csvs while was provided with {} serials. Quitting'.format(
             len(list_of_csvs), len(cam_serials)))
-        return
+        raise ValueError
 
     # Load them
     csv_arrays = [[] for _ in list_of_csvs]
@@ -124,12 +135,13 @@ def triangulate(camera_config, session_path, labeled_video_path,
         thresholds.append(threshold_array)
 
     # Undistort the points and then threshold
-    output_coordinates, output_coordinates_filtered = [], []
+    output_coordinates = []
+    output_coordinates_filtered = []
     for icam in range(num_cameras):
         # Get the optimal camera matrix
         optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
             camera_matrices[icam],
-            distortion_coefficients[icam],
+            distortion_coefficientss[icam],
             (camera_config['image_size'][1], camera_config['image_size'][0]),
             1,
             (camera_config['image_size'][1], camera_config['image_size'][0]))
@@ -146,7 +158,7 @@ def triangulate(camera_config, session_path, labeled_video_path,
             # Undistort them
             undistorted_points = cv2.undistortPoints(
                 distorted_points, camera_matrices[icam],
-                distortion_coefficients[icam], P=optimal_matrix)
+                distortion_coefficientss[icam], P=optimal_matrix)
             # Add to the unfiltered array
             output_array[:, :, bodypart] = undistorted_points[:, 0, :]
             # Get threshold filter
@@ -212,14 +224,8 @@ def triangulate(camera_config, session_path, labeled_video_path,
             u_euclid = (u/u[-1, :])[0:-1, :]
             triangulated_points[iframe, :, bodypart] = np.transpose(u_euclid)
 
-    # Make a side by side video
-    if images_3d_path is None:
-        images_3d_path = os.path.join(session_path, 'rec_3d')
-    if not os.path.isdir(images_3d_path):
-        os.mkdir(images_3d_path)
-
     if output_csv is None:
-        output_csv = os.path.join(images_3d_path, 'triangulated_points.csv')
+        output_csv = os.path.join(session_path, 'triangulated_points.csv')
     with open(output_csv, 'w', newline='') as f:
         triagwriter = csv.writer(f)
         bps_line = ['bodyparts']
@@ -237,28 +243,43 @@ def triangulate(camera_config, session_path, labeled_video_path,
     return output_csv
 
 
-def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulated_csv,
-                              images_3d_path=None, overwrite_temp=False, fps=30,
+def make_triangulation_videos(camera_config, session_config, calibration_config,
+                              pose_estimation_config, triangulated_csv,
+                              triangulated_path=None, overwrite_temp=False,
                               num_frames_limit=None, parallel=None):
-    """
-    Input:
-        images_3d_path: where you would like the 3d video and images to be stored.
-            (default: os.path.join(session_path, 'rec_3d'))
-        fps: for making movies. (default: 30)
-        overwrite_temp: flag for automatically overwrite folder for holding images.
-            (default: False)
-        output_csv: file to save the triangulated points into.
-            (default: os.path.join(images_3d_path, 'triangulated_points.csv'))
-        num_frames_limit: limit to the number of frames used for analysis. Useful for testing. If
-            None, then all frames will be analyzed. (default: None)
-        parallel: parallelize the image creation. If integer, create that many processes. If None,
-            do not parallelize
+    """Makes a video based on triangulated marker positions.
+
+    Arguments:
+        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+        session_config {dict} -- information about the session. This function uses following keys:
+            session_path {str} -- location of the session data.
+        calibration_config {dict} -- see help(ncams.camera_t).
+        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        triangulated_csv {str} -- location of csv with marked points.
+    Keyword Arguments:
+        triangulated_path {str} -- where you would like the 3d video and images to be stored.
+            (default: {os.path.join(session_path, 'triangulated')})
+        overwrite_temp {bool} -- automatically overwrite folder for holding temporary images.
+            (default: {False})
+        num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
+            for testing. If None, then all frames will be analyzed. (default: None)
+        parallel {number or None} parallelize the image creation. If integer, create that many
+            processes. Significantly speeds up generation. If None, do not parallelize. (default:
+            {None})
     """
     matplotlib.use('Agg')
 
-    cam_serials = camera_config['camera_serials']
-    (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = camera_io.load_camera_config(camera_config)
+    cam_serials = camera_config['serials']
+    cam_dicts = camera_config['dicts']
+    session_path = session_config['session_path']
+    fps = session_config['frame_rate']
+
+    camera_matrices = calibration_config['camera_matrices']
+    distortion_coefficientss = calibration_config['distortion_coefficientss']
+    world_locations = pose_estimation_config['world_locations']
+    world_orientations = pose_estimation_config['world_orientations']
 
     with open(triangulated_csv, 'r') as f:
         triagreader = csv.reader(f)
@@ -286,9 +307,9 @@ def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulat
         print('Making images for {}'.format(cam_dicts[cam_serial]['name']))
         image_list = utils.get_image_list(path=os.path.join(
             session_path, cam_dicts[cam_serial]['name']))
-        if not os.path.isdir(images_3d_path):
-            os.mkdir(images_3d_path)
-        output_path = os.path.join(images_3d_path,
+        if not os.path.isdir(triangulated_path):
+            os.mkdir(triangulated_path)
+        output_path = os.path.join(triangulated_path,
                                    cam_dicts[cam_serial]['name'])
         if os.path.isdir(output_path):
             if overwrite_temp:
@@ -370,7 +391,7 @@ def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulat
         output_image_list = utils.get_image_list(path=output_path)
         image_t.images_to_video(
             output_image_list,
-            os.path.join(images_3d_path, cam_dicts[cam_serial]['name'] + '.mp4'), fps=fps)
+            os.path.join(triangulated_path, cam_dicts[cam_serial]['name'] + '.mp4'), fps=fps)
 
 
 def make_image(args, ranges=None, output_path=None, bp_cmap=None):
@@ -406,18 +427,32 @@ def make_image(args, ranges=None, output_path=None, bp_cmap=None):
     mpl_pp.close(fig)
 
 
-def interactive_3d_plot(cam_serial, camera_config, cam_dicts, session_path, triangulated_csv,
+def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_csv,
                         num_frames_limit=None):
+    """Makes an interactive 3D plot with video and a slider to control the frame number.
+
+    Arguments:
+        cam_serial {int} -- camera serial of the camera to plot.
+        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+        session_config {dict} -- information about the session. This function uses following keys:
+            session_path {str} -- location of the session data.
+        calibration_config {dict} -- see help(ncams.camera_t).
+        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        triangulated_csv {str} -- location of csv with marked points.
+    Keyword Arguments:
+        overwrite_temp {bool} -- automatically overwrite folder for holding temporary images.
+            (default: {False})
+        fps {number} -- for making movies. (default: {30})
+        num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
+            for testing. If None, then all frames will be analyzed. (default: None)
+        parallel {number or None} parallelize the image creation. If integer, create that many
+            processes. Significantly speeds up generation. If None, do not parallelize. (default:
+            {None})
     """
-    Input:
-        images_3d_path: where you would like the 3d video and images to be stored.
-            (default: os.path.join(session_path, 'rec_3d'))
-        fps: for making movies. (default: 30)
-        num_frames_limit: limit to the number of frames used for analysis. Useful for testing. If
-            None, then all frames will be analyzed. (default: None)
-    """
-    (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = camera_io.load_camera_config(camera_config)
+    cam_dicts = camera_config['dicts']
+    session_path = session_config['session_path']
 
     with open(triangulated_csv, 'r') as f:
         triagreader = csv.reader(f)

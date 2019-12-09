@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.0.1',
+    version='0.0.2',
     description='Recording, triangulation and mapping using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
@@ -22,10 +22,9 @@ setup(
         'pyyaml',
         'matplotlib',
         'numpy',
-        'scipy'],
-    author1='Charles M Greenspon',
-    author1_email='charles.greenspon@gmail.com',
-    author2='Anton Sobinov',
-    author2_email='a.sobinov@gmail.com',
+        'scipy',
+        'easygui'],
+    author='Charles M Greenspon',
+    author_email='charles.greenspon@gmail.com',
     license='Apache 2.0',
     packages=find_packages())

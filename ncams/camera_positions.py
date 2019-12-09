@@ -15,6 +15,7 @@ import easygui
 
 import cv2
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
@@ -301,8 +302,23 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see below.
     Output:
-        world_locations {list of 'np.array's} -- [description]
-        world_orientations {list of 'np.array's} -- [description]
+        pose_estimation_config {dict} -- information on estimation of relative position of all
+                cameras and the results of said pose estimation. For more info, see
+                help(ncams.camera_t). Should have following keys:
+            serials {list of numbers} -- list of camera serials.
+            world_locations {list of np.arrays} -- world locations of each camera.
+            world_orientations {list of np.arrays} -- world orientation of each camera.
+            path {string} -- directory where pose estimation information is stored. Should be same
+                as information in camera_config.
+            filename {string} -- name of the YAML file to store the config in/load from.
+            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
+                see below.
+
+        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
+                keys:
+            serial {number} -- UID of the camera.
+            world_location {np.array} -- world location of the camera.
+            world_orientation {np.array} -- world orientation of the camera.
     '''
     names = [camera_config['dicts'][serial]['name'] for serial in camera_config['serials']]
     pose_estimation_path = camera_config['pose_estimation_path']
@@ -361,7 +377,25 @@ def one_shot_multi_PnP(camera_config, calibration_config):
         world_locations.append(tvec)
         world_orientations.append(rvec)
 
-    return world_locations, world_orientations
+    # Make the output structure
+    dicts = {}
+    for icam, serial in enumerate(camera_config['serials']):
+        dicts[serial] = {
+            'serial': serial,
+            'world_location': world_locations[icam],
+            'world_orientation': world_orientations[icam]
+        }
+
+    pose_estimation_config = {
+        'serials': camera_config['serials'],
+        'world_locations': world_locations,
+        'world_orientations': world_orientations,
+        'path': camera_config['pose_estimation_path'],
+        'filename': camera_config['pose_estimation_filename'],
+        'dicts': dicts
+    }
+
+    return pose_estimation_config
 
 
 def common_pose_estimation(camera_config, calibration_config, cam_image_points, detection_logit):
@@ -386,8 +420,23 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
         cam_image_points {[type]} -- [description]
         detection_logit {[type]} -- [description]
     Output:
-        world_locations {list of 'np.array's} -- [description]
-        world_orientations {list of 'np.array's} -- [description]
+        pose_estimation_config {dict} -- information on estimation of relative position of all
+                cameras and the results of said pose estimation. For more info, see
+                help(ncams.camera_t). Should have following keys:
+            serials {list of numbers} -- list of camera serials.
+            world_locations {list of np.arrays} -- world locations of each camera.
+            world_orientations {list of np.arrays} -- world orientation of each camera.
+            path {string} -- directory where pose estimation information is stored. Should be same
+                as information in camera_config.
+            filename {string} -- name of the YAML file to store the config in/load from.
+            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
+                see below.
+
+        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
+                keys:
+            serial {number} -- UID of the camera.
+            world_location {np.array} -- world location of the camera.
+            world_orientation {np.array} -- world orientation of the camera.
     '''
     num_cameras = len(camera_config['serials'])
     camera_matrices = calibration_config['camera_matrices']
@@ -489,7 +538,25 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
         world_orientations.append(rvec)
         world_locations.append(tvec)
 
-    return world_locations, world_orientations
+    # Make the output structure
+    dicts = {}
+    for icam, serial in enumerate(camera_config['serials']):
+        dicts[serial] = {
+            'serial': serial,
+            'world_location': world_locations[icam],
+            'world_orientation': world_orientations[icam]
+        }
+
+    pose_estimation_config = {
+        'serials': camera_config['serials'],
+        'world_locations': world_locations,
+        'world_orientations': world_orientations,
+        'path': camera_config['pose_estimation_path'],
+        'filename': camera_config['pose_estimation_filename'],
+        'dicts': dicts
+    }
+
+    return pose_estimation_config
 
 
 def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_camera,
@@ -504,7 +571,23 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
     Keyword Arguments:
         []
     Output:
-        []
+        pose_estimation_config {dict} -- information on estimation of relative position of all
+                cameras and the results of said pose estimation. For more info, see
+                help(ncams.camera_t). Should have following keys:
+            serials {list of numbers} -- list of camera serials.
+            world_locations {list of np.arrays} -- world locations of each camera.
+            world_orientations {list of np.arrays} -- world orientation of each camera.
+            path {string} -- directory where pose estimation information is stored. Should be same
+                as information in camera_config.
+            filename {string} -- name of the YAML file to store the config in/load from.
+            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
+                see below.
+
+        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
+                keys:
+            serial {number} -- UID of the camera.
+            world_location {np.array} -- world location of the camera.
+            world_orientation {np.array} -- world orientation of the camera.
     '''
     raise NotImplementedError
 
@@ -612,7 +695,8 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     '''
     world_locations = pose_estimation_config['world_locations']
     world_orientations = pose_estimation_config['world_orientations']
-    num_cameras = len(pose_estimation_config['serials'])
+    serials = pose_estimation_config['serials']
+    num_cameras = len(serials)
 
     # Only accepts list format so check if this is true only when a single camera is present
     if num_cameras == 1:  # AS: Not sure if needed anymore
@@ -627,20 +711,20 @@ def plot_poses(pose_estimation_config, scale_factor=1):
 
     # Keep the verts for setting the axes later
     cam_verts = [[] for _ in range(num_cameras)]
-    for cam in range(num_cameras):
+    for icam in range(num_cameras):
         # Get the vertices to plot appropriate to the translation and rotation
-        cam_verts[cam], cam_center = camera_t.create_camera(
+        cam_verts[icam], cam_center = camera_t.create_camera(
             scale_factor=scale_factor,
-            rotation_vector=world_orientations[cam],
-            translation_vector=world_locations[cam])
+            rotation_vector=world_orientations[icam],
+            translation_vector=world_locations[icam])
 
         # Plot it and change the color according to it's number
-        ax.add_collection3d(Poly3DCollection(cam_verts[cam],
-            facecolors='C'+str(cam), linewidths=1, edgecolors='k', alpha=1))
+        ax.add_collection3d(Poly3DCollection(
+            cam_verts[icam], facecolors='C'+str(icam), linewidths=1, edgecolors='k', alpha=1))
 
         # Give each camera a label
         ax.text(np.asscalar(cam_center[0]), np.asscalar(cam_center[1]), np.asscalar(cam_center[2]),
-                'Camera ' + str(cam+1))
+                'Cam ' + str(serials[icam]))
 
     # mpl is weird about maintaining aspect ratios so this has to be done
     ax_min = np.min(np.hstack(cam_verts))

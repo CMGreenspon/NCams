@@ -23,7 +23,7 @@ from . import camera_io
 from . import camera_t
 
 
-def multi_camera_calibration(camera_config, override=False, inspect=False):
+def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=False):
     '''Computes distortion coefficients from automatically selected images.
 
     This will go to the specified path and for each camera isolate the images necessary for
@@ -48,6 +48,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False):
         override {bool} -- whether to automatically override detected calibration files.
             (default: {False})
         inspect {bool} -- whether to call the inspection function. (default: {False})
+        export_full {bool} -- save the calibration to a dedicated file. (default: {False})
 
     Output:
         calibration_config {dict} -- information on camera calibration and the results of said
@@ -111,7 +112,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False):
     # Preliminary stuff
     num_cameras = len(serials)  # How many cameras are there
     print('Beginning calibration of {} camera{}.'.format(
-        num_cameras, '(s)' if num_cameras > 1 else ''))
+        num_cameras, 's' if num_cameras > 1 else ''))
 
     for icam, serial in enumerate(serials):
         print('- Camera {} of {}.'.format(icam+1, num_cameras))
@@ -131,6 +132,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False):
 
         # Check if there is already a calibration file
         cam_calib_filename = os.path.join(cam_calib_dir, cam_name + '_calib.yaml')
+        calibrate_camera = True
         if os.path.exists(cam_calib_filename) and not override:
             print('-> Calibration file for "{}" detected and may have already been'
                   ' calibrated.'.format(cam_name))
@@ -146,7 +148,6 @@ def multi_camera_calibration(camera_config, override=False, inspect=False):
                     calibrate_camera = False
                     break
                 if user_input in ('yes', 'y'):
-                    calibrate_camera = True
                     break
                 if user_input == 'abort':
                     print('Aborting...')
@@ -211,7 +212,8 @@ def multi_camera_calibration(camera_config, override=False, inspect=False):
     }
 
     print('* Calibration complete.')
-    camera_io.export_calibration(calibration_config)
+    if export_full:
+        camera_io.export_calibration(calibration_config)
 
     if inspect:
         inspect_calibration(camera_config, calibration_config)
@@ -374,7 +376,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
 
         # Get the appropriate camera matrices
         cam_mat = calibration_config['dicts'][serial]['camera_matrix']
-        dist_coeffs = calibration_config['dicts'][serial]['distortion_coefficient']
+        dist_coeffs = calibration_config['dicts'][serial]['distortion_coefficients']
 
         image_list = utils.get_image_list(path=cam_calib_dir)
 
@@ -393,7 +395,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
             if board_type == 'charuco':
                 # Detect the markers
                 charuco_dict, charuco_board, _ = camera_t.create_board(camera_config)
-                corners, ids = cv2.aruco.detectMarkers(example_image, charuco_dict)[0]
+                corners, ids, rejected_points = cv2.aruco.detectMarkers(example_image, charuco_dict)
                 if ids is not None:
                     # Find the checkerboard corners
                     _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(

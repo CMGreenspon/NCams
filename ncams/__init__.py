@@ -6,7 +6,7 @@ https://github.com/CMGreenspon/NCams
 """
 
 __all__ = ['utils', 'image_t', 'camera_io', 'camera_t', 'camera_calibration', 'camera_positions',
-           'reconstruction_t']
+           'reconstruction_t', 'spinnaker_t']
 
 
 from . import utils
@@ -16,3 +16,4 @@ from . import camera_t
 from . import camera_calibration
 from . import camera_positions
 from . import reconstruction_t
+from . import spinnaker_t

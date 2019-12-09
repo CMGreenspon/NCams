@@ -11,6 +11,8 @@ Utilities for general use in multiple functions.
 import os
 import re
 from glob import glob
+from copy import deepcopy
+import yaml
 
 import numpy as np
 
@@ -86,7 +88,7 @@ def alphanumeric_sort(strings):
 
 
 def dict_values_numpy_to_list(dic):
-    '''Checks each value of a dictionary and converts it to list if it was a np.ndarray.
+    '''Checks each value of a dictionary and converts it to list if it was a np.ndarray or tuple.
 
     Arguments:
         dic {dict} -- any dictionary. Not immutable.
@@ -95,6 +97,59 @@ def dict_values_numpy_to_list(dic):
     '''
     for key in dic.keys():
         if isinstance(dic[key], np.ndarray):
-            dic[key] = dic[key].to_list()
+            dic[key] = dic[key].tolist()
+        if isinstance(dic[key], np.ndarray):
+            dic[key] = list(dic[key])
 
     return dic
+
+
+def export_session_config(session_config, session_path=None, session_filename=None):
+    '''Export experimental recording session config into a YAML file.
+
+    Arguments:
+        session_config {dict} -- information about session configuration. Mostly user-defined. This
+                function uses following keys:
+            session_path {string} -- directory where the session setup and data are located,
+                including config.yaml.
+            session_filename {string} -- config has been loaded from os.path.join(
+                session_path, session_filename) and/or will be saved into this directory.
+
+    Keyword Arguments:
+        output_path {string} -- overrides the directory where the config is saved. (default: {None})
+        session_filename {string} - overrides the session_filename of the config file. (default:
+            {None})
+    '''
+    out_dict = deepcopy(session_config)
+
+    # If we want to save everything as a list instead of numpy ndarray:
+    out_dict = dict_values_numpy_to_list(out_dict)
+
+    if session_path is not None:
+        out_dict['session_path'] = session_path
+    if session_filename is not None:
+        out_dict['session_filename'] = session_filename
+
+    if not os.path.isdir(out_dict['session_path']):
+        os.mkdir(out_dict['session_path'])
+
+    session_filename = os.path.join(out_dict['session_path'], out_dict['session_filename'])
+
+    with open(session_filename, 'w') as yaml_file:
+        yaml.dump(out_dict, yaml_file, default_flow_style=False)
+
+
+def import_session_config(filename):
+    '''Imports session config from a YAML file.
+
+    Arguments:
+        filename {string} -- filename of the YAML session_config file.
+
+    Output:
+        session_config {dict} -- see help(ncams.utils.export_session_config). Mostly defined by
+            user.
+    '''
+    with open(filename, 'r') as yaml_file:
+        session_config = yaml.safe_load(yaml_file)
+
+    return session_config

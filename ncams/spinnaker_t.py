@@ -26,8 +26,8 @@ CAMERA_NAME = 'cam{cam_serial}'
 IMAGE_FILENAME = '{time}_image{frame}.jpeg'
 
 
-#%% Logging
-logging.basicConfig(level=logging.INFO)
+# Logging
+logging.basicConfig(level=logging.INFO)  # AS: is this needed? CMG
 
 
 # System init/denit & test
@@ -275,6 +275,10 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             reference_camera_serial {number} -- serial number of the reference camera.
+    Keyword Arguments:
+        frame_rate {number} -- fps to set the cameras to. (default: {30})
+        num_images {number or None} -- number of images to set to capture. If None, captures
+            indefinitely. (default: {None})
     '''
     cam_dicts = camera_config['dicts']
     reference_serial = camera_config['reference_camera_serial']
@@ -604,7 +608,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
         cam_dict['obj'].EndAcquisition()
 
 
-#%% Single camera capture
+# Single camera capture
 def camera_thread_capture_sequence(cam_dict, num_images, dest_folder):
     '''Captures a number of images from a single camera.
 

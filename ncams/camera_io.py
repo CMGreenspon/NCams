@@ -37,7 +37,31 @@ def config_to_yaml(camera_config, setup_path=None, setup_filename=None):
         setup_filename {string} - overrides the filename of the config file. (default:
             {None})
     '''
+    serials = camera_config['serials']
+
+    # the camera objects are not pickleable, need to remove them before copy
+    if 'obj' in camera_config['dicts'][serials[0]].keys():
+        cam_objs = []
+        for serial in serials:
+            cam_objs.append(camera_config['dicts'][serial]['obj'])
+            del camera_config['dicts'][serial]['obj']  # not picklable
+    else:
+        cam_objs = None
+
+    if 'system' in camera_config.keys():
+        system = camera_config['system']
+        del camera_config['system']
+    else:
+        system = None
+
     out_dict = deepcopy(camera_config)
+
+    # and then restore
+    if cam_objs is not None:
+        for serial, cam_obj in zip(serials, cam_objs):
+            camera_config['dicts'][serial]['obj'] = cam_obj
+    if system is not None:
+        camera_config['system'] = system
 
     # If we want to save everything as a list instead of numpy ndarray:
     out_dict = utils.dict_values_numpy_to_list(out_dict)
@@ -203,10 +227,10 @@ def import_calibration(camera_config):
             _calibration_config['reprojection_errors'][idx])
 
         calibration_config['dicts'][serial] = {
-            'serial': _calibration_config['serial'][idx],
-            'distortion_coefficients': _calibration_config['distortion_coefficients'][idx],
-            'camera_matrix': _calibration_config['camera_matrix'][idx],
-            'reprojection_error': _calibration_config['reprojection_error'][idx]
+            'serial': serial,
+            'distortion_coefficients': _calibration_config['distortion_coefficientss'][idx],
+            'camera_matrix': _calibration_config['camera_matrices'][idx],
+            'reprojection_error': _calibration_config['reprojection_errors'][idx]
         }
 
     return calibration_config

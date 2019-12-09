@@ -9,7 +9,7 @@ General camera functions and tools used for calibration, pose estimation, etc.
 
 Important structures:
     camera_config {dict} -- information about camera configuration. Should have following keys:
-        date {datetime.date} -- date of the creation of the config.
+        datetime {string} -- formatted local date and time of the creation of the config.
         serials {list of numbers} -- list of camera serials. Wherever camera-specific
             information is not in a dictionary but is in a list, the order MUST adhere to the order
             in serials.
@@ -29,6 +29,7 @@ Important structures:
         pose_estimation_path {string} -- directory where pose estimation information is stored.
         pose_estimation_filename {string} -- name of the pickle file to store the pose estimation
             config in/load from.
+        system {PySpin.System instance} -- needed for init/close of the FLIR cameras system.
 
     camera_dict {dict} -- information about a single camera. Should have following keys:
         serial {number} -- serial number (ID) of the camera
@@ -215,6 +216,10 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         if dictionary is None:
             output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
         else:
+            # if having problems with import of cv2.aruco, uninstall opencv-python and install
+            # opencv-contrib-python, e.g.
+            # pip uninstall opencv-python
+            # pip install opencv-contrib-python
             custom_dict = cv2.aruco.Dictionary_get(dictionary)
             output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
                                                            custom_dict)
