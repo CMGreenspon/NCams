@@ -39,11 +39,11 @@ import os
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras')
+BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
 
 # %% 1 Load camera_config
 # Works if calibration and pose estimation has been done before and saved
-cdatetime = '2019.11.22_10.00.09'
+cdatetime = '2019.12.09_16.23.02'
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.camera_io.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
@@ -68,7 +68,7 @@ ncams.camera_io.export_pose_estimation(pose_estimation_config)
 
 # %% 4 Load camera_config, calibration and pose estimation data from files
 # Works if calibration and pose estimation has been done before and saved
-cdatetime = '2019.11.22_10.00.09'
+cdatetime = '2019.12.09_16.23.02'
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.camera_io.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
@@ -79,7 +79,7 @@ ncams.camera_positions.plot_poses(pose_estimation_config)
 
 
 # %% 5 Load a session config from a file
-session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.11.22_10.00.09_AS_CMG_2',
+session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_AS_CMG_2',
                                      'session_config.yaml')
 session_config = ncams.utils.import_session_config(session_full_filename)
 

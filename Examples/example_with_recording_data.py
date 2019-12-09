@@ -34,7 +34,7 @@ import math
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras')
+BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
 
 # %% 1 Initialize setup and working directories (if intialized before, go to Step 5)
 # If you wish to work with example data, proceed to Step 5
@@ -148,7 +148,7 @@ ncams.camera_io.export_pose_estimation(pose_estimation_config)
 
 # %% 5 Load camera_config, calibration and pose estimation data from files
 # Works if calibration and pose estimation has been done before and saved
-cdatetime = '2019.11.22_10.00.09'
+cdatetime = '2019.12.09_16.23.02'
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.camera_io.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
@@ -159,25 +159,9 @@ ncams.camera_positions.plot_poses(pose_estimation_config)
 
 
 # %% 6 Set up experiment (you can load the setup in Step 7)
-# The experiment consisted of a repeated touching of a pressure sensor by the subject. The pressure
-# was recorded by a separate program. Adjust these variables for your own experimental design.
-pre_touchpad_early_start = 1000  # msec before you press Start Protocol
-# msec additional recording after protocol is finished:
-trailing_waiting_period = 1000
-# from ProtocolParameters.cpp:
-total_trial_time = 3000  # msec maxWaitTime
-intertrial_time = 100  # msec intertrialTime
-number_trials_desired = 100  # nTrialsDesired, first ten for sync
-#number_trials_desired = 4  # nTrialsDesired, first ten for sync
-# from Protocol.cpp:
-pretouch_wait = 1500  # msec PRETOUCH_WAIT
-
+session_time_length_sec = 30
 frame_rate = 50
 
-session_time_length_sec = (
-    pre_touchpad_early_start +
-    number_trials_desired * (total_trial_time + intertrial_time) +
-    trailing_waiting_period) / 1e3
 session_number_frames = math.ceil(session_time_length_sec * frame_rate)
 print('Going to capture {} frames over {} seconds'.format(
     session_number_frames, session_time_length_sec))
@@ -218,7 +202,7 @@ ncams.utils.export_session_config(session_config)
 
 
 # %% 7 Load a session config from a file
-session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.11.22_10.00.09_AS_CMG_2',
+session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_AS_CMG_2',
                                      'session_config.yaml')
 session_config = ncams.utils.import_session_config(session_full_filename)
 

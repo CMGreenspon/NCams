@@ -98,7 +98,7 @@ def dict_values_numpy_to_list(dic):
     for key in dic.keys():
         if isinstance(dic[key], np.ndarray):
             dic[key] = dic[key].tolist()
-        if isinstance(dic[key], np.ndarray):
+        if isinstance(dic[key], tuple):
             dic[key] = list(dic[key])
 
     return dic

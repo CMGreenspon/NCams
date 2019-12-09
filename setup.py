@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.0.2',
+    version='0.1.0',
     description='Recording, triangulation and mapping using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
@@ -26,5 +26,5 @@ setup(
         'easygui'],
     author='Charles M Greenspon',
     author_email='charles.greenspon@gmail.com',
-    license='Apache 2.0',
+    license='MIT',
     packages=find_packages())

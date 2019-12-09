@@ -11,7 +11,7 @@ import pylab
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras')
+BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
 
 
 def main():

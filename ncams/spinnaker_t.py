@@ -62,19 +62,18 @@ def get_system():
     return system, cam_serials, cam_dicts
 
 
-def release_system(system, cam_dicts):
+def release_system(system, cam_list):
     '''Initializes communication with the camera system.
 
     Arguments:
         system {PySpin.System instance} -- PySpin System
-        cam_dicts {dict of camera_dict's} -- keys are serials, values are 'camera_dict', see
-            help(ncams.camera_t).
+        cam_list {list of camera objects} --
     '''
     if system.IsInUse() is False:
         print('No system to release.')
         return
 
-    for cam in cam_dicts.values():
+    for cam in cam_list.values():
         if cam.IsStreaming():
             cam.EndAcquisision()
         if cam.IsInitialized():
