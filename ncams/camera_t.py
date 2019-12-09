@@ -34,6 +34,7 @@ Important structures:
         serial {number} -- serial number (ID) of the camera
         name {string} -- unique string that identifies the camera. Usually, 'cam_'+str(serial) or
             'top_left', 'top_right', etc.
+        obj {PySpin.CameraPtr} -- reference to the PySpin camera object.
 
     calibration_config {dict} -- information on camera calibration and the results of said
             calibraion. Order of each list MUST adhere to calibration_config['serials'] AND

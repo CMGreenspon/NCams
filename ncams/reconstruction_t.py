@@ -1,8 +1,14 @@
-'''
+#!python3
+# -*- coding: utf-8 -*-
+"""
 NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
-'''
+
+Functions related to triangulation of marker positions from multiple cameras.
+
+For more details on the camera data structures and dicts, see help(ncams.camera_t).
+"""
 import os
 import csv
 import shutil
@@ -12,17 +18,17 @@ import functools
 import glob
 import numpy as np
 from tqdm import tqdm
+import cv2
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
-import pylab
 
-import cv2
-
-import CameraTools
-import ImageTools
+import utils
+import image_t
+import camera_io
+import camera_t
 
 
 FIG = None
@@ -31,10 +37,10 @@ AXS = None
 SLIDER = None
 
 
-def triangulate(cam_dicts, camera_config, session_path, labeled_video_path,
+def triangulate(camera_config, session_path, labeled_video_path,
                 threshold=0.9, images_3d_path=None, method='full_rank', best_pair_n=2,
                 num_frames_limit=None, output_csv=None):
-    '''Triangulates points from multiple cameras
+    '''Triangulates points from multiple cameras and exports them into a csv.
 
     Input:
         labeled_video_path: locations of csv's with marked points
@@ -53,8 +59,10 @@ def triangulate(cam_dicts, camera_config, session_path, labeled_video_path,
             (default: os.path.join(images_3d_path, 'triangulated_points_<method>.csv'))
     '''
     cam_serials = camera_config['camera_serials']
+    cam_dicts = camera_config['dicts']
+
     (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = CameraTools.load_camera_config(camera_config)
+     ) = camera_io.load_camera_config(camera_config)
 
     # Get files
     list_of_csvs = []
@@ -155,7 +163,7 @@ def triangulate(cam_dicts, camera_config, session_path, labeled_video_path,
     # Make the projection matrices
     projection_matrices = []
     for icam in range(num_cameras):
-        projection_matrices.append(CameraTools.make_projection_matrix(
+        projection_matrices.append(camera_t.make_projection_matrix(
             camera_matrices[icam], world_orientations[icam], world_locations[icam]))
 
     # Triangulate the points
@@ -250,7 +258,7 @@ def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulat
 
     cam_serials = camera_config['camera_serials']
     (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = CameraTools.load_camera_config(camera_config)
+     ) = camera_io.load_camera_config(camera_config)
 
     with open(triangulated_csv, 'r') as f:
         triagreader = csv.reader(f)
@@ -276,7 +284,7 @@ def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulat
 
     for cam_serial in cam_serials:
         print('Making images for {}'.format(cam_dicts[cam_serial]['name']))
-        image_list = ImageTools.get_image_list(path=os.path.join(
+        image_list = utils.get_image_list(path=os.path.join(
             session_path, cam_dicts[cam_serial]['name']))
         if not os.path.isdir(images_3d_path):
             os.mkdir(images_3d_path)
@@ -359,8 +367,8 @@ def make_triangulation_videos(camera_config, cam_dicts, session_path, triangulat
 
         # Make a video of it
         print('Making a video for {}'.format(cam_dicts[cam_serial]['name']))
-        output_image_list = ImageTools.get_image_list(path=output_path)
-        ImageTools.images_to_video(
+        output_image_list = utils.get_image_list(path=output_path)
+        image_t.images_to_video(
             output_image_list,
             os.path.join(images_3d_path, cam_dicts[cam_serial]['name'] + '.mp4'), fps=fps)
 
@@ -409,7 +417,7 @@ def interactive_3d_plot(cam_serial, camera_config, cam_dicts, session_path, tria
             None, then all frames will be analyzed. (default: None)
     """
     (camera_matrices, distortion_coefficients, _, world_locations, world_orientations
-     ) = CameraTools.load_camera_config(camera_config)
+     ) = camera_io.load_camera_config(camera_config)
 
     with open(triangulated_csv, 'r') as f:
         triagreader = csv.reader(f)
@@ -433,7 +441,7 @@ def interactive_3d_plot(cam_serial, camera_config, cam_dicts, session_path, tria
                 break
     triangulated_points = np.array(triangulated_points)
 
-    image_list = ImageTools.get_image_list(path=os.path.join(
+    image_list = utils.get_image_list(path=os.path.join(
         session_path, cam_dicts[cam_serial]['name']))
 
     cmap = matplotlib.cm.get_cmap('jet')
@@ -482,4 +490,3 @@ def interactive_3d_plot(cam_serial, camera_config, cam_dicts, session_path, tria
     SLIDER.on_changed(update)
 
     mpl_pp.show()
-

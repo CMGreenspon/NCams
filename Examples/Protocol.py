@@ -124,10 +124,10 @@ if not os.path.isdir(pose_estimation_path):
     os.mkdir(pose_estimation_path)
 
 # Capture the images
-SpinnakerTools.init_sync_settings_serials(
+SpinnakerTools.init_sync_settings(
     cam_dicts, reference_cam_serial, frame_rate=30, num_images=None)
 
-SpinnakerTools.synced_capture_sequence_serials(
+SpinnakerTools.synced_capture_sequence(
     cam_dicts, reference_cam_serial, 1,
     output_folder=pose_estimation_path, separate_folders=False)
 
@@ -201,13 +201,13 @@ for cam in cam_list:
     SpinnakerTools.set_cam_settings(cam, default=True)
 print('Cameras set up done.')
 
-SpinnakerTools.init_sync_settings_serials(
+SpinnakerTools.init_sync_settings(
     cam_dicts, reference_cam_serial,
     frame_rate=session_info['camera_frame_rate'], num_images=None)
 print('Cameras sync done.')
 
 print('Starting capture')
-SpinnakerTools.synced_capture_sequence_serials(
+SpinnakerTools.synced_capture_sequence(
     cam_dicts, reference_cam_serial, session_number_frames,
     output_folder=session_info['session_path'], separate_folders=True)
 
