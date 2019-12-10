@@ -59,7 +59,7 @@ print('New config_path: "{}"'.format(config_path))
 # Edit the config file to represent your tracking
 
 # DLC Cropping
-deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=True,
+deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=False,
                           userfeedback=False)
 
 deeplabcut.label_frames(config_path)
@@ -80,6 +80,7 @@ deeplabcut.analyze_videos(config_path, training_videos,
 deeplabcut.create_labeled_video(config_path, training_videos, destfolder=labeled_csv_path,
                                 draw_skeleton=True)
 
+
 # %% 2b Load existing labeled frames
 dlc_prj_name = 'CMGPretrainedNetwork'
 scorer = 'CMG'
@@ -93,6 +94,23 @@ print('Existing config_path: "{}"'.format(config_path))
 labeled_csv_path = os.path.join(proj_path, 'labeled_videos')
 if not os.path.isdir(labeled_csv_path):
     os.mkdir(labeled_csv_path)
+
+analyzed_training_videos = []
+for serial in camera_config['serials']:
+    analyzed_training_videos.append(os.path.join(
+        proj_path, 'labeled_videos',
+        'cam{}DLC_resnet50_CMGPretrainedNetworkDec3shuffle1_250000_labeled.mp4'.format(serial)))
+analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
+
+# %% Refinement
+deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=False,
+                          userfeedback=False)
+
+deeplabcut.merge_datasets(config_path)
+
+deeplabcut.create_training_dataset(config_path)
+
+deeplabcut.train_network(config_path, gputouse=0, saveiters=25000, maxiters=250000)
 
 # %% 3 Triangulation from multiple cameras
 triangulated_path = os.path.join(proj_path, 'triangulated')

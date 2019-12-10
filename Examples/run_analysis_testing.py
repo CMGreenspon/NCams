@@ -43,22 +43,32 @@ def main():
     if not os.path.isdir(labeled_csv_path):
         os.mkdir(labeled_csv_path)
 
-    # %% 3 Triangulation from multiple cameras
-    triangulated_path = os.path.join(proj_path, 'triangulated')
-    if not os.path.exists(triangulated_path):
-        os.mkdir(triangulated_path)
+    analyzed_training_videos = []
+    for serial in camera_config['serials']:
+        analyzed_training_videos.append(os.path.join(
+            proj_path, 'labeled_videos',
+            'cam{}DLC_resnet50_CMGPretrainedNetworkDec3shuffle1_250000_labeled.mp4'.format(serial)))
+    analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
 
-    method = 'best_pair'
-    triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
-    threshold = 0.9
-    ncams.triangulate(
-        camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
-        threshold=threshold, method=method, output_csv=triangulated_csv)
+    deeplabcut.extract_outlier_frames(config_path, analyzed_training_videos_dir,
+                                      outlieralgorithm='manual')
+
+    # %% 3 Triangulation from multiple cameras
+    # triangulated_path = os.path.join(proj_path, 'triangulated')
+    # if not os.path.exists(triangulated_path):
+    #     os.mkdir(triangulated_path)
+
+    # method = 'best_pair'
+    # triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
+    # threshold = 0.9
+    # ncams.triangulate(
+    #     camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
+    #     threshold=threshold, method=method, output_csv=triangulated_csv)
 
     # %% 4 Make markered videos
-    ncams.make_triangulation_videos(
-        camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
-        triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
+    # ncams.make_triangulation_videos(
+    #     camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
+    #     triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
 
     # %% 5 Interactive demonstration with a slider
     # ncams.reconstruction_t.interactive_3d_plot(
