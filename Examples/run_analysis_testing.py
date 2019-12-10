@@ -8,8 +8,7 @@ import datetime
 
 import deeplabcut
 
-import ncams.camera_io
-import ncams.reconstruction_t
+import ncams
 
 
 BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
@@ -18,14 +17,14 @@ BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
 def main():
     cdatetime = '2019.12.09_16.23.02'
     camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
-    camera_config = ncams.camera_io.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
+    camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
-    calibration_config, pose_estimation_config = ncams.camera_io.load_camera_config(camera_config)
+    calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
     #  Load a session config from a file
     session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_AS_CMG_2',
                                          'session_config.yaml')
-    session_config = ncams.utils.import_session_config(session_full_filename)
+    session_config = ncams.import_session_config(session_full_filename)
 
     # which videos do you want to train on?
     training_videos = [session_config['cam_dicts'][cs]['video'] for cs in camera_config['serials']]
@@ -52,12 +51,12 @@ def main():
     method = 'best_pair'
     triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
     threshold = 0.9
-    ncams.reconstruction_t.triangulate(
+    ncams.triangulate(
         camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
         threshold=threshold, method=method, output_csv=triangulated_csv)
 
     # %% 4 Make markered videos
-    ncams.reconstruction_t.make_triangulation_videos(
+    ncams.make_triangulation_videos(
         camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
         triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
 
