@@ -739,3 +739,102 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
+
+
+#################### Camera plotting helper functions
+def create_camera(scale_factor=1, rotation_vector=None, translation_vector=None):
+    '''Create a typical camera shape.
+
+    [description]
+
+    Keyword Arguments:
+        scale_factor {number} -- [description] (default: {1})
+        rotation_vector {[type]} -- [description] (default: {None})
+        translation_vector {[type]} -- [description] (default: {None})
+    Output:
+        camera_vertices {np.array} -- [description]
+        cam_center {np.array} -- [description]
+    '''
+    # Lines:
+    # Back of camera body
+    #  Front of camera body/back of lens
+    # Back of camera body
+    cam_points = np.array([
+        [0, 0, 0],       [1, 0, 0],       [1, 1, 0],       [0, 1, 0],
+        [0.2, 0.2, 0.5], [0.8, 0.2, 0.5], [0.8, 0.8, 0.5], [0.2, 0.8, 0.5],
+        [0.2, 0.2, 1],   [0.8, 0.2, 1],   [0.8, 0.8, 1],   [0.2, 0.8, 1]])
+
+    # Set the origin as the back of the lens
+    centering_vector = [0.5, 0.5, 0.5]
+    cam_points = cam_points - centering_vector
+
+    # Scale the points
+    cam_points = cam_points * scale_factor
+
+    # Move the camera
+    cam_points = move_camera(cam_points, rotation_vector, translation_vector)
+
+    # Get the vertices & center
+    camera_vertices = get_camera_vertices(cam_points)
+    cam_center = np.mean(cam_points[4:8, :], 0)
+    cam_center[1] = cam_center[1] + scale_factor
+
+    return camera_vertices, cam_center
+
+
+def move_camera(cam_points, rotation_vector=None, translation_vector=None):
+    '''Applies the appropriate rotation and translation to the camera points.
+
+    [description]
+
+    Arguments:
+        cam_points {[type]} -- [description]
+
+    Keyword Arguments:
+        rotation_vector {np.array} -- [description] (default: {None})
+        translation_vector {np.array} -- [description] (default: {None})
+    '''
+    # Check rotation vector format
+    if rotation_vector is None:
+        rotation_vector = np.identity(3) # Assume it's not rotating
+    elif rotation_vector.shape == (3, 1) or rotation_vector.shape == (1, 3):
+        # Make matrix if necessary
+        rotation_vector = cv2.Rodrigues(rotation_vector)[0] # Convert to matrix
+
+    if translation_vector is None:
+        translation_vector = np.zeros((3, 1)) # Assume there is no translation
+    elif translation_vector.shape == (1, 3):
+        translation_vector = np.transpose(translation_vector) # Format
+
+    # Create the translation vector
+    translation_vector = np.matmul(-np.transpose(rotation_vector), translation_vector)
+
+    # Rotate and then translate
+    cam_points = np.transpose(np.matmul(np.transpose(rotation_vector), np.transpose(cam_points)))
+    cam_points = cam_points - np.transpose(translation_vector)
+
+    return cam_points
+
+
+def get_camera_vertices(cam_points):
+    '''Manual mapping of the camera points from in create_camera.
+
+    [description]
+
+    Arguments:
+        cam_points {list} -- 12-element array.
+    Output:
+        cam_verts {list 9x4} -- [description]
+    '''
+    cam_verts = [
+        [cam_points[0], cam_points[4], cam_points[5], cam_points[1]],
+        [cam_points[1], cam_points[5], cam_points[6], cam_points[2]],
+        [cam_points[2], cam_points[6], cam_points[7], cam_points[3]],
+        [cam_points[3], cam_points[7], cam_points[4], cam_points[0]], # Sides of lenses
+        [cam_points[4], cam_points[8], cam_points[9], cam_points[5]],
+        [cam_points[5], cam_points[9], cam_points[10], cam_points[6]],
+        [cam_points[6], cam_points[10], cam_points[11], cam_points[7]],
+        [cam_points[7], cam_points[11], cam_points[8], cam_points[4]],  # Sides of body
+        [cam_points[8], cam_points[9], cam_points[10], cam_points[11]]]  # Back of body
+
+    return cam_verts
