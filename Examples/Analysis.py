@@ -10,6 +10,13 @@ Script for running an analysis of the recordings from multiple cameras.
 Intended to be used in an interactive environment (e.g. Spyder).
 Has following steps:
 0. Import modules
+1. Load configurations
+2. Either 'a' or 'b':
+    a. Make a new DLC project (this or 2b)
+    b. Load existing labeled frames
+3. Triangulation from multiple cameras
+4. Make markered videos
+5. Interactive demonstration with a slider
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
@@ -102,7 +109,7 @@ for serial in camera_config['serials']:
         'cam{}DLC_resnet50_CMGPretrainedNetworkDec3shuffle1_250000_labeled.mp4'.format(serial)))
 analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
 
-# %% Refinement
+# %% Refinement?
 deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=False,
                           userfeedback=False)
 

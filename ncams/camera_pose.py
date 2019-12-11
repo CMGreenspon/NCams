@@ -5,7 +5,7 @@ NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
-Functions related to estimation of relative positions of the cameras.
+Functions related to estimation of relative positions and orientations of the cameras.
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """

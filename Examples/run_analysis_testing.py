@@ -50,8 +50,16 @@ def main():
             'cam{}DLC_resnet50_CMGPretrainedNetworkDec3shuffle1_250000_labeled.mp4'.format(serial)))
     analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
 
-    deeplabcut.extract_outlier_frames(config_path, analyzed_training_videos_dir,
-                                      outlieralgorithm='manual')
+    print('training network')
+    deeplabcut.train_network(config_path, gputouse=0, saveiters=25, maxiters=100)
+
+    print('analyzing videos')
+    deeplabcut.analyze_videos(config_path, training_videos,
+                              gputouse=0, save_as_csv=True, destfolder=labeled_csv_path)
+
+    print('making labeled videos')
+    deeplabcut.create_labeled_video(config_path, training_videos, destfolder=labeled_csv_path,
+                                    draw_skeleton=True)
 
     # %% 3 Triangulation from multiple cameras
     # triangulated_path = os.path.join(proj_path, 'triangulated')

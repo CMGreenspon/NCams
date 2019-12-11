@@ -6,7 +6,7 @@ NCams is installed as a Pythron module with several submodules that include came
 
 ## Getting Started
 
-This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams).
+This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example raw data is available on [Dropbox](???)
 
 ### Prerequisites
 
@@ -36,6 +36,15 @@ If you have problems with installations, check our [installation tips](INSTALLAT
 
 ## Examples of use
 
+### Calibration and pose estimation
+
+[Example with capturing data](Examples/example_with_recording_data.py) contains example code for setting up multiple FLIR cameras, calibration of lenses, estimation of their poses, and creation of videos.
+
+[Example with supplied data](Examples/example_with_supplied_data.py) can help you calibrate the lenses on the cameras, estimate their poses, and create of videos. The data to run the code on is stored on [Dropbox](???)
+
+### Labeling and 3D marker reconstruction
+
+The [analysis](Examples/analysis.py) goes over marking images with DeepLabCut and triangulation of the marker data.
 
 
 ## Structure of the repository
@@ -46,7 +55,7 @@ If you have problems with installations, check our [installation tips](INSTALLAT
     + camera_io.py -- File I/O functions for camera configurations.
     + camera_tools.py -- General camera functions and tools. `help(ncams.camera_tools)` has information on most configuration structures.
     + camera_calibration.py -- Camera lense calibration.
-    + camera_pose.py -- Estimation of relative positions of the cameras.
+    + camera_pose.py -- Estimation of relative positions and orientations of the cameras.
     + reconstruction.py -- Integration of marker information from multiple cameras
     + spinnaker_tools.py -- Recording from FLIR cameras.
 - Examples/
