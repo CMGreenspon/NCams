@@ -266,7 +266,7 @@ def checkerboard_calibration(cam_image_list, board_dim, world_points):
 def charuco_calibration(cam_image_list, charuco_dict, charuco_board):
     '''Calibrates cameras using a charuco board.
 
-    Attempts to find a checkerboard in each image and performs the basic calibration. It is
+    Attempts to find the given charucoboard in each image and performs the basic calibration. It is
     suggested to use the inspect_calibration tool to check if the calibration is good.
 
     Arguments:
@@ -333,9 +333,13 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board):
 
 
 def inspect_calibration(camera_config, calibration_config, image_index=None):
-    '''Inspects the calibration HOW.
+    '''Provides the user with undistorted and distorted images for them to compare and inspect.
 
-    [description]
+    Searches through images in calibration directory or uses a selected image and shows the user
+    both the undistorted and distorted images (based on given undistortion parameters) so that they
+    may inspect whether or not the calibration is sucessful. This is particularly useful for
+    variable focus lenses where OpenCV may not be able to compute distortion coefficients if there
+    is too much fisheye distortion.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
@@ -415,9 +419,11 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                             undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
                                 undistorted_image, undistorted_corners)
                         elif image_index is not None:
+                            print(' - Board not detected in requested image.')
                             example_image_annotated = np.zeros(example_image.shape)
                             undistorted_image_annotated = np.zeros(example_image.shape)
                             board_in_image = True
+                            
             elif board_type == 'checkerboard':
                 # Analyze the images to get checkerboard corners
                 board_logit, corners = cv2.findChessboardCorners(
