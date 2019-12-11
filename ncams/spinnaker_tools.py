@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 Recording from FLIR cameras.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 import os
 import threading
@@ -27,7 +27,7 @@ IMAGE_FILENAME = '{time}_image{frame}.jpeg'
 
 
 # Logging
-logging.basicConfig(level=logging.INFO)  # AS: is this needed? CMG
+logging.basicConfig(level=logging.INFO)
 
 
 # System init/denit & test
@@ -38,7 +38,7 @@ def get_system():
         system {PySpin.System instance} -- PySpin System
         cam_serials {list of numbers} -- list of camera serials. Order is not essential.
         cam_dicts {dict of camera_dict's} -- keys are serials, values are 'camera_dict', see
-            help(ncams.camera_t).
+            help(ncams.camera_tools).
     '''
     system = PySpin.System.GetInstance()
     cam_list = system.GetCameras()
@@ -128,7 +128,7 @@ def test_system_capture(camera_config):
     '''Tries to get a picture (get_image) from every camera in the system.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
     '''
@@ -271,7 +271,7 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
     '''Initializes all cameras for sequence capture.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             reference_camera_serial {number} -- serial number of the reference camera.
     Keyword Arguments:
@@ -334,7 +334,7 @@ def synced_capture_sequence(camera_config, num_images, output_folder=None, separ
     Allows up to and including 50 fps capturing.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             reference_camera_serial {number} -- serial number of the reference camera.
         num_images {number} -- number of images to capture.
@@ -399,7 +399,7 @@ def synced_capture_sequence_p(camera_config, num_images, output_folder=None, sep
     parallel process for saving images to the drive.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             reference_camera_serial {number} -- serial number of the reference camera.
         num_images {number} -- number of images to capture.
@@ -525,7 +525,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
     recording and scales linearly, so it would allow at max 45 sec recording on 64 GB RAM PC.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             reference_camera_serial {number} -- serial number of the reference camera.
         num_images {number} -- number of images to capture.
@@ -615,7 +615,7 @@ def camera_thread_capture_sequence(cam_dict, num_images, dest_folder):
     acquisition.
 
     Arguments:
-        cam_dict {camera_dict} -- see help(ncams.camera_t).
+        cam_dict {camera_dict} -- see help(ncams.camera_tools).
         num_images {number} -- number of images to capture.
         dest_folder {string} -- where to save the images.
     '''

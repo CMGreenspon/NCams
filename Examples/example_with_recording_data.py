@@ -23,7 +23,7 @@ Has following steps:
 
 Is continued in analysis.py
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 
 # %% 0 Imports
@@ -44,9 +44,10 @@ camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 
 
 # %% 2 Initialize cameras
-system, cam_serials, cam_dicts = ncams.spinnaker_t.get_system()
+system, cam_serials, cam_dicts = ncams.spinnaker_tools.get_system()
 
-# Then lets make a dictionary containing the relevant info for cameras (see help(ncams.camera_t))
+# Then lets make a dictionary containing the relevant info for cameras
+# (see help(ncams.camera_tools))
 camera_config = {
     'datetime': cdatetime,
     'serials': cam_serials,  # We want to keep track of these in case the order gets altered
@@ -76,7 +77,7 @@ for p in (BASE_DIR, camera_config['setup_path'], camera_config['calibration_path
         os.mkdir(p)
 
 # Take a sample picture from each camera so we know which camera is which
-ncams.spinnaker_t.test_system_capture(camera_config)
+ncams.spinnaker_tools.test_system_capture(camera_config)
 
 # Export config to disk
 ncams.config_to_yaml(camera_config)
@@ -87,7 +88,7 @@ ncams.config_to_yaml(camera_config)
 
 # We need a calibration object.
 # This function will create one that you can print
-ncams.camera_t.create_board(camera_config, output=True, output_format='jpg', plotting=True)
+ncams.camera_tools.create_board(camera_config, output=True, output_format='jpg', plotting=True)
 
 
 # %% 3.1
@@ -97,8 +98,8 @@ ncams.camera_t.create_board(camera_config, output=True, output_format='jpg', plo
 for icam, serial in enumerate(camera_config['serials']):
     cam_dict = camera_config['dicts'][serial]
     # First lets initalize with some appropriats settings
-    ncams.spinnaker_t.set_cam_settings(cam_dict['obj'], default=True)
-    ncams.spinnaker_t.set_cam_settings(cam_dict['obj'], frame_rate=2)
+    ncams.spinnaker_tools.set_cam_settings(cam_dict['obj'], default=True)
+    ncams.spinnaker_tools.set_cam_settings(cam_dict['obj'], frame_rate=2)
 
     cam_calib_path = os.path.join(camera_config['calibration_path'], cam_dict['name'])
     if not os.path.isdir(cam_calib_path):
@@ -110,7 +111,7 @@ for icam, serial in enumerate(camera_config['serials']):
     while not input('Are you ready for the capture? (y)\n').lower() == 'y':
         pass
 
-    ncams.spinnaker_t.capture_sequence_gui(
+    ncams.spinnaker_tools.capture_sequence_gui(
         cam_dict['obj'], num_images=50, output_path=cam_calib_path,
         file_prefix=cam_dict['name']+'_')
 
@@ -127,20 +128,20 @@ ncams.export_calibration(calibration_config)
 # (command for loading from file is in Step 5)
 # Now we will perform a one-shot pose estimation using the synced_capture function
 # Capture the images
-ncams.spinnaker_t.init_sync_settings(camera_config)
+ncams.spinnaker_tools.init_sync_settings(camera_config)
 
-ncams.spinnaker_t.synced_capture_sequence(
+ncams.spinnaker_tools.synced_capture_sequence(
     camera_config, 1,
     output_folder=camera_config['pose_estimation_path'], separate_folders=False)
 
 
 # %% 4.2
 # Do the pose estimation
-pose_estimation_config = ncams.camera_positions.one_shot_multi_PnP(
+pose_estimation_config = ncams.camera_pose.one_shot_multi_PnP(
     camera_config, calibration_config)
 
 # Does it look okay?
-ncams.camera_positions.plot_poses(pose_estimation_config)
+ncams.camera_pose.plot_poses(pose_estimation_config)
 
 # If so lets export it
 ncams.export_pose_estimation(pose_estimation_config)
@@ -155,7 +156,7 @@ camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yam
 calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
 # Does it look okay?
-ncams.camera_positions.plot_poses(pose_estimation_config)
+ncams.camera_pose.plot_poses(pose_estimation_config)
 
 
 # %% 6 Set up experiment (you can load the setup in Step 7)
@@ -210,26 +211,26 @@ session_config = ncams.import_session_config(session_full_filename)
 # useful for some low-level functions:
 cam_list = [camera_config['dicts'][serial]['obj'] for serial in camera_config['serials']]
 
-ncams.spinnaker_t.reset_cams(cam_list)
+ncams.spinnaker_tools.reset_cams(cam_list)
 for cam in cam_list:
-    ncams.spinnaker_t.set_cam_settings(cam, default=True)
+    ncams.spinnaker_tools.set_cam_settings(cam, default=True)
 print('Cameras were reset.')
 
-ncams.spinnaker_t.init_sync_settings(camera_config,
+ncams.spinnaker_tools.init_sync_settings(camera_config,
                                      frame_rate=session_config['frame_rate'], num_images=None)
 print('Cameras sync and init done.')
 
 print('Starting capture')
-ncams.spinnaker_t.synced_capture_sequence(
+ncams.spinnaker_tools.synced_capture_sequence(
     camera_config, session_config['number_frames'],
     output_folder=session_config['session_path'], separate_folders=True)
 
 print('Capture done')
-ncams.spinnaker_t.reset_cams(cam_list)
+ncams.spinnaker_tools.reset_cams(cam_list)
 
 
 # %% 9 Release cameras
-ncams.spinnaker_t.release_system(system, cam_list)
+ncams.spinnaker_tools.release_system(system, cam_list)
 
 
 # %% 10 Make images into videos

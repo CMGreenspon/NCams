@@ -25,11 +25,11 @@ def main():
     return
     calibration_config = ncams.import_calibration(camera_config)
 
-    pose_estimation_config = ncams.camera_positions.one_shot_multi_PnP(
+    pose_estimation_config = ncams.camera_pose.one_shot_multi_PnP(
         camera_config, calibration_config)
 
     # Does it look okay?
-    ncams.camera_positions.plot_poses(pose_estimation_config)
+    ncams.camera_pose.plot_poses(pose_estimation_config)
 
     # If so lets export it
     ncams.export_pose_estimation(pose_estimation_config)

@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 Functions related to triangulation of marker positions from multiple cameras.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 import os
 import csv
@@ -26,9 +26,9 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
 from . import utils
-from . import image_t
+from . import image_tools
 from . import camera_io
-from . import camera_t
+from . import camera_tools
 
 
 FIG = None
@@ -43,13 +43,13 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         session_config {dict} -- information about the session. This function uses following keys:
             session_path {str} -- location of the session data.
-        calibration_config {dict} -- see help(ncams.camera_t).
-        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        calibration_config {dict} -- see help(ncams.camera_tools).
+        pose_estimation_config {dict} -- see help(ncams.camera_tools).
         labeled_csv_path {str} -- locations of csv's with marked points.
     Keyword Arguments:
         threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
@@ -175,7 +175,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     # Make the projection matrices
     projection_matrices = []
     for icam in range(num_cameras):
-        projection_matrices.append(camera_t.make_projection_matrix(
+        projection_matrices.append(camera_tools.make_projection_matrix(
             camera_matrices[icam], world_orientations[icam], world_locations[icam]))
 
     # Triangulate the points
@@ -250,13 +250,13 @@ def make_triangulation_videos(camera_config, session_config, calibration_config,
     """Makes a video based on triangulated marker positions.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         session_config {dict} -- information about the session. This function uses following keys:
             session_path {str} -- location of the session data.
-        calibration_config {dict} -- see help(ncams.camera_t).
-        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        calibration_config {dict} -- see help(ncams.camera_tools).
+        pose_estimation_config {dict} -- see help(ncams.camera_tools).
         triangulated_csv {str} -- location of csv with marked points.
     Keyword Arguments:
         triangulated_path {str} -- where you would like the 3d video and images to be stored.
@@ -389,7 +389,7 @@ def make_triangulation_videos(camera_config, session_config, calibration_config,
         # Make a video of it
         print('Making a video for {}'.format(cam_dicts[cam_serial]['name']))
         output_image_list = utils.get_image_list(path=output_path)
-        image_t.images_to_video(
+        image_tools.images_to_video(
             output_image_list,
             os.path.join(triangulated_path, cam_dicts[cam_serial]['name'] + '.mp4'), fps=fps)
 
@@ -433,13 +433,13 @@ def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_
 
     Arguments:
         cam_serial {int} -- camera serial of the camera to plot.
-        camera_config {dict} -- see help(ncams.camera_t). This function uses following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         session_config {dict} -- information about the session. This function uses following keys:
             session_path {str} -- location of the session data.
-        calibration_config {dict} -- see help(ncams.camera_t).
-        pose_estimation_config {dict} -- see help(ncams.camera_t).
+        calibration_config {dict} -- see help(ncams.camera_tools).
+        pose_estimation_config {dict} -- see help(ncams.camera_tools).
         triangulated_csv {str} -- location of csv with marked points.
     Keyword Arguments:
         overwrite_temp {bool} -- automatically overwrite folder for holding temporary images.

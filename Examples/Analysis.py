@@ -11,7 +11,7 @@ Intended to be used in an interactive environment (e.g. Spyder).
 Has following steps:
 0. Import modules
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 
 # %% 0 Imports
@@ -133,6 +133,6 @@ ncams.make_triangulation_videos(
 # %% 5 Interactive demonstration with a slider
 # This sometimes breaks in Spyder, try running as an executable, commenting out parts of
 # 'analysis.py' that are not needed.
-ncams.reconstruction_t.interactive_3d_plot(
+ncams.reconstruction.interactive_3d_plot(
     camera_config['serials'][0], camera_config, session_config, triangulated_csv,
     num_frames_limit=None)

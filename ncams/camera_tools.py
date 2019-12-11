@@ -117,7 +117,7 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
     calibration and pose estimation.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
             check_size {number} -- height and width of a single check mark, mm.

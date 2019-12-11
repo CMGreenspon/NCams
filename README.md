@@ -12,7 +12,7 @@ This project's code is available on [GitHub](https://github.com/CMGreenspon/NCam
 
 Hardware:
 - NVIDIA videocard that supports CUDA
-- FLIR cameras (if using provided [tools](ncams/spinnaker_t.py) to record)
+- FLIR cameras (if using provided [tools](ncams/spinnaker_tools.py) to record)
 
 Software:
 - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
@@ -42,13 +42,13 @@ If you have problems with installations, check our [installation tips](INSTALLAT
 
 - ncams/ -- imported module
     + utils.py -- Utilities for general use, e.g. sort and file search.
-    + image_t.py -- Toolbox for working with images and making videos.
+    + image_tools.py -- Toolbox for working with images and making videos.
     + camera_io.py -- File I/O functions for camera configurations.
-    + camera_t.py -- General camera functions and tools.
+    + camera_tools.py -- General camera functions and tools. `help(ncams.camera_tools)` has information on most configuration structures.
     + camera_calibration.py -- Camera lense calibration.
-    + camera_positions.py -- Estimation of relative positions of the cameras.
-    + reconstruction_t.py -- Integration of marker information from multiple cameras
-    + spinnaker_t.py -- Recording from FLIR cameras.
+    + camera_pose.py -- Estimation of relative positions of the cameras.
+    + reconstruction.py -- Integration of marker information from multiple cameras
+    + spinnaker_tools.py -- Recording from FLIR cameras.
 - Examples/
     + example_with_recording_data.py -- Record images with FLIR cameras, setup camera parameters, make videos in interactive environment.
     + example_with_supplied_data.py -- Use provided example or own images to setup camera parameters and make videos in interactive environment.

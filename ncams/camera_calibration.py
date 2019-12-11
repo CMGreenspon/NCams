@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 Functions related to camera calibration.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 
 import os
@@ -18,9 +18,9 @@ import matplotlib
 import matplotlib.pyplot as mpl_pp
 
 from . import utils
-from . import image_t
+from . import image_tools
 from . import camera_io
-from . import camera_t
+from . import camera_tools
 
 
 def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=False):
@@ -32,7 +32,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
     cam_calibration folder a pickle file containing all calibrations will be saved.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
@@ -52,7 +52,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
 
     Output:
         calibration_config {dict} -- information on camera calibration and the results of said
-                calibraion. See help(ncams.camera_t). Should have following keys:
+                calibraion. See help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
@@ -61,7 +61,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                 information in camera_config.
             filename {string} -- name of the pickle file to store the config in/load from.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
-                'camera_calib_dict', see help(ncams.camera_t).
+                'camera_calib_dict', see help(ncams.camera_tools).
     '''
     # Unpack the dict
     serials = camera_config['serials']
@@ -173,14 +173,14 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
 
                 # Get coefficients and matrices for each camera
                 if camera_config['board_type'] == 'checkerboard':
-                    world_points = camera_t.create_world_points(camera_config)
+                    world_points = camera_tools.create_world_points(camera_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
                      distortion_coefficients) = checkerboard_calibration(
                          cam_image_list, camera_config['board_dim'], world_points)
                 elif camera_config['board_type'] == 'charuco':
                     # Create the board - world points included
-                    charuco_dict, charuco_board, _ = camera_t.create_board(camera_config)
+                    charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
                      distortion_coefficients) = charuco_calibration(cam_image_list, charuco_dict,
@@ -342,7 +342,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     is too much fisheye distortion.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict', see
                 below.
@@ -398,7 +398,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
             new_cam_mat = cv2.getOptimalNewCameraMatrix(cam_mat, dist_coeffs, (w, h), 1, (w, h))[0]
             if board_type == 'charuco':
                 # Detect the markers
-                charuco_dict, charuco_board, _ = camera_t.create_board(camera_config)
+                charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
                 corners, ids, rejected_points = cv2.aruco.detectMarkers(example_image, charuco_dict)
                 if ids is not None:
                     # Find the checkerboard corners
@@ -414,7 +414,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                             # Undistort the corners and image
                             undistorted_corners = cv2.undistortPoints(
                                 example_corners, cam_mat, dist_coeffs, P=new_cam_mat)
-                            undistorted_image = image_t.undistort_image(
+                            undistorted_image = image_tools.undistort_image(
                                 example_image, calibration_config['dicts'][serial])
                             undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
                                 undistorted_image, undistorted_corners)
@@ -435,7 +435,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                         example_image, (board_dim[0]-1, board_dim[1]-1), corners, board_logit)
                     undistorted_corners = cv2.undistortPoints(
                         corners, cam_mat, dist_coeffs, P=new_cam_mat)
-                    undistorted_image = image_t.undistort_image(
+                    undistorted_image = image_tools.undistort_image(
                         example_image, calibration_config['dicts'][serial])
                     undistorted_image_annotated = cv2.drawChessboardCorners(
                         undistorted_image, (board_dim[0]-1, board_dim[1]-1), undistorted_corners,

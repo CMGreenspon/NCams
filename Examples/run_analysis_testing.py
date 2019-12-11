@@ -71,7 +71,7 @@ def main():
     #     triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
 
     # %% 5 Interactive demonstration with a slider
-    # ncams.reconstruction_t.interactive_3d_plot(
+    # ncams.reconstruction.interactive_3d_plot(
     #     camera_config['serials'][0], camera_config, session_config, triangulated_csv,
     #     num_frames_limit=None)
 

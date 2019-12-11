@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 Functions related to estimation of relative positions of the cameras.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 
 import os
@@ -22,7 +22,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 
 from . import utils
 from . import camera_io
-from . import camera_t
+from . import camera_tools
 
 
 def charuco_board_detector(camera_config):
@@ -31,7 +31,7 @@ def charuco_board_detector(camera_config):
     Should be run after cameras have been calibrated.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             pose_estimation_path {string} -- directory where pose estimation information is stored.
@@ -47,7 +47,7 @@ def charuco_board_detector(camera_config):
 
     # Get number of cameras
     num_cameras = len(serials)
-    charuco_dict, charuco_board, _ = camera_t.create_board(camera_config)
+    charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
 
     # Get list of images for each camera
     cam_image_list = []
@@ -101,7 +101,7 @@ def checkerboard_detector(camera_config):
     Should be run after cameras have been calibrated.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
@@ -290,13 +290,13 @@ def one_shot_multi_PnP(camera_config, calibration_config):
     [Long description]
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             image_size {(height, width)} -- size of the images captured by the cameras.
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             pose_estimation_path {string} -- directory where pose estimation information is stored.
-        calibration_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
@@ -304,7 +304,7 @@ def one_shot_multi_PnP(camera_config, calibration_config):
     Output:
         pose_estimation_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
-                help(ncams.camera_t). Should have following keys:
+                help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
@@ -326,8 +326,8 @@ def one_shot_multi_PnP(camera_config, calibration_config):
     distortion_coefficientss = calibration_config['distortion_coefficientss']
     pose_estimation_path = camera_config['pose_estimation_path']
 
-    charuco_dict, charuco_board, _ = camera_t.create_board(camera_config)
-    world_points = camera_t.create_world_points(camera_config)
+    charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
+    world_points = camera_tools.create_world_points(camera_config)
     h, w = camera_config['image_size']
     im_list = utils.get_image_list(path=pose_estimation_path)
 
@@ -406,13 +406,13 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     than with the one_shot method.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             reference_camera_serial {number} -- serial number of the reference camera.
             image_size {(height, width)} -- size of the images captured by the cameras.
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        calibration_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
@@ -422,7 +422,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     Output:
         pose_estimation_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
-                help(ncams.camera_t). Should have following keys:
+                help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
@@ -450,7 +450,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     cam_idx = np.arange(0, num_cameras)
     secondary_idx = cam_idx[cam_idx != ireference_cam] # Get the indices of the non-primary cameras
     # Get the world points
-    world_points = camera_t.create_world_points(camera_config)
+    world_points = camera_tools.create_world_points(camera_config)
     corner_idx = np.arange(0, len(world_points))
 
     if camera_config['board_type'] == 'charuco':
@@ -573,7 +573,7 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
     Output:
         pose_estimation_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
-                help(ncams.camera_t). Should have following keys:
+                help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
@@ -688,7 +688,7 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     scaling factor as necessary.
 
     Arguments:
-        pose_estimation_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        pose_estimation_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
@@ -713,7 +713,7 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     cam_verts = [[] for _ in range(num_cameras)]
     for icam in range(num_cameras):
         # Get the vertices to plot appropriate to the translation and rotation
-        cam_verts[icam], cam_center = camera_t.create_camera(
+        cam_verts[icam], cam_center = camera_tools.create_camera(
             scale_factor=scale_factor,
             rotation_vector=world_orientations[icam],
             translation_vector=world_locations[icam])

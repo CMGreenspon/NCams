@@ -13,7 +13,7 @@ The images are available here:
 ??????
 and BASE_DIR has to point at that data.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 
 Intended to be used in an interactive environment (e.g. Spyder).
 Has following steps:
@@ -56,11 +56,11 @@ ncams.export_calibration(calibration_config)
 
 
 # %% 3 Do the pose estimation
-pose_estimation_config = ncams.camera_positions.one_shot_multi_PnP(
+pose_estimation_config = ncams.camera_pose.one_shot_multi_PnP(
     camera_config, calibration_config)
 
 # Does it look okay?
-ncams.camera_positions.plot_poses(pose_estimation_config)
+ncams.camera_pose.plot_poses(pose_estimation_config)
 
 # If so lets export it
 ncams.export_pose_estimation(pose_estimation_config)
@@ -75,7 +75,7 @@ camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yam
 calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
 # Does it look okay?
-ncams.camera_positions.plot_poses(pose_estimation_config)
+ncams.camera_pose.plot_poses(pose_estimation_config)
 
 
 # %% 5 Load a session config from a file

@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 File I/O functions for cameras.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 
 import os
@@ -26,7 +26,7 @@ def config_to_yaml(camera_config, setup_path=None, setup_filename=None):
 
     Arguments:
         camera_config {dict} -- information about camera configuration. For the full description,
-                see help(ncams.camera_t). This function uses following keys:
+                see help(ncams.camera_tools). This function uses following keys:
             setup_path {string} -- directory where the camera setup is located, including
                 config.yaml.
             setup_filename {string} -- config has been loaded from os.path.join(
@@ -87,7 +87,7 @@ def yaml_to_config(filename):
         filename {string} -- filename of the YAML camera_config file.
 
     Output:
-        camera_config {dict} -- see help(ncams.camera_t).
+        camera_config {dict} -- see help(ncams.camera_tools).
     '''
     with open(filename, 'r') as yaml_file:
         camera_config = yaml.safe_load(yaml_file)
@@ -147,7 +147,7 @@ def export_calibration(calibration_config, path=None, filename=None):
     Does NOT export the 'dicts' key because of redundancy.
 
     Arguments:
-        calibration_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             path {string} -- directory where calibration information is stored. Should be same as
                 information in camera_config.
             filename {string} -- name of the YAML file to store the config in/load from.
@@ -195,7 +195,7 @@ def import_calibration(camera_config):
             path {string} -- directory where calibration information is stored. Should be same as
                 information in camera_config.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
-                'camera_calib_dict', see help(ncams.camera_t).
+                'camera_calib_dict', see help(ncams.camera_tools).
             filename {string} -- name of the pickle file to store the config in/load from.
     '''
     # Get the path name
@@ -244,7 +244,7 @@ def export_pose_estimation(pose_estimation_config, path=None, filename=None):
 
     Arguments:
         pose_estimation_config {dict} -- information on estimation of relative position of all
-                cameras and the results of said pose estimation. See help(ncams.camera_t). Should
+                cameras and the results of said pose estimation. See help(ncams.camera_tools). Should
                 have following keys:
             path {string} -- directory where pose estimation information is stored. Should be same as
                 information in camera_config.
@@ -277,7 +277,7 @@ def import_pose_estimation(camera_config):
     Reorders the loaded information to adhere to 'serials' in camera_config.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             pose_estimation_path {string} -- directory where pose estimation information is stored.
             pose_estimation_filename {string} -- name of the pickle file to store the pose
@@ -332,7 +332,7 @@ def load_camera_config(camera_config):
     '''Safely loads pose estimation and camera calibration from files.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_t). Should have following keys:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             calibration_path {string} -- directory where calibration information is stored.
             calibration_filename {string} -- name of the pickle file to store the calibration
@@ -341,8 +341,8 @@ def load_camera_config(camera_config):
             pose_estimation_filename {string} -- name of the pickle file to store the pose
                 estimation config in/load from.
     Output:
-        calibration_config {dict} -- see help(ncams.camera_t), None if not found
-        pose_estimation_config {dict} -- see help(ncams.camera_t), None if not found
+        calibration_config {dict} -- see help(ncams.camera_tools), None if not found
+        pose_estimation_config {dict} -- see help(ncams.camera_tools), None if not found
     '''
     try:
         calibration_config = import_calibration(camera_config)

@@ -7,7 +7,7 @@ https://github.com/CMGreenspon/NCams
 
 Functions for working with images and making videos.
 
-For more details on the camera data structures and dicts, see help(ncams.camera_t).
+For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 import os
 
@@ -23,7 +23,7 @@ def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, ou
 
     Arguments:
         video_filename {string} -- filename of the video.
-        camera_calib_dict {dict} -- see help(ncams.camera_t). Sould have following keys:
+        camera_calib_dict {dict} -- see help(ncams.camera_tools). Sould have following keys:
             distortion_coefficients {np.array} -- distortion coefficients for the camera.
             camera_matrix {np.array} -- camera calibration matrifor the camera.
     Keyword Arguments:
@@ -66,7 +66,7 @@ def undistort_image(image, camera_calib_dict, crop_and_resize=False):
 
     Arguments:
         image {np.array XxYxcolor} --  image array.
-        camera_calib_dict {dict} -- see help(ncams.camera_t). Sould have following keys:
+        camera_calib_dict {dict} -- see help(ncams.camera_tools). Sould have following keys:
             distortion_coefficients {np.array} -- distortion coefficients for the camera.
             camera_matrix {np.array} -- camera calibration matrifor the camera.
     Keyword Arguments:
