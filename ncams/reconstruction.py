@@ -88,9 +88,16 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         list_of_csvs += glob.glob(os.path.join(
             labeled_csv_path, cam_dicts[cam_serial]['name']+sstr))
     if not len(list_of_csvs) == len(cam_serials):
-        print('Detected {} csvs in {}{} while was provided with {} serials.'.format(
-            len(list_of_csvs), labeled_csv_path,
-            '' if iteration is None else ' with iteration #{}'.format(iteration), len(cam_serials)))
+        if iteration is not None:
+            raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
+                  ' serials.'.format(
+                len(list_of_csvs), labeled_csv_path, iteration, len(cam_serials)))
+        iterations = set()
+        for csv_f in list_of_csvs:
+            iterations.add(int(re.search('_[0-9]+.csv$', csv_f)[0][1:-4]))
+        print('Detected {} csvs in {} while was provided with {} serials.'
+              ' Found iterations: {}'.format(
+            len(list_of_csvs), labeled_csv_path, len(cam_serials), sorted(iterations)))
 
         uinput_string = ('Provide iteration number to use: ')
         uinput = input(uinput_string)

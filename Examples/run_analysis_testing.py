@@ -61,7 +61,7 @@ def main():
     if not os.path.exists(triangulated_path):
         os.mkdir(triangulated_path)
 
-    method = 'best_pair'
+    method = 'full_rank'
     triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
     threshold = 0.9
     ncams.triangulate(
