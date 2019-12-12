@@ -10,6 +10,7 @@ Functions related to triangulation of marker positions from multiple cameras.
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 import os
+import re
 import csv
 import shutil
 import multiprocessing
@@ -39,7 +40,8 @@ SLIDER = None
 
 def triangulate(camera_config, session_config, calibration_config, pose_estimation_config,
                 labeled_csv_path, threshold=0.9, method='full_rank',
-                best_pair_n=2, num_frames_limit=None, output_csv=None):
+                best_pair_n=2, num_frames_limit=None, output_csv=None,
+                iteration=None):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
@@ -61,8 +63,9 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         best_pair_n {number} -- how many cameras to use when best_pair method is used. (default: 2)
         num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
             for testing. If None, then all frames will be analyzed. (default: None)
-        output_csv {type} -- file to save the triangulated points into.
+        output_csv {str} -- file to save the triangulated points into.
             (default: os.path.join(session_path, 'triangulated_points.csv'))]
+        iteration {int} -- look for csv's with this iteration number. (default: {None})
     Output:
         output_csv {str} -- location of the output csv with all triangulated points.
     '''
@@ -78,12 +81,24 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     # Get data files
     list_of_csvs = []
     for cam_serial in cam_serials:
+        if iteration is None:
+            sstr = '*.csv'
+        else:
+            sstr = '*_{}.csv'.format(iteration)
         list_of_csvs += glob.glob(os.path.join(
-            labeled_csv_path, cam_dicts[cam_serial]['name']+'*.csv'))
+            labeled_csv_path, cam_dicts[cam_serial]['name']+sstr))
     if not len(list_of_csvs) == len(cam_serials):
-        print('Detected {} csvs while was provided with {} serials. Quitting'.format(
-            len(list_of_csvs), len(cam_serials)))
-        raise ValueError
+        print('Detected {} csvs in {}{} while was provided with {} serials.'.format(
+            len(list_of_csvs), labeled_csv_path,
+            '' if iteration is None else ' with iteration #{}'.format(iteration), len(cam_serials)))
+
+        uinput_string = ('Provide iteration number to use: ')
+        uinput = input(uinput_string)
+        list_of_csvs = [i for i in list_of_csvs if re.fullmatch('.*_{}.csv'.format(uinput), i)]
+        if not len(list_of_csvs) == len(cam_serials):
+            raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
+                  ' serials.'.format(
+                len(list_of_csvs), labeled_csv_path, uinput, len(cam_serials)))
 
     # Load them
     csv_arrays = [[] for _ in list_of_csvs]
