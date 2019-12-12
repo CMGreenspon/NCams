@@ -30,6 +30,8 @@ import ncams
 
 
 BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
+
 
 # %% 1 Load configurations
 cdatetime = '2019.12.09_16.23.02'

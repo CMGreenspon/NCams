@@ -12,6 +12,7 @@ import ncams
 
 
 BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
 
 
 def main():
@@ -43,34 +44,34 @@ def main():
     if not os.path.isdir(labeled_csv_path):
         os.mkdir(labeled_csv_path)
 
-    print('training network')
-    deeplabcut.train_network(config_path, gputouse=0, saveiters=100, maxiters=100000,
-                             displayiters=10)
+    # print('training network')
+    # deeplabcut.train_network(config_path, gputouse=0, saveiters=100, maxiters=100000,
+    #                          displayiters=10)
 
-    print('analyzing videos')
-    deeplabcut.analyze_videos(config_path, training_videos,
-                              gputouse=0, save_as_csv=True, destfolder=labeled_csv_path)
+    # print('analyzing videos')
+    # deeplabcut.analyze_videos(config_path, training_videos,
+    #                           gputouse=0, save_as_csv=True, destfolder=labeled_csv_path)
 
-    print('making labeled videos')
-    deeplabcut.create_labeled_video(config_path, training_videos, destfolder=labeled_csv_path,
-                                    draw_skeleton=True)
+    # print('making labeled videos')
+    # deeplabcut.create_labeled_video(config_path, training_videos, destfolder=labeled_csv_path,
+    #                                 draw_skeleton=True)
 
     # %% 3 Triangulation from multiple cameras
-    # triangulated_path = os.path.join(proj_path, 'triangulated')
-    # if not os.path.exists(triangulated_path):
-    #     os.mkdir(triangulated_path)
+    triangulated_path = os.path.join(proj_path, 'triangulated')
+    if not os.path.exists(triangulated_path):
+        os.mkdir(triangulated_path)
 
-    # method = 'best_pair'
-    # triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
-    # threshold = 0.9
-    # ncams.triangulate(
-    #     camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
-    #     threshold=threshold, method=method, output_csv=triangulated_csv)
+    method = 'best_pair'
+    triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
+    threshold = 0.9
+    ncams.triangulate(
+        camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
+        threshold=threshold, method=method, output_csv=triangulated_csv)
 
     # %% 4 Make markered videos
-    # ncams.make_triangulation_videos(
-    #     camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
-    #     triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
+    ncams.make_triangulation_videos(
+        camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
+        triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
 
     # %% 5 Interactive demonstration with a slider
     # ncams.reconstruction.interactive_3d_plot(
