@@ -66,6 +66,8 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         output_csv {str} -- file to save the triangulated points into.
             (default: os.path.join(session_path, 'triangulated_points.csv'))]
         iteration {int} -- look for csv's with this iteration number. (default: {None})
+        undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
+            {False})
     Output:
         output_csv {str} -- location of the output csv with all triangulated points.
     '''
@@ -74,7 +76,9 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     session_path = session_config['session_path']
 
     camera_matrices = calibration_config['camera_matrices']
-    distortion_coefficientss = calibration_config['distortion_coefficientss']
+    if not undistorted_data:
+        distortion_coefficientss = calibration_config['distortion_coefficientss']
+
     world_locations = pose_estimation_config['world_locations']
     world_orientations = pose_estimation_config['world_orientations']
 
@@ -157,18 +161,19 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         thresholds.append(threshold_array)
 
     # Undistort the points and then threshold
-    output_coordinates = []
+    # output_coordinates = []
     output_coordinates_filtered = []
     for icam in range(num_cameras):
         # Get the optimal camera matrix
-        optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
-            camera_matrices[icam],
-            distortion_coefficientss[icam],
-            (camera_config['image_size'][1], camera_config['image_size'][0]),
-            1,
-            (camera_config['image_size'][1], camera_config['image_size'][0]))
+        if not undistorted_data:
+            optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
+                camera_matrices[icam],
+                distortion_coefficientss[icam],
+                (camera_config['image_size'][1], camera_config['image_size'][0]),
+                1,
+                (camera_config['image_size'][1], camera_config['image_size'][0]))
 
-        output_array = np.empty((num_frames, 2, num_bodyparts))
+        # output_array = np.empty((num_frames, 2, num_bodyparts))
         filtered_output_array = np.empty((num_frames, 2, num_bodyparts))
         # The filtered one needs NaN points so we know which to ignore
         filtered_output_array.fill(np.nan)
@@ -178,11 +183,14 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
             # Get the distorted points
             distorted_points = image_coordinates[icam][:, :, bodypart]
             # Undistort them
-            undistorted_points = cv2.undistortPoints(
-                distorted_points, camera_matrices[icam],
-                distortion_coefficientss[icam], P=optimal_matrix)
+            if undistorted_data:
+                undistorted_points = distorted_points
+            else:
+                undistorted_points = cv2.undistortPoints(
+                    distorted_points, camera_matrices[icam],
+                    distortion_coefficientss[icam], P=optimal_matrix)
             # Add to the unfiltered array
-            output_array[:, :, bodypart] = undistorted_points[:, 0, :]
+            # output_array[:, :, bodypart] = undistorted_points[:, 0, :]
             # Get threshold filter
             bp_thresh = thresholds[icam][:, bodypart].astype(np.float32) > threshold
             thresh_idx = np.where(bp_thresh == 1)[0]
@@ -190,7 +198,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
             for idx in thresh_idx:
                 filtered_output_array[idx, :, bodypart] = undistorted_points[idx, 0, :]
 
-        output_coordinates.append(output_array)
+        # output_coordinates.append(output_array)
         output_coordinates_filtered.append(filtered_output_array)
 
     # Triangulation
@@ -228,7 +236,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
             if np.sum(cams_detecting) < 2:
                 continue
 
-            # Perform the triangulation - adapted from DeepFly3D
+            # Perform the triangulation
             decomp_matrix = np.empty((np.sum(cams_detecting)*2, 4))
             for decomp_idx, cam in enumerate(cam_idx):
                 point_mat = cam_image_points[:, cam]
@@ -265,10 +273,10 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     return output_csv
 
 
-def make_triangulation_videos(camera_config, session_config, calibration_config,
-                              pose_estimation_config, triangulated_csv,
+def make_triangulation_videos(camera_config, session_config, triangulated_csv,
                               triangulated_path=None, overwrite_temp=False,
-                              num_frames_limit=None, parallel=None):
+                              num_frames_limit=None, parallel=None,
+                              undistorted_data=False):
     """Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -277,8 +285,6 @@ def make_triangulation_videos(camera_config, session_config, calibration_config,
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         session_config {dict} -- information about the session. This function uses following keys:
             session_path {str} -- location of the session data.
-        calibration_config {dict} -- see help(ncams.camera_tools).
-        pose_estimation_config {dict} -- see help(ncams.camera_tools).
         triangulated_csv {str} -- location of csv with marked points.
     Keyword Arguments:
         triangulated_path {str} -- where you would like the 3d video and images to be stored.
@@ -290,6 +296,8 @@ def make_triangulation_videos(camera_config, session_config, calibration_config,
         parallel {number or None} parallelize the image creation. If integer, create that many
             processes. Significantly speeds up generation. If None, do not parallelize. (default:
             {None})
+        undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
+            {False})
     """
     matplotlib.use('Agg')
 
@@ -297,11 +305,6 @@ def make_triangulation_videos(camera_config, session_config, calibration_config,
     cam_dicts = camera_config['dicts']
     session_path = session_config['session_path']
     fps = session_config['frame_rate']
-
-    camera_matrices = calibration_config['camera_matrices']
-    distortion_coefficientss = calibration_config['distortion_coefficientss']
-    world_locations = pose_estimation_config['world_locations']
-    world_orientations = pose_estimation_config['world_orientations']
 
     with open(triangulated_csv, 'r') as f:
         triagreader = csv.reader(f)

@@ -138,7 +138,7 @@ ncams.triangulate(
 # %% 4 Make markered videos
 # In big videos it takes awhile, try running with 'parallel' keyword outside of interactive Python.
 ncams.make_triangulation_videos(
-    camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
+    camera_config, session_config, triangulated_csv,
     triangulated_path=triangulated_path, overwrite_temp=True)
 
 # %% 5 Interactive demonstration with a slider

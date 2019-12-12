@@ -70,7 +70,7 @@ def main():
 
     # %% 4 Make markered videos
     ncams.make_triangulation_videos(
-        camera_config, session_config, calibration_config, pose_estimation_config, triangulated_csv,
+        camera_config, session_config, triangulated_csv,
         triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
 
     # %% 5 Interactive demonstration with a slider
