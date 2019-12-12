@@ -43,15 +43,9 @@ def main():
     if not os.path.isdir(labeled_csv_path):
         os.mkdir(labeled_csv_path)
 
-    analyzed_training_videos = []
-    for serial in camera_config['serials']:
-        analyzed_training_videos.append(os.path.join(
-            proj_path, 'labeled_videos',
-            'cam{}DLC_resnet50_CMGPretrainedNetworkDec3shuffle1_250000_labeled.mp4'.format(serial)))
-    analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
-
     print('training network')
-    deeplabcut.train_network(config_path, gputouse=0, saveiters=25, maxiters=100)
+    deeplabcut.train_network(config_path, gputouse=0, saveiters=100, maxiters=100000,
+                             displayiters=10)
 
     print('analyzing videos')
     deeplabcut.analyze_videos(config_path, training_videos,

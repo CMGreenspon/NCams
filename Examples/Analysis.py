@@ -113,6 +113,8 @@ analyzed_training_videos_dir = [os.path.join(proj_path, 'labeled_videos')]
 deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=False,
                           userfeedback=False)
 
+deeplabcut.label_frames(config_path)
+
 deeplabcut.merge_datasets(config_path)
 
 deeplabcut.create_training_dataset(config_path)
