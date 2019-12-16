@@ -189,7 +189,7 @@ def import_calibration(camera_config):
                 calibraion. Order of each list MUST adhere to calibration_config['serials'] AND
                 camera_config['serials']. Should have following keys:
             serials {list of numbers} -- list of camera serials.
-            distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+            distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- camera calibration matrices for each camera
             reprojection_errors {list of numbers} -- reprojection errors for each camera
             path {string} -- directory where calibration information is stored. Should be same as
@@ -209,7 +209,7 @@ def import_calibration(camera_config):
     calibration_config = deepcopy(_calibration_config)
     # we want to keep whatever other info was stored just in case
     calibration_config['serials'] = []
-    calibration_config['distortion_coefficientss'] = []
+    calibration_config['distortion_coefficients'] = []
     calibration_config['camera_matrices'] = []
     calibration_config['reprojection_errors'] = []
     calibration_config['dicts'] = {}
@@ -219,8 +219,8 @@ def import_calibration(camera_config):
 
         calibration_config['serials'].append(
             _calibration_config['serials'][idx])
-        calibration_config['distortion_coefficientss'].append(
-            _calibration_config['distortion_coefficientss'][idx])
+        calibration_config['distortion_coefficients'].append(
+            _calibration_config['distortion_coefficients'][idx])
         calibration_config['camera_matrices'].append(
             _calibration_config['camera_matrices'][idx])
         calibration_config['reprojection_errors'].append(
@@ -228,7 +228,7 @@ def import_calibration(camera_config):
 
         calibration_config['dicts'][serial] = {
             'serial': serial,
-            'distortion_coefficients': _calibration_config['distortion_coefficientss'][idx],
+            'distortion_coefficients': _calibration_config['distortion_coefficients'][idx],
             'camera_matrix': _calibration_config['camera_matrices'][idx],
             'reprojection_error': _calibration_config['reprojection_errors'][idx]
         }

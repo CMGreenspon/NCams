@@ -11,7 +11,6 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 """
 
 import os
-import easygui
 
 import cv2
 import numpy as np
@@ -159,7 +158,7 @@ def checkerboard_detector(camera_config):
 
 
 #################### Automated calibration
-def multi_camera_pose_estimation():
+def multi_camera_pose_estimation(camera_config):
     '''[Short description]
 
     [Long description]
@@ -232,7 +231,7 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             pose_estimation_path {string} -- directory where pose estimation information is stored.
         calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
-            distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+            distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see below.
@@ -258,7 +257,7 @@ def one_shot_multi_PnP(camera_config, calibration_config):
     names = [camera_config['dicts'][serial]['name'] for serial in camera_config['serials']]
     pose_estimation_path = camera_config['pose_estimation_path']
     camera_matrices = calibration_config['camera_matrices']
-    distortion_coefficientss = calibration_config['distortion_coefficientss']
+    distortion_coefficients = calibration_config['distortion_coefficients']
     pose_estimation_path = camera_config['pose_estimation_path']
 
     charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
@@ -292,11 +291,11 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             corners, ids, world_image, charuco_board)
         # Get the optimal camera matrix
         temp_optim, _ = cv2.getOptimalNewCameraMatrix(camera_matrices[icam],
-                                                      distortion_coefficientss[icam],
+                                                      distortion_coefficients[icam],
                                                       (w, h), 1, (w, h))
         # Undistort image points
         undistorted_points = cv2.undistortPoints(
-            np.vstack(charuco_corners), camera_matrices[icam], distortion_coefficientss[icam],
+            np.vstack(charuco_corners), camera_matrices[icam], distortion_coefficients[icam],
             P=temp_optim)
         # Match to world points
         filtered_world_points = []
@@ -307,7 +306,7 @@ def one_shot_multi_PnP(camera_config, calibration_config):
         # PnP
         _, rvec, tvec = cv2.solvePnP(
             filtered_world_points, undistorted_points,
-            camera_matrices[icam], distortion_coefficientss[icam])
+            camera_matrices[icam], distortion_coefficients[icam])
         # Append
         world_locations.append(tvec)
         world_orientations.append(rvec)
@@ -348,7 +347,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
-            distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+            distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see below.
@@ -375,7 +374,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     '''
     num_cameras = len(camera_config['serials'])
     camera_matrices = calibration_config['camera_matrices']
-    distortion_coefficientss = calibration_config['distortion_coefficients']
+    distortion_coefficients = calibration_config['distortion_coefficients']
 
     # Determine the reference camera
     ireference_cam = camera_config['serials'].index(camera_config['reference_camera_serial'])
@@ -425,11 +424,11 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     optimal_matrices, undistorted_points = [], []
     for icam in range(num_cameras):
         temp_optim, _ = cv2.getOptimalNewCameraMatrix(
-            camera_matrices[icam], distortion_coefficientss[icam], (w, h), 1, (w, h))
+            camera_matrices[icam], distortion_coefficients[icam], (w, h), 1, (w, h))
         optimal_matrices.append(temp_optim)
         undistorted_points.append(cv2.undistortPoints(
             np.vstack(filtered_image_points[icam]), camera_matrices[icam],
-            distortion_coefficientss[icam], P=optimal_matrices[icam]))
+            distortion_coefficients[icam], P=optimal_matrices[icam]))
 
     # Perform the initial stereo calibration
     secondary_cam = secondary_idx[0]
@@ -440,8 +439,8 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     reprojection_error, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
         filtered_object_points, filtered_image_points[ireference_cam],
         filtered_image_points[secondary_cam],
-        camera_matrices[ireference_cam], distortion_coefficientss[ireference_cam],
-        camera_matrices[secondary_cam], distortion_coefficientss[secondary_cam],
+        camera_matrices[ireference_cam], distortion_coefficients[ireference_cam],
+        camera_matrices[secondary_cam], distortion_coefficients[secondary_cam],
         (w, h), None, None, None, criteria, stereo_calib_flags)
 
     if reprojection_error > 1:
@@ -469,7 +468,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     for icam in range(num_cameras):
         _, rvec, tvec = cv2.solvePnP(
             np.transpose(triangulated_points), np.vstack(filtered_image_points[icam]),
-            camera_matrices[icam], distortion_coefficientss[icam])
+            camera_matrices[icam], distortion_coefficients[icam])
         world_orientations.append(rvec)
         world_locations.append(tvec)
 

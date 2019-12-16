@@ -77,7 +77,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
 
     camera_matrices = calibration_config['camera_matrices']
     if not undistorted_data:
-        distortion_coefficientss = calibration_config['distortion_coefficientss']
+        distortion_coefficients = calibration_config['distortion_coefficients']
 
     world_locations = pose_estimation_config['world_locations']
     world_orientations = pose_estimation_config['world_orientations']
@@ -168,7 +168,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         if not undistorted_data:
             optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
                 camera_matrices[icam],
-                distortion_coefficientss[icam],
+                distortion_coefficients[icam],
                 (camera_config['image_size'][1], camera_config['image_size'][0]),
                 1,
                 (camera_config['image_size'][1], camera_config['image_size'][0]))
@@ -188,7 +188,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
             else:
                 undistorted_points = cv2.undistortPoints(
                     distorted_points, camera_matrices[icam],
-                    distortion_coefficientss[icam], P=optimal_matrix)
+                    distortion_coefficients[icam], P=optimal_matrix)
             # Add to the unfiltered array
             # output_array[:, :, bodypart] = undistorted_points[:, 0, :]
             # Get threshold filter

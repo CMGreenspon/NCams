@@ -41,7 +41,7 @@ Important structures:
             calibraion. Order of each list MUST adhere to calibration_config['serials'] AND
             camera_config['serials']. Should have following keys:
         serials {list of numbers} -- list of camera serials.
-        distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+        distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
         camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
         reprojection_errors {list of numbers} -- average error in pixels for each camera.
         path {string} -- directory where calibration information is stored. Should be same as
