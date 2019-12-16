@@ -14,6 +14,9 @@ import os
 
 import cv2
 import numpy as np
+import tkinter
+from tkinter.filedialog import askopenfilename
+
 import matplotlib
 import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
@@ -275,10 +278,13 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             cwd = os.getcwd
             print('--> Multiple images contain the camera name. Select the correct file for'
                   ' "{}".'.format(name))
-            os.chdir(pose_estimation_path)
-            im_path = easygui.fileopenbox(title='Image selector',
-                                          msg='select the image for "{}".'.format(name))
-            os.chdir(cwd)
+            # Select the file
+            root = tkinter.Tk()
+            root.update()
+            im_path = askopenfilename(initialdir=pose_estimation_path,
+                           title = 'select the image for "{}".'.format(name))
+            root.destroy()
+
         else:
             im_path = os.path.join(pose_estimation_path, im_name[0])
 

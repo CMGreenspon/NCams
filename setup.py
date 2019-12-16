@@ -24,7 +24,7 @@ setup(
         'reportlab',
         'pyyaml',
         'easygui'
-        ],
+        'tkinter'],
     author='Charles M. Greenspon',
     author_email='charles.greenspon@gmail.com',
     license='MIT',
