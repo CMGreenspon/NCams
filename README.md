@@ -69,7 +69,7 @@ Note: put <DLC_PROJECT> as a full path from root directory or drive.
     + camera_calibration.py -- Camera lense calibration.
     + camera_pose.py -- Estimation of relative positions and orientations of the cameras.
     + reconstruction.py -- Integration of marker information from multiple cameras
-    + spinnaker_tools.py -- Recording from FLIR cameras.
+    + spinnaker_tools.py -- Recording from FLIR cameras. Is not automatically imported.
 - Examples/
     + example_with_recording_data.py -- Record images with FLIR cameras, setup camera parameters, make videos in interactive environment.
     + example_with_supplied_data.py -- Use provided example or own images to setup camera parameters and make videos in interactive environment.

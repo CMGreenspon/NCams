@@ -191,7 +191,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
         default {bool} -- set parameters to default values. Overrides all other keywords provided.
             (defult: {False})
         frame_rate {number} -- desired frames per second. (default: {30})
-        exposure_time {int} -- exposure time in microseconds. (default: {5000})
+        exposure_time {int} -- exposure time in microseconds. (default: {2000})
         gain {number or 'auto'} -- 'auto' for auto gain, number for manual control. (default: {13})
         trigger_mode {boolean} -- True means that it will not take images unless a trigger is
             sent from the reference camera. (default: {False})
@@ -218,7 +218,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
             print('Warning: both the default flag and parameters have been passed.\n'
                   'Default parameters will be used.')
         frame_rate = 30
-        exposure_time = 5000
+        exposure_time = 2000
         gain = 13
         trigger_mode = False
         acquisition_mode = 0

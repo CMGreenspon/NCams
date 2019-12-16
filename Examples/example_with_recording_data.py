@@ -32,6 +32,7 @@ import time
 import math
 
 import ncams
+import ncams.spinnaker_tools
 
 
 BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
