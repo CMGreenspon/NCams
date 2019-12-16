@@ -23,7 +23,8 @@ from . import camera_io
 from . import camera_tools
 
 
-def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=False):
+def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=False,
+                             verbose=False):
     '''Computes distortion coefficients from automatically selected images.
 
     This will go to the specified path and for each camera isolate the images necessary for
@@ -54,7 +55,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
         calibration_config {dict} -- information on camera calibration and the results of said
                 calibraion. See help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
-            distortion_coefficientss {list of np.arrays} -- distortion coefficients for each camera
+            distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             reprojection_errors {list of numbers} -- average error in pixels for each camera.
             path {string} -- directory where calibration information is stored. Should be same as
@@ -106,7 +107,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
     # Initalizes output
     reprojection_errors = []  # Reprojection errors
     camera_matrices = []  # Intrinsic camera parameters
-    distortion_coefficientss = []  # Distortion coefficients
+    distortion_coefficients = []  # Distortion coefficients
     dicts = {}
 
     # Preliminary stuff
@@ -143,7 +144,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                     # We can instead load in the existing calibration file
                     camera_calib_dict = camera_io.yaml_to_calibration(cam_calib_filename)
                     camera_matrix = camera_calib_dict['camera_matrix']
-                    distortion_coefficients = camera_calib_dict['distortion_coefficients']
+                    cam_distortion_coefficients = camera_calib_dict['distortion_coefficients']
                     reprojection_error = camera_calib_dict['reprojection_error']
                     calibrate_camera = False
                     break
@@ -164,7 +165,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                       ' Continuing to the next camera...'.format(
                           cam_calib_dir, cam_name))
                 reprojection_error = []
-                distortion_coefficients = []
+                cam_distortion_coefficients = []
                 camera_matrix = []
             else:
                 if len(cam_image_list) < 25:
@@ -176,20 +177,20 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                     world_points = camera_tools.create_world_points(camera_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
-                     distortion_coefficients) = checkerboard_calibration(
+                     cam_distortion_coefficients) = checkerboard_calibration(
                          cam_image_list, camera_config['board_dim'], world_points)
                 elif camera_config['board_type'] == 'charuco':
                     # Create the board - world points included
                     charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
-                     distortion_coefficients) = charuco_calibration(cam_image_list, charuco_dict,
-                                                                    charuco_board)
+                     cam_distortion_coefficients) = charuco_calibration(cam_image_list, charuco_dict,
+                                                                    charuco_board, verbose)
 
             # Export them to the camera folder in a readable format
             camera_calib_dict = {
                 'serial': serial,
-                'distortion_coefficients': distortion_coefficients,
+                'distortion_coefficients': cam_distortion_coefficients,
                 'camera_matrix': camera_matrix,
                 'reprojection_error': reprojection_error
             }
@@ -197,13 +198,13 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
 
         # Return these to the workspace
         reprojection_errors.append(reprojection_error)
-        distortion_coefficientss.append(distortion_coefficients)
+        distortion_coefficients.append(cam_distortion_coefficients)
         camera_matrices.append(camera_matrix)
         dicts[serial] = camera_calib_dict
 
     calibration_config = {
         'serials': serials,
-        'distortion_coefficientss': distortion_coefficientss,
+        'distortion_coefficients': distortion_coefficients,
         'camera_matrices': camera_matrices,
         'reprojection_errors': reprojection_errors,
         'path': calib_dir,
@@ -263,7 +264,7 @@ def checkerboard_calibration(cam_image_list, board_dim, world_points):
     return reprojection_error, camera_matrix, distortion_coefficients
 
 
-def charuco_calibration(cam_image_list, charuco_dict, charuco_board):
+def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=False):
     '''Calibrates cameras using a charuco board.
 
     Attempts to find the given charucoboard in each image and performs the basic calibration. It is
@@ -306,7 +307,8 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board):
                     ch_ids.append(charuco_ids)
                     image_points.append(charuco_corners)
             else:
-                print('-> Markers could not be identified in "' + im_name + '".')
+                if verbose:
+                    print('-> Markers could not be identified in "' + im_name + '".')
 
     # Calibrate
     img_width, img_height = img.shape[1], img.shape[0]
@@ -328,6 +330,14 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board):
         camera_matrix = camera_matrix.get()
     if isinstance(distortion_coefficients, cv2.UMat):
         distortion_coefficients = distortion_coefficients.get()
+    
+    # Indicate to the user if a likely error ocurred during the calibration
+    if np.sum(distortion_coefficients,1) == 0:
+        print('-> No distortion detected. Calibration has likely failed.')
+    elif np.abs(distortion_coefficients[0,4]) > 0.5:
+        print('-> There may be a fisheye effect. Inspect the calibration.')
+    elif reprojection_error > 1:
+        print('-> The reprojection error is high. Please inspect the calibration.')        
 
     return reprojection_error, camera_matrix, distortion_coefficients
 
@@ -362,7 +372,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     # Get layout of output array
     num_cameras = len(serials)
 
-    num_vert_plots = int(np.ceil(np.sqrt(num_cameras)))
+    num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
     num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
 
     _, axs = mpl_pp.subplots(num_horz_plots, num_vert_plots, squeeze=False)
@@ -458,6 +468,6 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
         axs[vert_ind, horz_ind].set_yticks([])
 
         horz_ind += 1
-        if horz_ind > (num_horz_plots-1):
+        if horz_ind == (num_horz_plots):
             horz_ind = 0
             vert_ind += 1

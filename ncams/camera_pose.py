@@ -155,22 +155,10 @@ def checkerboard_detector(camera_config):
         cam_image_points.append(image_points)
 
     print('* Checkerboard detection complete.')
-
-    combined_board_logit = np.sum(np.vstack(cam_board_logit), 0) # Combine and sum the logits
-    # See how many checkerboard detections are present across all cameras
-    num_common_cb = np.sum(combined_board_logit == num_cameras)
-
-    if num_common_cb < 10:
-        pose_strategy = 'stereo_sequential'
-    elif num_common_cb >= 10:
-        pose_strategy = 'common'
-
-    print('* Optimal pose strategy: "' + pose_strategy + '".')
-
-    return cam_board_logit, cam_image_points, pose_strategy
+    return cam_board_logit, cam_image_points
 
 
-#################### Automated versions
+#################### Automated calibration
 def multi_camera_pose_estimation():
     '''[Short description]
 
@@ -188,49 +176,6 @@ def multi_camera_pose_estimation():
     if num_cameras == 1:
         raise Exception('Only one camera present, pose cannot be calculated with this function.')
         return []
-
-
-def auto_pose_estimation(camera_config):
-    '''[Short description]
-
-    [Long description]
-
-    Arguments:
-        []
-    Keyword Arguments:
-        []
-    Output:
-        []
-    '''
-    raise NotImplementedError
-    # Unpack the dict
-    board_type = camera_config['board_type']
-    num_cameras = len(camera_config['camera_names'])
-
-    if board_type == 'charuco':
-        # Create the board
-        _, charuco_board, _ = create_board(camera_config)
-        board_dims = charuco_board.getChessboardSize()
-        num_corners = (board_dims[0]-1) * (board_dims[1]-1) # Need to know how to format the logit table
-        # Get the ids and image points across images and cameras
-        cam_image_points, cam_charuco_ids = charuco_board_detector(camera_config)
-        # Parse the total number of shared points across all cameras
-        pose_method = get_optimal_pose_method(cam_charuco_ids, board_type, num_corners)
-        # Get all the poses
-        if pose_method == 'common':
-            world_locations, world_orientations = common_pose_estimation(camera_config,
-                                                                         calibration_config,
-                                                                         cam_image_points,
-                                                                         cam_charuco_ids)
-        else:
-          return[]
-
-
-    #if pose_strategy == 'stereo_sequential':
-    export_pose_estimation(os.path.join(camera_config['folder_path'], 'pose_estimation'),
-                           camera_config['camera_names'], world_locations, world_orientations)
-
-    return world_locations, world_orientations
 
 
 def get_optimal_pose_method(input_array, board_type, num_corners):
@@ -273,22 +218,7 @@ def get_optimal_pose_method(input_array, board_type, num_corners):
     return optimal_method
 
 
-#################### Pose estimation
-def get_world_pose(camera_config):
-    '''[Short description]
-
-    [Long description]
-
-    Arguments:
-        []
-    Keyword Arguments:
-        []
-    Output:
-        []
-    '''
-    raise NotImplementedError
-
-
+#################### Pose estimation methods
 def one_shot_multi_PnP(camera_config, calibration_config):
     '''Position estimation based on a single frame from each camera.
 
@@ -445,7 +375,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
     '''
     num_cameras = len(camera_config['serials'])
     camera_matrices = calibration_config['camera_matrices']
-    distortion_coefficientss = calibration_config['distortion_coefficientss']
+    distortion_coefficientss = calibration_config['distortion_coefficients']
 
     # Determine the reference camera
     ireference_cam = camera_config['serials'].index(camera_config['reference_camera_serial'])
@@ -597,7 +527,7 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
     raise NotImplementedError
 
 
-def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector,
+def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
                                      relative_rotations, relative_translations):
     '''Adjusts orientations and locations based on world rotation and translation.
 
@@ -755,7 +685,7 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     cam_verts = [[] for _ in range(num_cameras)]
     for icam in range(num_cameras):
         # Get the vertices to plot appropriate to the translation and rotation
-        cam_verts[icam], cam_center = camera_tools.create_camera(
+        cam_verts[icam], cam_center = create_camera(
             scale_factor=scale_factor,
             rotation_vector=world_orientations[icam],
             translation_vector=world_locations[icam])
