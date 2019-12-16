@@ -80,6 +80,6 @@ Note: put <DLC_PROJECT> as a full path from root directory or drive.
 
 ## Authors
 
-- **Charles M Greenspon** - *Code* - [CMGreenspon](https://github.org/CMGreenspon)
-- **Anton Sobinov** - *Code* - [nishbo](https://github.org/nishbo)
+- [**Charles M Greenspon**](https://github.org/CMGreenspon)
+- [**Anton Sobinov**](https://github.org/nishbo)
 - Developed in [Bensmaia Lab](http://bensmaialab.org/).
