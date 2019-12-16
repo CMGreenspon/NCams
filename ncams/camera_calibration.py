@@ -461,39 +461,3 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
         if horz_ind > (num_horz_plots-1):
             horz_ind = 0
             vert_ind += 1
-
-
-def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector,
-                                     relative_rotations, relative_translations):
-    '''Adjusts orientations and locations based on world rotation and translation.
-
-    Arguments:
-        world_rotation_vector {np.array} -- description
-        world_translation_vector {np.array} -- description
-        relative_rotations {list of 'np.array's} -- description
-        relative_translations {list of 'np.array's} -- description
-
-    Output:
-        adjusted_rotation_vectors {list of np.array} -- rotations in space of the world
-        adjusted_translation_vectors {list of np.array} -- locations in space of the world
-    '''
-    adjusted_rotation_vectors = []
-    adjusted_translation_vectors = []
-
-    # Format rotation for composeRT
-    if world_rotation_vector.shape == (3, 3):
-        world_rotation_vector = cv2.Rodrigues(world_rotation_vector)[0]
-
-    for rel_rot, rel_trans in zip(relative_rotations, relative_translations):
-        sec_r_vec = rel_rot
-        # Format rotation for composeRT
-        if sec_r_vec.shape == (3, 3):
-            sec_r_vec = cv2.Rodrigues(sec_r_vec)[0]
-
-        adjusted_orientation, adjusted_location = cv2.composeRT(
-            world_rotation_vector, world_translation_vector, sec_r_vec, rel_trans)[:2]
-
-        adjusted_rotation_vectors.append(adjusted_orientation)
-        adjusted_translation_vectors.append(adjusted_location)
-
-    return adjusted_rotation_vectors, adjusted_translation_vectors

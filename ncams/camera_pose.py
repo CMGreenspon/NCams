@@ -25,10 +25,13 @@ from . import camera_io
 from . import camera_tools
 
 
+#################### Board detectors
 def charuco_board_detector(camera_config):
     '''Detects charuco board in all cameras.
 
-    Should be run after cameras have been calibrated.
+    (Should be run after cameras have been calibrated.)
+    A general function for bulk identifying all charuco corners across cameras and storing them in
+    usable arrays for subsequent pose estimation.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
@@ -37,8 +40,8 @@ def charuco_board_detector(camera_config):
             pose_estimation_path {string} -- directory where pose estimation information is stored.
 
     Output:
-        cam_image_points {list} -- matching points
-        cam_charuco_ids {list} -- ids of points
+        cam_image_points {list} -- x,y coordinates of identified points
+        cam_charuco_ids {list} -- ids of the points
     '''
     # Unpack the dict
     serials = camera_config['serials']
@@ -57,7 +60,7 @@ def charuco_board_detector(camera_config):
         num_images[0, icam] = len(image_list)
         cam_image_list.append(image_list)
 
-    # Crucial: Each camera must have the same number of images so that we can assume the order is
+    # Crucial: each camera must have the same number of images so that we can assume the order is
     # maintained and that they are synced
     if not np.ma.allequal(num_images, np.mean(num_images)):
         raise Exception('Image lists are of unequal size and may not be synced.')
@@ -65,7 +68,7 @@ def charuco_board_detector(camera_config):
     num_images = num_images[0, 0]
     cam_image_points = []
     cam_charuco_ids = []
-    # Look at one synced image across cameras and find the matching points
+    # Look at one synced image across cameras and find the points
     for image in range(num_images):
         im_ids, image_points = [], []  # reset for each image
         for icam, name in enumerate(names):
@@ -167,6 +170,7 @@ def checkerboard_detector(camera_config):
     return cam_board_logit, cam_image_points, pose_strategy
 
 
+#################### Automated versions
 def multi_camera_pose_estimation():
     '''[Short description]
 
@@ -269,6 +273,7 @@ def get_optimal_pose_method(input_array, board_type, num_corners):
     return optimal_method
 
 
+#################### Pose estimation
 def get_world_pose(camera_config):
     '''[Short description]
 
@@ -592,6 +597,43 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
     raise NotImplementedError
 
 
+def adjust_stereo_calibration_origin(world_rotation_vector, world_translation_vector,
+                                     relative_rotations, relative_translations):
+    '''Adjusts orientations and locations based on world rotation and translation.
+
+    Arguments:
+        world_rotation_vector {np.array} -- description
+        world_translation_vector {np.array} -- description
+        relative_rotations {list of 'np.array's} -- description
+        relative_translations {list of 'np.array's} -- description
+
+    Output:
+        adjusted_rotation_vectors {list of np.array} -- rotations in space of the world
+        adjusted_translation_vectors {list of np.array} -- locations in space of the world
+    '''
+    adjusted_rotation_vectors = []
+    adjusted_translation_vectors = []
+
+    # Format rotation for composeRT
+    if world_rotation_vector.shape == (3, 3):
+        world_rotation_vector = cv2.Rodrigues(world_rotation_vector)[0]
+
+    for rel_rot, rel_trans in zip(relative_rotations, relative_translations):
+        sec_r_vec = rel_rot
+        # Format rotation for composeRT
+        if sec_r_vec.shape == (3, 3):
+            sec_r_vec = cv2.Rodrigues(sec_r_vec)[0]
+
+        adjusted_orientation, adjusted_location = cv2.composeRT(
+            world_rotation_vector, world_translation_vector, sec_r_vec, rel_trans)[:2]
+
+        adjusted_rotation_vectors.append(adjusted_orientation)
+        adjusted_translation_vectors.append(adjusted_location)
+
+    return adjusted_rotation_vectors, adjusted_translation_vectors
+
+
+#################### Pose assessement functions
 def inspect_pose_estimation():
     '''If insufficient shared points then we can instead use the reference pair of cameras and
     iteratively calibrate all other cameras.

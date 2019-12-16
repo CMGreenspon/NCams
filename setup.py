@@ -11,7 +11,7 @@ from setuptools import setup, find_packages
 setup(
     name='ncams',
     version='0.1.6',
-    description='Recording, triangulation and mapping using multiple cameras.',
+    description='Calibration, pose estimation, and triangulation using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
     url='https://github.com/CMGreenspon/NCams',
@@ -25,7 +25,7 @@ setup(
         'pyyaml',
         'easygui'
         ],
-    author='Charles M Greenspon',
+    author='Charles M. Greenspon',
     author_email='charles.greenspon@gmail.com',
     license='MIT',
     packages=find_packages())
