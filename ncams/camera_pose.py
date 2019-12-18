@@ -221,10 +221,40 @@ def get_optimal_pose_method(input_array, board_type, num_corners):
 
 
 #################### Pose estimation methods
+def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points, camera_matrix,
+                   cam_distortion_coefficients):
+    (w,h) = image_size
+    # Get the image points
+    # Detect the aruco markers and IDs
+    corners, ids, _ = cv2.aruco.detectMarkers(image, charuco_dict)
+    _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+        corners, ids, image, charuco_board)
+    # Get the optimal camera matrix
+    temp_optim, _ = cv2.getOptimalNewCameraMatrix(camera_matrix, cam_distortion_coefficients,
+                                                  (w, h), 1, (w, h))
+    # Undistort image points
+    undistorted_points = cv2.undistortPoints(
+        np.vstack(charuco_corners), camera_matrix, cam_distortion_coefficients, P=temp_optim)
+    # Match to world points
+    filtered_world_points = []
+    for cid in charuco_ids:
+        filtered_world_points.append(world_points[cid, :, :])
+    filtered_world_points = np.vstack(filtered_world_points)
+
+    # PnP
+    _, cam_orientation, camera_location = cv2.solvePnP(
+        filtered_world_points, undistorted_points,
+        camera_matrix, cam_distortion_coefficients)
+    
+    return camera_location, cam_orientation
+
 def one_shot_multi_PnP(camera_config, calibration_config):
     '''Position estimation based on a single frame from each camera.
 
-    [Long description]
+    Assumes that a single synchronized image was taken where all cameras can see the calibration 
+    board. Will then use the world points to compute the position of each camera independently.
+    This method utilizes the fewest images and points to compute the positions and orientations but
+    is also the simplest to implement.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
@@ -275,7 +305,6 @@ def one_shot_multi_PnP(camera_config, calibration_config):
         im_name = [i for i in im_list if name in i]
         # If more than one image contains the camera name ask user to select
         if len(im_name) > 1:
-            cwd = os.getcwd
             print('--> Multiple images contain the camera name. Select the correct file for'
                   ' "{}".'.format(name))
             # Select the file
@@ -290,32 +319,13 @@ def one_shot_multi_PnP(camera_config, calibration_config):
 
         world_image = cv2.imread(im_path)
 
-        # Get the image points
-        # Detect the aruco markers and IDs
-        corners, ids, _ = cv2.aruco.detectMarkers(world_image, charuco_dict)
-        _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
-            corners, ids, world_image, charuco_board)
-        # Get the optimal camera matrix
-        temp_optim, _ = cv2.getOptimalNewCameraMatrix(camera_matrices[icam],
-                                                      distortion_coefficients[icam],
-                                                      (w, h), 1, (w, h))
-        # Undistort image points
-        undistorted_points = cv2.undistortPoints(
-            np.vstack(charuco_corners), camera_matrices[icam], distortion_coefficients[icam],
-            P=temp_optim)
-        # Match to world points
-        filtered_world_points = []
-        for cid in charuco_ids:
-            filtered_world_points.append(world_points[cid, :, :])
-        filtered_world_points = np.vstack(filtered_world_points)
-
-        # PnP
-        _, rvec, tvec = cv2.solvePnP(
-            filtered_world_points, undistorted_points,
-            camera_matrices[icam], distortion_coefficients[icam])
-        # Append
-        world_locations.append(tvec)
-        world_orientations.append(rvec)
+        cam_location, cam_orientation = get_world_pose(world_image, (w,h), charuco_dict,
+                                                       charuco_board, world_points, 
+                                                       camera_matrices[icam],
+                                                       distortion_coefficients[icam])
+        
+        world_locations.append(cam_location)
+        world_orientations.append(cam_orientation)
 
     # Make the output structure
     dicts = {}
@@ -535,12 +545,17 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
 def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
                                      relative_rotations, relative_translations):
     '''Adjusts orientations and locations based on world rotation and translation.
+    
+    If the camera setup is thus that the desired world origin cannot be observed by all cameras
+    but you wish to have the coordinate frame be relative to the world origin (or any other origin)
+    then the values can be updated with this function. This is particularly useful for sequential
+    pose estimates or any generic stereo-calibration.
 
     Arguments:
-        world_rotation_vector {np.array} -- description
-        world_translation_vector {np.array} -- description
-        relative_rotations {list of 'np.array's} -- description
-        relative_translations {list of 'np.array's} -- description
+        world_rotation_vector {np.array} -- The rotation vector for the reference camera
+        world_translation_vector {np.array} -- The translation vector for the reference camera
+        relative_rotations {list of 'np.array's} -- List of rotations in the original coordinate frame
+        relative_translations {list of 'np.array's} -- List of translations in the original coordinate frame
 
     Output:
         adjusted_rotation_vectors {list of np.array} -- rotations in space of the world
