@@ -23,10 +23,12 @@ Important structures:
         setup_path {string} -- directory where the camera setup is located, including config.yaml.
         setup_filename {string} -- config has been loaded from os.path.join(
             setup_path, setup_filename) and/or will be saved into this directory.
-        calibration_path {string} -- directory where calibration information is stored.
+        calibration_path {string} -- relative path to where calibration information is stored from
+            'setup_path'.
         calibration_filename {string} -- name of the pickle file to store the calibration config
             in/load from.
-        pose_estimation_path {string} -- directory where pose estimation information is stored.
+        pose_estimation_path {string} -- relative path to where pose estimation information is
+            stored from 'setup_path'.
         pose_estimation_filename {string} -- name of the pickle file to store the pose estimation
             config in/load from.
         system {PySpin.System instance} -- needed for init/close of the FLIR cameras system.

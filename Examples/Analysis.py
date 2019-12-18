@@ -29,7 +29,7 @@ import deeplabcut
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
 
 
@@ -46,7 +46,9 @@ session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_
 session_config = ncams.import_session_config(session_full_filename)
 
 # which videos do you want to train on?
-training_videos = [session_config['cam_dicts'][cs]['video'] for cs in camera_config['serials']]
+training_videos = [os.path.join(session_config['session_path'],
+                                session_config['cam_dicts'][cs]['video'])
+                   for cs in camera_config['serials']]
 
 
 # %% 2a Make a new DLC project (this or 2b)

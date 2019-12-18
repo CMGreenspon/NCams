@@ -39,7 +39,7 @@ import os
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 
 # %% 1 Load camera_config
 # Works if calibration and pose estimation has been done before and saved
@@ -85,31 +85,30 @@ session_config = ncams.import_session_config(session_full_filename)
 
 
 # %% 6 Make images into videos
-video_path = os.path.join(session_config['session_path'], 'videos')
-ud_video_path = os.path.join(session_config['session_path'], 'undistorted_videos')
-session_config['video_path'] = video_path
-session_config['ud_video_path'] = ud_video_path
+session_config['video_path'] = 'videos'
+session_config['ud_video_path'] = 'undistorted_videos'
 
-for p in (session_config['video_path'], session_config['ud_video_path']):
+for p in (os.path.join(session_config['session_path'], session_config['video_path']),
+          os.path.join(session_config['session_path'], session_config['ud_video_path'])):
     if not os.path.isdir(p):
         print('Making dir {}'.format(p))
         os.mkdir(p)
 
 for serial in camera_config['serials']:
-    session_config['cam_dicts'][serial]['pic_dir'] = os.path.join(
-        session_config['session_path'], session_config['cam_dicts'][serial]['name'])
+    session_config['cam_dicts'][serial]['pic_dir'] = session_config['cam_dicts'][serial]['name']
     session_config['cam_dicts'][serial]['video'] = os.path.join(
         session_config['video_path'], session_config['cam_dicts'][serial]['name']+'.mp4')
     session_config['cam_dicts'][serial]['ud_video'] = os.path.join(
         session_config['ud_video_path'], session_config['cam_dicts'][serial]['name']+'.mp4')
 
 for cam_dict in session_config['cam_dicts'].values():
-    image_list = ncams.utils.get_image_list(sort=True, path=cam_dict['pic_dir'])
+    image_list = ncams.utils.get_image_list(
+        sort=True, path=os.path.join(session_config['session_path'], cam_dict['pic_dir']))
     print('Making a video for camera {} from {} images.'.format(
         cam_dict['name'], len(image_list)))
-    ncams.images_to_video(image_list, cam_dict['video'],
-                          fps=session_config['frame_rate'],
-                          output_folder=session_config['video_path'])
+    ncams.images_to_video(
+        image_list, cam_dict['video'], fps=session_config['frame_rate'],
+        output_folder=os.path.join(session_config['session_path'], session_config['video_path']))
 
 ncams.export_session_config(session_config)
 
@@ -117,8 +116,8 @@ ncams.export_session_config(session_config)
 # %% 7 Undistort the videos
 for icam, serial in enumerate(camera_config['serials']):
     cam_dict = session_config['cam_dicts'][serial]
-    ncams.undistort_video(cam_dict['video'],
-                          calibration_config['dicts'][serial],
-                          crop_and_resize=False,
-                          output_filename=cam_dict['ud_video'])
+    ncams.undistort_video(
+        cam_dict['video'], calibration_config['dicts'][serial],
+        crop_and_resize=False,
+        output_filename=os.path.join(session_config['session_path'], cam_dict['ud_video']))
     print('Camera {} video undistorted.'.format(cam_dict['name']))

@@ -39,7 +39,8 @@ def charuco_board_detector(camera_config):
         camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-            pose_estimation_path {string} -- directory where pose estimation information is stored.
+            pose_estimation_path {string} -- relative path to where pose estimation information is
+                stored from 'setup_path'.
 
     Output:
         cam_image_points {list} -- x,y coordinates of identified points
@@ -48,7 +49,8 @@ def charuco_board_detector(camera_config):
     # Unpack the dict
     serials = camera_config['serials']
     names = [camera_config['dicts'][serial]['name'] for serial in serials]
-    pose_estimation_path = camera_config['pose_estimation_path']
+    pose_estimation_path = os.path.join(camera_config['setup_path'],
+                                        camera_config['pose_estimation_path'])
 
     # Get number of cameras
     num_cameras = len(serials)
@@ -110,7 +112,8 @@ def checkerboard_detector(camera_config):
             serials {list of numbers} -- list of camera serials.
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-            pose_estimation_path {string} -- directory where pose estimation information is stored.
+            pose_estimation_path {string} -- relative path to where pose estimation information is
+                stored from 'setup_path'.
 
     Output:
         cam_board_logit {list} -- if checkerboard: logical array (num_cameras, num_images)
@@ -123,7 +126,8 @@ def checkerboard_detector(camera_config):
     serials = camera_config['serials']
     num_cameras = len(serials) # How many cameras are there
     names = [camera_config['dicts'][serial]['name'] for serial in serials]
-    pose_estimation_path = camera_config['pose_estimation_path']
+    pose_estimation_path = os.path.join(camera_config['setup_path'],
+                                        camera_config['pose_estimation_path'])
     board_dim = camera_config['board_dim']
 
     # Begin the checkerboard detection for each camera
@@ -245,13 +249,13 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
     _, cam_orientation, camera_location = cv2.solvePnP(
         filtered_world_points, undistorted_points,
         camera_matrix, cam_distortion_coefficients)
-    
+
     return camera_location, cam_orientation
 
 def one_shot_multi_PnP(camera_config, calibration_config):
     '''Position estimation based on a single frame from each camera.
 
-    Assumes that a single synchronized image was taken where all cameras can see the calibration 
+    Assumes that a single synchronized image was taken where all cameras can see the calibration
     board. Will then use the world points to compute the position of each camera independently.
     This method utilizes the fewest images and points to compute the positions and orientations but
     is also the simplest to implement.
@@ -288,10 +292,10 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             world_orientation {np.array} -- world orientation of the camera.
     '''
     names = [camera_config['dicts'][serial]['name'] for serial in camera_config['serials']]
-    pose_estimation_path = camera_config['pose_estimation_path']
+    pose_estimation_path = os.path.join(camera_config['setup_path'],
+                                        camera_config['pose_estimation_path'])
     camera_matrices = calibration_config['camera_matrices']
     distortion_coefficients = calibration_config['distortion_coefficients']
-    pose_estimation_path = camera_config['pose_estimation_path']
 
     charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
     world_points = camera_tools.create_world_points(camera_config)
@@ -320,10 +324,10 @@ def one_shot_multi_PnP(camera_config, calibration_config):
         world_image = cv2.imread(im_path)
 
         cam_location, cam_orientation = get_world_pose(world_image, (w,h), charuco_dict,
-                                                       charuco_board, world_points, 
+                                                       charuco_board, world_points,
                                                        camera_matrices[icam],
                                                        distortion_coefficients[icam])
-        
+
         world_locations.append(cam_location)
         world_orientations.append(cam_orientation)
 
@@ -545,7 +549,7 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
 def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
                                      relative_rotations, relative_translations):
     '''Adjusts orientations and locations based on world rotation and translation.
-    
+
     If the camera setup is thus that the desired world origin cannot be observed by all cameras
     but you wish to have the coordinate frame be relative to the world origin (or any other origin)
     then the values can be updated with this function. This is particularly useful for sequential

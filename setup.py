@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.1.7',
+    version='0.1.8',
     description='Calibration, pose estimation, and triangulation using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
@@ -23,8 +23,7 @@ setup(
         'opencv-contrib-python',
         'reportlab',
         'pyyaml',
-        'easygui'
-        'tkinter'],
+        'easygui'],
     author='Charles M. Greenspon',
     author_email='charles.greenspon@gmail.com',
     license='MIT',

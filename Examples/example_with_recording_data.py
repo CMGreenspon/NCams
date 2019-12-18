@@ -35,7 +35,7 @@ import ncams
 import ncams.spinnaker_tools
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 
 # %% 1 Initialize setup and working directories (if intialized before, go to Step 5)
 # If you wish to work with example data, proceed to Step 5
@@ -64,15 +64,16 @@ camera_config = {
 
     'setup_path': camera_config_dir,
     'setup_filename': 'config.yaml',
-    'calibration_path': os.path.join(camera_config_dir, 'calibration'),
+    'calibration_path': 'calibration',
     'calibration_filename': 'camera_calib.pickle',
-    'pose_estimation_path': os.path.join(camera_config_dir, 'pose_estimation'),
+    'pose_estimation_path': 'pose_estimation',
     'pose_estimation_filename': 'pose_estimate.pickle',
 }
 
 # make sure that all required directories exist
-for p in (BASE_DIR, camera_config['setup_path'], camera_config['calibration_path'],
-          camera_config['pose_estimation_path']):
+for p in (BASE_DIR, camera_config['setup_path'],
+          os.path.join(camera_config['setup_path'], camera_config['calibration_path']),
+          os.path.join(camera_config['setup_path'], camera_config['pose_estimation_path'])):
     if not os.path.isdir(p):
         print('Making dir {}'.format(p))
         os.mkdir(p)
@@ -102,7 +103,8 @@ for icam, serial in enumerate(camera_config['serials']):
     ncams.spinnaker_tools.set_cam_settings(cam_dict['obj'], default=True)
     ncams.spinnaker_tools.set_cam_settings(cam_dict['obj'], frame_rate=2)
 
-    cam_calib_path = os.path.join(camera_config['calibration_path'], cam_dict['name'])
+    cam_calib_path = os.path.join(camera_config['setup_path'], camera_config['calibration_path'],
+                                  cam_dict['name'])
     if not os.path.isdir(cam_calib_path):
         os.mkdir(cam_calib_path)
 
@@ -133,7 +135,8 @@ ncams.spinnaker_tools.init_sync_settings(camera_config)
 
 ncams.spinnaker_tools.synced_capture_sequence(
     camera_config, 1,
-    output_folder=camera_config['pose_estimation_path'], separate_folders=False)
+    output_folder=os.path.join(camera_config['setup_path'], camera_config['pose_estimation_path']),
+    separate_folders=False)
 
 
 # %% 4.2
@@ -168,7 +171,7 @@ session_number_frames = math.ceil(session_time_length_sec * frame_rate)
 print('Going to capture {} frames over {} seconds'.format(
     session_number_frames, session_time_length_sec))
 
-session_number = 2  # if multiple sessions
+session_number = 1  # if multiple sessions
 session_user = 'AS'  # The person conducting the recordings
 session_subject = 'CMG'  # Subject of the recording
 session_datetime = time.strftime('%Y.%m.%d_%H.%M.%S', time.localtime())
@@ -218,7 +221,7 @@ for cam in cam_list:
 print('Cameras were reset.')
 
 ncams.spinnaker_tools.init_sync_settings(camera_config,
-                                     frame_rate=session_config['frame_rate'], num_images=None)
+                                         frame_rate=session_config['frame_rate'], num_images=None)
 print('Cameras sync and init done.')
 
 print('Starting capture')
@@ -235,39 +238,38 @@ ncams.spinnaker_tools.release_system(system, cam_list)
 
 
 # %% 10 Make images into videos
-video_path = os.path.join(session_config['session_path'], 'videos')
-ud_video_path = os.path.join(session_config['session_path'], 'undistorted_videos')
-session_config['video_path'] = video_path
-session_config['ud_video_path'] = ud_video_path
+session_config['video_path'] = 'videos'
+session_config['ud_video_path'] = 'undistorted_videos'
 
-for p in (session_config['video_path'], session_config['ud_video_path']):
+for p in (os.path.join(session_config['session_path'], session_config['video_path']),
+          os.path.join(session_config['session_path'], session_config['ud_video_path'])):
     if not os.path.isdir(p):
         print('Making dir {}'.format(p))
         os.mkdir(p)
 
 for serial in camera_config['serials']:
-    session_config['cam_dicts'][serial]['pic_dir'] = os.path.join(
-        session_config['session_path'], session_config['cam_dicts'][serial]['name'])
+    session_config['cam_dicts'][serial]['pic_dir'] = session_config['cam_dicts'][serial]['name']
     session_config['cam_dicts'][serial]['video'] = os.path.join(
         session_config['video_path'], session_config['cam_dicts'][serial]['name']+'.mp4')
     session_config['cam_dicts'][serial]['ud_video'] = os.path.join(
         session_config['ud_video_path'], session_config['cam_dicts'][serial]['name']+'.mp4')
 
 for cam_dict in session_config['cam_dicts'].values():
-    image_list = ncams.utils.get_image_list(sort=True, path=cam_dict['pic_dir'])
+    image_list = ncams.utils.get_image_list(
+        sort=True, path=os.path.join(session_config['session_path'], cam_dict['pic_dir']))
     print('Making a video for camera {} from {} images.'.format(
         cam_dict['name'], len(image_list)))
-    ncams.images_to_video(image_list, cam_dict['video'],
-                          fps=session_config['frame_rate'],
-                          output_folder=session_config['video_path'])
+    ncams.images_to_video(
+        image_list, cam_dict['video'], fps=session_config['frame_rate'],
+        output_folder=os.path.join(session_config['session_path'], session_config['video_path']))
 
 ncams.export_session_config(session_config)
 
 # %% 11 Undistort the videos
 for icam, serial in enumerate(camera_config['serials']):
     cam_dict = session_config['cam_dicts'][serial]
-    ncams.undistort_video(cam_dict['video'],
-                          calibration_config['dicts'][serial],
-                          crop_and_resize=False,
-                          output_filename=cam_dict['ud_video'])
+    ncams.undistort_video(
+        cam_dict['video'], calibration_config['dicts'][serial],
+        crop_and_resize=False,
+        output_filename=os.path.join(session_config['session_path'], cam_dict['ud_video']))
     print('Camera {} video undistorted.'.format(cam_dict['name']))

@@ -11,7 +11,7 @@ import deeplabcut
 import ncams
 
 
-BASE_DIR = os.path.join('C:/', 'FLIR_cameras', 'PublicExample')
+BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
 
 

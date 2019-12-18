@@ -38,12 +38,10 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
-            calibration_path {string} -- directory where calibration information is stored.
+            calibration_path {string} -- relative path to where calibration information is stored
+                from 'setup_path'.
             calibration_filename {string} -- name of the pickle file to store the calibration config
                 in/load from.
-            pose_estimation_path {string} -- directory where pose estimation information is stored.
-            pose_estimation_filename {string} -- name of the pickle file to store the pose
-                estimation config in/load from.
 
     Keyword Arguments:
         override {bool} -- whether to automatically override detected calibration files.
@@ -66,7 +64,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
     '''
     # Unpack the dict
     serials = camera_config['serials']
-    calib_dir = camera_config['calibration_path']
+    calib_dir = os.path.join(camera_config['setup_path'], camera_config['calibration_path'])
 
     calib_pickle_filename = os.path.join(calib_dir, camera_config['calibration_filename'])
 
@@ -330,14 +328,14 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
         camera_matrix = camera_matrix.get()
     if isinstance(distortion_coefficients, cv2.UMat):
         distortion_coefficients = distortion_coefficients.get()
-    
+
     # Indicate to the user if a likely error ocurred during the calibration
     if np.sum(distortion_coefficients,1) == 0:
         print('-> No distortion detected. Calibration has likely failed.')
     elif np.abs(distortion_coefficients[0,4]) > 0.5:
         print('-> There may be a fisheye effect. Inspect the calibration.')
     elif reprojection_error > 1:
-        print('-> The reprojection error is high. Please inspect the calibration.')        
+        print('-> The reprojection error is high. Please inspect the calibration.')
 
     return reprojection_error, camera_matrix, distortion_coefficients
 
@@ -358,7 +356,8 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                 below.
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
-            calibration_path {string} -- directory where calibration information is stored.
+            calibration_path {string} -- relative path to where calibration information is stored
+                from 'setup_path'.
     Keyword Arguments:
         image_index {int} -- a specific frame number to look at (default: {first image w/ board in
             it})
@@ -366,7 +365,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     serials = camera_config['serials']
     board_type = camera_config['board_type']
     board_dim = camera_config['board_dim']
-    calibration_path = camera_config['calibration_path']
+    calibration_path = os.path.join(camera_config['setup_path'], camera_config['calibration_path'])
 
     num_markers = (board_dim[0]-1) * (board_dim[1]-1)
     # Get layout of output array
