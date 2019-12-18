@@ -144,21 +144,17 @@ def test_system_capture(camera_config):
     else:
         num_vert_plots = int(np.ceil(np.sqrt(num_cameras)))
         num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
-        fig, axs = mpl_pp.subplots(num_horz_plots, num_vert_plots,
-                                   squeeze=False)
-        vert_ind, horz_ind = 0, 0
+        fig, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
 
-        for serial in serials:
+        for icam, serial in enumerate(serials):
             rgb_array = get_image(camera_config['dicts'][serial]['obj'])
+
+            vert_ind = int(np.floor(icam / num_horz_plots))
+            horz_ind = icam - num_horz_plots * vert_ind
 
             axs[vert_ind, horz_ind].imshow(rgb_array)
             axs[vert_ind, horz_ind].set_xticks([])
             axs[vert_ind, horz_ind].set_yticks([])
-
-            horz_ind += 1
-            if horz_ind == (num_horz_plots):
-                horz_ind = 0
-                vert_ind += 1
 
 
 # Camera settings
