@@ -395,9 +395,17 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
         idx = 0
         while not board_in_image:
             if image_index is None:
-                image_ind = idx  # user-selected image
+                image_ind = idx
+                if image_ind >= len(image_list):
+                    num_markers = int(np.floor(num_markers / 2))
+                    idx = 0
+                    if num_markers < 5:
+                        print(' - Board not detected in any images.')
+                        example_image_annotated = np.zeros(example_image.shape)
+                        undistorted_image_annotated = np.zeros(example_image.shape)
+                        board_in_image = True
             else:
-                image_ind = image_index
+                image_ind = image_index  # user-selected image
             example_image = matplotlib.image.imread(image_list[image_ind])
 
             # Get new camera matrix
