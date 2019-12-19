@@ -390,6 +390,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
         dist_coeffs = calibration_config['dicts'][serial]['distortion_coefficients']
 
         image_list = utils.get_image_list(path=cam_calib_dir)
+        num_markers_images = [-np.inf for _ in image_list]
 
         board_in_image = False
         idx = 0
@@ -397,13 +398,10 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
             if image_index is None:
                 image_ind = idx
                 if image_ind >= len(image_list):
-                    num_markers = int(np.floor(num_markers / 2))
-                    idx = 0
-                    if num_markers < 5:
-                        print(' - Board not detected in any images.')
-                        example_image_annotated = np.zeros(example_image.shape)
-                        undistorted_image_annotated = np.zeros(example_image.shape)
-                        board_in_image = True
+                    print('Full board not found. Using the image with most markers.')
+                    image_index = num_markers_images.index(max(num_markers_images))
+                    image_ind = image_index
+                    idx = image_index
             else:
                 image_ind = image_index  # user-selected image
             example_image = matplotlib.image.imread(image_list[image_ind])
@@ -421,7 +419,8 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                         corners, ids, example_image, charuco_board)
                     if isinstance(example_corners, np.ndarray):
                         # Lets only use images with all corners detected
-                        if len(example_corners) == num_markers or image_index is not None:
+                        num_markers_images[idx] = len(example_corners)
+                        if len(example_corners) >= num_markers or image_index is not None:
                             board_in_image = True
                             # Annotate example image
                             example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(

@@ -41,7 +41,6 @@ BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 # If you wish to work with example data, proceed to Step 5
 # Rerun if want refresh the data storage
 cdatetime = time.strftime('%Y.%m.%d_%H.%M.%S', time.localtime())
-cdatetime = '2019.12.19_10.38.38';
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 
 
@@ -98,8 +97,7 @@ ncams.camera_tools.create_board(camera_config, output=True, output_format='jpg',
 # Now we'll take pictures now with each of the cameras. While the pictures are taken the
 # experimenter is supposed to move the board within the field of view of the camera so that the
 # whole field of view is covered. It is important to pay attention to corners.
-ccs = [camera_config['serials'][1]]
-for icam, serial in enumerate(ccs):
+for icam, serial in enumerate(camera_config['serials']):
     cam_dict = camera_config['dicts'][serial]
     # First lets initalize with some appropriats settings
     ncams.spinnaker_tools.set_cam_settings(cam_dict['obj'], default=True)
@@ -123,10 +121,8 @@ for icam, serial in enumerate(ccs):
 
 # %% 3.2
 # Run the multi-calibration on all of them
-calibration_config = ncams.multi_camera_calibration(camera_config, inspect=True, verbose=True)
+calibration_config = ncams.multi_camera_calibration(camera_config, inspect=True)
 
-calibration_config = ncams.import_calibration(camera_config)
-ncams.camera_calibration.inspect_calibration(camera_config, calibration_config)
 # export to disk
 ncams.export_calibration(calibration_config)
 
