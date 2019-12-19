@@ -73,7 +73,7 @@ def release_system(system, cam_list):
         print('No system to release.')
         return
 
-    for cam in cam_list.values():
+    for cam in cam_list:
         if cam.IsStreaming():
             cam.EndAcquisision()
         if cam.IsInitialized():

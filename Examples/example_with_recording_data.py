@@ -234,7 +234,7 @@ ncams.spinnaker_tools.reset_cams(cam_list)
 
 
 # %% 9 Release cameras
-ncams.spinnaker_tools.release_system(system, cam_list)
+ncams.spinnaker_tools.release_system(system, camera_config['dicts'])
 
 
 # %% 10 Make images into videos
@@ -261,7 +261,7 @@ for cam_dict in session_config['cam_dicts'].values():
         cam_dict['name'], len(image_list)))
     ncams.images_to_video(
         image_list, cam_dict['video'], fps=session_config['frame_rate'],
-        output_folder=os.path.join(session_config['session_path'], session_config['video_path']))
+        output_folder=session_config['session_path'])
 
 ncams.export_session_config(session_config)
 
