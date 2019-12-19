@@ -23,7 +23,7 @@ from . import camera_io
 from . import camera_tools
 
 
-def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=False,
+def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=True,
                              verbose=False):
     '''Computes distortion coefficients from automatically selected images.
 
@@ -374,11 +374,9 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
     num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
 
-    _, axs = mpl_pp.subplots(num_horz_plots, num_vert_plots, squeeze=False)
-    vert_ind = 0
-    horz_ind = 0
+    _, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
     # Get the images and plot for each camera
-    for serial in serials:
+    for icam, serial in enumerate(serials):
         # Folder navigation
         # If there is more than one camera assume subdirectories are present
         cam_calib_dir = os.path.join(calibration_path, camera_config['dicts'][serial]['name'])
@@ -459,14 +457,11 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                                    axis=1)
 
         # Plot it
+        vert_ind = int(np.floor(icam / num_horz_plots))
+        horz_ind = icam - num_horz_plots * vert_ind
         axs[vert_ind, horz_ind].imshow(cat_image)
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
             camera_config['dicts'][serial]['name'],
             calibration_config['dicts'][serial]['reprojection_error']))
         axs[vert_ind, horz_ind].set_xticks([])
         axs[vert_ind, horz_ind].set_yticks([])
-
-        horz_ind += 1
-        if horz_ind == (num_horz_plots):
-            horz_ind = 0
-            vert_ind += 1
