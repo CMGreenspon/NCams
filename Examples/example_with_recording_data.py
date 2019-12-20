@@ -273,7 +273,8 @@ ncams.export_session_config(session_config)
 for icam, serial in enumerate(camera_config['serials']):
     cam_dict = session_config['cam_dicts'][serial]
     ncams.undistort_video(
-        cam_dict['video'], calibration_config['dicts'][serial],
+        os.path.join(session_config['session_path'], cam_dict['video']),
+        calibration_config['dicts'][serial],
         crop_and_resize=False,
         output_filename=os.path.join(session_config['session_path'], cam_dict['ud_video']))
     print('Camera {} video undistorted.'.format(cam_dict['name']))

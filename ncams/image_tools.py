@@ -41,7 +41,7 @@ def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, ou
     fps = int(video.get(cv2.CAP_PROP_FPS))
     h = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
     w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-    fourcc = cv2.VideoWriter_fourcc(*'X264')
+    fourcc = cv2.VideoWriter_fourcc(*'MPEG')
 
     # Create the new video
     video_undistorted = cv2.VideoWriter(output_filename, fourcc, fps, (w, h))
