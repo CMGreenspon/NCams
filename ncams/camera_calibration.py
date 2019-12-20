@@ -47,7 +47,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
         override {bool} -- whether to automatically override detected calibration files.
             (default: {False})
         inspect {bool} -- whether to call the inspection function. (default: {False})
-        export_full {bool} -- save the calibration to a dedicated file. (default: {False})
+        export_full {bool} -- save the calibration to a dedicated file. (default: {True})
 
     Output:
         calibration_config {dict} -- information on camera calibration and the results of said

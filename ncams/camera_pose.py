@@ -252,7 +252,8 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
 
     return camera_location, cam_orientation
 
-def one_shot_multi_PnP(camera_config, calibration_config):
+
+def one_shot_multi_PnP(camera_config, calibration_config, export_full=True):
     '''Position estimation based on a single frame from each camera.
 
     Assumes that a single synchronized image was taken where all cameras can see the calibration
@@ -272,6 +273,8 @@ def one_shot_multi_PnP(camera_config, calibration_config):
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see below.
+    Keyword Arguments:
+        export_full {bool} -- save the pose estimation to a dedicated file. (default: {True})
     Output:
         pose_estimation_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
@@ -344,15 +347,19 @@ def one_shot_multi_PnP(camera_config, calibration_config):
         'serials': camera_config['serials'],
         'world_locations': world_locations,
         'world_orientations': world_orientations,
-        'path': camera_config['pose_estimation_path'],
+        'path': pose_estimation_path,
         'filename': camera_config['pose_estimation_filename'],
         'dicts': dicts
     }
 
+    if export_full:
+        camera_io.export_pose_estimation(pose_estimation_config)
+
     return pose_estimation_config
 
 
-def common_pose_estimation(camera_config, calibration_config, cam_image_points, detection_logit):
+def common_pose_estimation(camera_config, calibration_config, cam_image_points, detection_logit,
+                           export_full=True):
     '''Position estimation based on frames from multiple cameras simultaneously.
 
     If there are sufficient shared world points across all cameras then camera pose can
@@ -373,6 +380,8 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
                 'camera_calib_dict', see below.
         cam_image_points {[type]} -- [description]
         detection_logit {[type]} -- [description]
+    Keyword Arguments:
+        export_full {bool} -- save the pose estimation to a dedicated file. (default: {True})
     Output:
         pose_estimation_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
@@ -505,10 +514,13 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
         'serials': camera_config['serials'],
         'world_locations': world_locations,
         'world_orientations': world_orientations,
-        'path': camera_config['pose_estimation_path'],
+        'path': pose_estimation_path,
         'filename': camera_config['pose_estimation_filename'],
         'dicts': dicts
     }
+
+    if export_full:
+        camera_io.export_pose_estimation(pose_estimation_config)
 
     return pose_estimation_config
 
