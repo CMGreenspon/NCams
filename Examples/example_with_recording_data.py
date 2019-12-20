@@ -158,7 +158,7 @@ camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
 # if you want to load the working cameras:
-(system, camera_config) = import_system_into_camera_config(camera_config)
+(system, camera_config) = ncams.spinnaker_tools.import_system_into_camera_config(camera_config)
 
 calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
