@@ -157,6 +157,9 @@ cdatetime = '2019.12.19_10.38.38'
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
+# if you want to load the working cameras:
+(system, camera_config) = import_system_into_camera_config(camera_config)
+
 calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
 # Does it look okay?
@@ -218,6 +221,7 @@ cam_list = [camera_config['dicts'][serial]['obj'] for serial in camera_config['s
 ncams.spinnaker_tools.reset_cams(cam_list)
 for cam in cam_list:
     ncams.spinnaker_tools.set_cam_settings(cam, default=True)
+    ncams.spinnaker_tools.set_cam_settings(cam, gain=25)
 print('Cameras were reset.')
 
 ncams.spinnaker_tools.init_sync_settings(camera_config,

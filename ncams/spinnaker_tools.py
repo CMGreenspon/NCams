@@ -50,7 +50,7 @@ def get_system():
         serial = int(cam.GetUniqueID())
         cam_serials.append(serial)
         cam_dicts[serial] = {
-            'name': CAMERA_NAME.format(cam_serial=cam.GetUniqueID()),
+            'name': CAMERA_NAME.format(cam_serial=serial),
             'serial': serial,
             'obj': cam}
 
@@ -60,6 +60,44 @@ def get_system():
             icam+1, serial, cam_dicts[serial]['name']))
 
     return system, cam_serials, cam_dicts
+
+
+def import_system_into_camera_config(camera_config, add_new_cameras=True):
+    '''Puts camera objects of the connected cameras into the camera_config.
+
+    Useful when restoring a recording session. Use this instead of recreating camera_config.
+
+    Arguments:
+        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+    Keyword Arguments:
+        add_new_cameras {bool} -- if new cameras are detected, they will be added to config.
+            otherwise they will be skipped. (default: {True})
+
+    Output:
+        system {PySpin.System instance} -- PySpin System
+        camera_config {dict} -- same as input with added camera objects for recording.
+    '''
+    system = PySpin.System.GetInstance()
+    cam_list = system.GetCameras()
+    print('{} cameras detected.'.format(len(cam_list)))
+
+    for icam, cam in enumerate(cam_list):
+        serial = int(cam.GetUniqueID())
+        if serial in camera_config['dicts'].keys():
+            cam_dicts[serial]['obj'] = cam
+        else:
+            print('New camera detected!')
+            if add_new_cameras:
+                print('Adding co camera_config.')
+                camera_config['serials'].append(serial)
+                cam_dicts[serial] = {
+                    'name': CAMERA_NAME.format(serial),
+                    'serial': serial,
+                    'obj': cam}
+
+    return (system, camera_config)
 
 
 def release_system(system, cam_list):
