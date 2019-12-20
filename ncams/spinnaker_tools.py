@@ -519,6 +519,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
     Essentially the same as synced_capture_sequence, but speeds up acquisition of images by storing
     them in RAM. Right now it is accumulating 150 fps, but it used up almost 9 gigs for 6.66 sec
     recording and scales linearly, so it would allow at max 45 sec recording on 64 GB RAM PC.
+    Experimentally could record 50 fps for 60 seconds, which took ~42 GB RAM.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
@@ -591,13 +592,15 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
                 dest_folder = output_folder
 
             thread_list.append(threading.Thread(
-                target=save_image_function,
-                args=(image, dest_folder, f_id, image_lists[cam_serial][0][7], time_stamp,
+                target=save_image_function2,
+                args=((width, height, offsetX, offsetY, pixelFormat, image_dat),
+                      dest_folder, f_id, image_lists[cam_serial][0][7], time_stamp,
                       cam_dict['name'])))
             thread_list[-1].start()
 
     for thread in thread_list:
         thread.join()
+    del image_lists
 
     for cam_dict in cam_dicts.values():
         cam_dict['obj'].EndAcquisition()
@@ -678,6 +681,41 @@ def save_image_function(input_image, output_path, frame_num, init_time, time_sta
     filename = os.path.join(output_path, filename)
 
     input_image.Save(filename)
+
+
+def save_image_function2(input_image_vars, output_path, frame_num, init_time, time_stamp,
+                         file_prefix=None):
+    '''Saves an image to drive same as save_image_function, but accepts image variables.
+
+    Useful when releasing an image can hurt another process working with it, potential use in
+    multiprocessing.
+
+    Arguments:
+        input_image_vars {list} -- variables defining an image to be saved:
+            width
+            height
+            offsetX
+            offsetY
+            pixelFormat
+            image_dat
+        output_path {string} -- where to save the image.
+        frame_num {int} -- number of the frame.
+        init_time {int} -- time when the first image on the camera was captured.
+
+    Keyword Arguments:
+        file_prefix {string} -- prefix for a file, e.g. camera name (default: {None})
+    '''
+    (width, height, offsetX, offsetY, pixelFormat, image_dat) = input_image_vars
+    image = PySpin.Image.Create(width, height, offsetX, offsetY, pixelFormat, image_dat)
+
+    delta_time = '{:08.4f}'.format((time_stamp - init_time) / 1E9)
+    filename = IMAGE_FILENAME.format(time=delta_time, frame=frame_num)
+    if file_prefix is not None:
+        filename = file_prefix + '_' + filename
+    filename = os.path.join(output_path, filename)
+
+    image.Save(filename)
+    image.Release()
 
 
 def capture_sequence(cam, num_images=50, output_path=None, file_prefix=''):

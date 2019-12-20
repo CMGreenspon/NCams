@@ -164,14 +164,14 @@ ncams.camera_pose.plot_poses(pose_estimation_config)
 
 
 # %% 6 Set up experiment (you can load the setup in Step 7)
-session_time_length_sec = 30
+session_time_length_sec = 60
 frame_rate = 50
+session_number = 1  # if multiple sessions
 
 session_number_frames = math.ceil(session_time_length_sec * frame_rate)
 print('Going to capture {} frames over {} seconds'.format(
     session_number_frames, session_time_length_sec))
 
-session_number = 1  # if multiple sessions
 session_user = 'AS'  # The person conducting the recordings
 session_subject = 'CMG'  # Subject of the recording
 session_datetime = time.strftime('%Y.%m.%d_%H.%M.%S', time.localtime())
@@ -225,7 +225,7 @@ ncams.spinnaker_tools.init_sync_settings(camera_config,
 print('Cameras sync and init done.')
 
 print('Starting capture')
-ncams.spinnaker_tools.synced_capture_sequence(
+ncams.spinnaker_tools.synced_capture_sequence_ram(
     camera_config, session_config['number_frames'],
     output_folder=session_config['session_path'], separate_folders=True)
 
