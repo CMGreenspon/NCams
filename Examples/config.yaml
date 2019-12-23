@@ -1,0 +1,129 @@
+# Project definitions (do not edit)
+Task: CMGPretrainedNetwork
+scorer: CMG
+date: Dec3
+
+# Project path (change when moving around)
+project_path: C:\FLIR_cameras\PublicExample\DLC_2019-12-23
+
+# Annotation data set configuration (and individual video cropping parameters)
+video_sets:
+
+bodyparts:
+- scapula_anterior
+- scapula_posterior
+
+- humerus_deltoid_tuberosity
+- humerus_lateral_epcdl
+- humerus_medial_epcdl
+
+- ulna_olecranon
+- ulna_bend
+- ulna_styloid
+- radius_syloid
+- radius_wrist_center
+
+- hand_center
+
+- d1_c_body
+- d1_c_head
+- d1_p1_head
+- d1_p2_head
+
+- d2_c_head
+- d2_p1_head
+- d2_p2_head
+- d2_p3_head
+
+- d3_c_head
+- d3_p1_head
+- d3_p2_head
+- d3_p3_head
+
+- d4_c_head
+- d4_p1_head
+- d4_p2_head
+- d4_p3_head
+
+- d5_c_head
+- d5_p1_head
+- d5_p2_head
+- d5_p3_head
+
+start: 0
+stop: 1
+numframes2pick: 20
+
+# Plotting configuration
+skeleton:
+- [scapula_anterior, scapula_posterior]
+- [scapula_anterior, humerus_deltoid_tuberosity]
+- [humerus_deltoid_tuberosity, scapula_posterior]
+- [humerus_deltoid_tuberosity, humerus_lateral_epcdl]
+- [humerus_deltoid_tuberosity, humerus_medial_epcdl]
+- [humerus_lateral_epcdl, ulna_olecranon]
+- [humerus_medial_epcdl, ulna_olecranon]
+- [ulna_olecranon, ulna_bend]
+- [ulna_bend, ulna_styloid]
+- [humerus_lateral_epcdl, ulna_styloid]
+- [humerus_medial_epcdl, radius_syloid]
+- [humerus_lateral_epcdl, radius_wrist_center]
+- [humerus_medial_epcdl, radius_wrist_center]
+- [radius_syloid, d1_c_body]
+- [d1_c_body, d1_c_head]
+- [d1_c_head, d1_p1_head]
+- [d1_p1_head, d1_p2_head]
+- [ulna_styloid, hand_center]
+- [radius_wrist_center, hand_center]
+- [radius_syloid, hand_center]
+- [hand_center, d2_c_head]
+- [hand_center, d3_c_head]
+- [hand_center, d4_c_head]
+- [hand_center, d5_c_head]
+- [ulna_styloid, d5_c_head]
+- [radius_syloid, d2_c_head]
+- [d2_c_body, d2_c_head]
+- [d2_c_head, d2_p1_head]
+- [d2_p1_head, d2_p2_head]
+- [d2_p2_head, d2_p3_head]
+- [d3_c_body, d3_c_head]
+- [d3_c_head, d3_p1_head]
+- [d3_p1_head, d3_p2_head]
+- [d3_p2_head, d3_p3_head]
+- [d4_c_body, d4_c_head]
+- [d4_c_head, d4_p1_head]
+- [d4_p1_head, d4_p2_head]
+- [d4_p2_head, d4_p3_head]
+- [d5_c_body, d5_c_head]
+- [d5_c_head, d5_p1_head]
+- [d5_p1_head, d5_p2_head]
+- [d5_p2_head, d5_p3_head]
+skeleton_color: black
+pcutoff: 0.9
+dotsize: 8
+alphavalue: 0.7
+colormap: jet
+
+# Training,Evaluation and Analysis configuration
+TrainingFraction:
+- 0.95
+iteration: 1
+resnet:
+snapshotindex: -1
+batch_size: 4
+
+# Cropping Parameters (for analysis and outlier frame detection)
+cropping: false
+#if cropping is true for analysis, then set the values here:
+x1: 0
+x2: 640
+y1: 277
+y2: 624
+
+# Refinement configuration (parameters from annotation dataset configuration also relevant in this stage)
+corner2move2:
+- 50
+- 50
+move2corner: true
+default_net_type: resnet_50
+default_augmenter: default
