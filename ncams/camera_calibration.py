@@ -371,8 +371,8 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     # Get layout of output array
     num_cameras = len(serials)
 
-    num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
-    num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
+    num_horz_plots = int(np.floor(np.sqrt(num_cameras)))
+    num_vert_plots = int(np.ceil(num_cameras/num_horz_plots))
 
     _, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
     # Get the images and plot for each camera
@@ -398,7 +398,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
             if image_index is None:
                 image_ind = idx
                 if image_ind >= len(image_list):
-                    print('Full board not found. Using the image with most markers.')
+                    #print('Full board not found. Using the image with most markers.')
                     image_index = num_markers_images.index(max(num_markers_images))
                     image_ind = image_index
                     idx = image_index

@@ -60,7 +60,13 @@ def charuco_board_detector(camera_config):
     cam_image_list = []
     num_images = np.zeros((1, num_cameras), dtype=int)
     for icam, name in enumerate(names):
-        image_list = utils.get_image_list(path=os.path.join(pose_estimation_path, name))
+        path_check = os.path.isdir(os.path.join(pose_estimation_path, name))
+        if path_check is False:
+            full_image_list = utils.get_image_list(path=os.path.join(pose_estimation_path))
+            image_list = [fn for fn in full_image_list if name in fn]
+        else:
+            image_list = utils.get_image_list(path=os.path.join(pose_estimation_path, name))
+        
         num_images[0, icam] = len(image_list)
         cam_image_list.append(image_list)
 
@@ -165,7 +171,7 @@ def checkerboard_detector(camera_config):
 
 
 #################### Automated calibration
-def multi_camera_pose_estimation(camera_config):
+def multi_camera_pose_estimation(camera_config, show_poses=True):
     '''[Short description]
 
     [Long description]
@@ -253,7 +259,7 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
     return camera_location, cam_orientation
 
 
-def one_shot_multi_PnP(camera_config, calibration_config, export_full=True):
+def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show_poses=False):
     '''Position estimation based on a single frame from each camera.
 
     Assumes that a single synchronized image was taken where all cameras can see the calibration
@@ -354,6 +360,9 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True):
 
     if export_full:
         camera_io.export_pose_estimation(pose_estimation_config)
+        
+    if show_poses:
+        plot_poses(pose_estimation_config, scale_factor=1)
 
     return pose_estimation_config
 
@@ -601,8 +610,7 @@ def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
 
 #################### Pose assessement functions
 def inspect_pose_estimation():
-    '''If insufficient shared points then we can instead use the reference pair of cameras and
-    iteratively calibrate all other cameras.
+    '''
 
     [Long description]
 
