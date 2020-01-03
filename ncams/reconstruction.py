@@ -85,7 +85,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
         else:
             sstr = '*_{}.csv'.format(iteration)
         list_of_csvs += glob.glob(os.path.join(
-            labeled_csv_path, cam_dicts[cam_serial]['name']+sstr))
+            labeled_csv_path, '*'+ cam_dicts[cam_serial]['name']+sstr))
     if not len(list_of_csvs) == len(cam_serials):
         if iteration is not None:
             raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
@@ -156,7 +156,6 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
         thresholds.append(threshold_array)
 
     # Undistort the points and then threshold
-    # output_coordinates = []
     output_coordinates_filtered = []
     for icam in range(num_cameras):
         # Get the optimal camera matrix
@@ -177,15 +176,13 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
         for bodypart in range(num_bodyparts):
             # Get the distorted points
             distorted_points = image_coordinates[icam][:, :, bodypart]
-            # Undistort them
             if undistorted_data:
-                undistorted_points = distorted_points
-            else:
+                undistorted_points = distorted_points.reshape(distorted_points.shape[0],1,2)
+            else: # Undistort them
                 undistorted_points = cv2.undistortPoints(
                     distorted_points, camera_matrices[icam],
                     distortion_coefficients[icam], P=optimal_matrix)
-            # Add to the unfiltered array
-            # output_array[:, :, bodypart] = undistorted_points[:, 0, :]
+                
             # Get threshold filter
             bp_thresh = thresholds[icam][:, bodypart].astype(np.float32) > threshold
             thresh_idx = np.where(bp_thresh == 1)[0]
