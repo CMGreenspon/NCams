@@ -32,7 +32,7 @@ import ncams
 
 
 BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
-os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
+os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.8'
 
 
 # %% 1 Load configurations
@@ -107,9 +107,9 @@ deeplabcut.create_labeled_video(config_path, training_videos, destfolder=labeled
 
 
 # %% 2b Load existing labeled frames
-dlc_prj_name = 'CMGPretrainedNetwork'
-scorer = 'CMG'
-prj_date = '2019-12-03'
+dlc_prj_name = '2019.12.20_8camsNoMarkers'
+scorer = 'AS'
+prj_date = '2019-12-23'
 dlc_proj_name = '-'.join([dlc_prj_name, scorer, prj_date])
 proj_path = os.path.join(BASE_DIR, dlc_proj_name)
 config_path = os.path.join(proj_path, 'config.yaml')

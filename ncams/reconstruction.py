@@ -38,18 +38,16 @@ AXS = None
 SLIDER = None
 
 
-def triangulate(camera_config, session_config, calibration_config, pose_estimation_config,
+def triangulate(camera_config, output_csv, calibration_config, pose_estimation_config,
                 labeled_csv_path, threshold=0.9, method='full_rank',
-                best_pair_n=2, num_frames_limit=None, output_csv=None,
-                iteration=None):
+                best_pair_n=2, num_frames_limit=None, iteration=None, undistorted_data=False):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        session_config {dict} -- information about the session. This function uses following keys:
-            session_path {str} -- location of the session data.
+        output_csv {str} -- file to save the triangulated points into.
         calibration_config {dict} -- see help(ncams.camera_tools).
         pose_estimation_config {dict} -- see help(ncams.camera_tools).
         labeled_csv_path {str} -- locations of csv's with marked points.
@@ -63,8 +61,6 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
         best_pair_n {number} -- how many cameras to use when best_pair method is used. (default: 2)
         num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
             for testing. If None, then all frames will be analyzed. (default: None)
-        output_csv {str} -- file to save the triangulated points into.
-            (default: os.path.join(session_path, 'triangulated_points.csv'))]
         iteration {int} -- look for csv's with this iteration number. (default: {None})
         undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
             {False})
@@ -73,7 +69,6 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
     '''
     cam_serials = camera_config['serials']
     cam_dicts = camera_config['dicts']
-    session_path = session_config['session_path']
 
     camera_matrices = calibration_config['camera_matrices']
     if not undistorted_data:
@@ -254,8 +249,6 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
             u_euclid = (u/u[-1, :])[0:-1, :]
             triangulated_points[iframe, :, bodypart] = np.transpose(u_euclid)
 
-    if output_csv is None:
-        output_csv = os.path.join(session_path, 'triangulated_points.csv')
     with open(output_csv, 'w', newline='') as f:
         triagwriter = csv.writer(f)
         bps_line = ['bodyparts']
@@ -275,8 +268,7 @@ def triangulate(camera_config, session_config, calibration_config, pose_estimati
 
 def make_triangulation_videos(camera_config, session_config, triangulated_csv,
                               triangulated_path=None, overwrite_temp=False,
-                              num_frames_limit=None, parallel=None,
-                              undistorted_data=False):
+                              num_frames_limit=None, parallel=None):
     """Makes a video based on triangulated marker positions.
 
     Arguments:
