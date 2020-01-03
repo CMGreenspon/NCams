@@ -65,6 +65,29 @@ def get_image_list(path=None, sort=True):
 
     return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
 
+def filter_image_list(list_of_images, list_of_filters):
+    ''' Returns a filtered list of the input lsit for each filter given.
+    
+    In cases where images where the images from multiple cameras are stored in
+    one folder this provides an easy way of filtering by the serial number.
+    
+    Keyword Arguments:
+        list_of_images {list of strings} -- The unflitered list of images.
+        list_of_filters {list of strings} -- The filter keywords.
+    Output:
+        filtered_lists {list of lists of strings} -- list with filtered sub-lists.
+    '''
+    
+    filtered_lists = []
+    for filt in list_of_filters:
+        if not isinstance(filt, str):
+            filt = str(filt)
+            
+        filtered_list = [fn for fn in list_of_images if filt in fn]
+        filtered_lists.append(filtered_list)
+    
+    return filtered_lists
+
 
 def alphanumeric_sort(strings):
     '''Alphanumeric sorter that considers parts of the numerical parts of the string independently.
