@@ -265,38 +265,30 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def make_triangulation_videos(camera_config, session_config, cam_serials_to_use,
-                              triangulated_csv, triangulated_path=None,
-                              frame_range=None, parallel=None):
+def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path,
+                              output_path=None, frame_range=None, parallel=None):
     """Makes a video based on triangulated marker positions.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        session_config {dict} -- information about the session. This function uses following keys:
-            session_path {str} -- location of the session data.
-        triangulated_csv {str} -- location of csv with marked points.
+        cam_serials_to_use {list} -- list of serials for the cameras you want videos for.
+        video_path {str} -- path to the location of the undistorted videos.
+        csv_path {str} -- location of csv with triangulated points.
     Keyword Arguments:
-        triangulated_path {str} -- where you would like the 3d video and images to be stored.
-            (default: {os.path.join(session_path, 'triangulated')})
+        output_path {str} -- where you would like the 3d video to be stored.
+            (default: csv_path)
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
             then indicates the start and stop frame. If None then all frames will be used. (default:
                 None)
-        parallel {number or None} parallelize the image creation. If integer, create that many
-            processes. Significantly speeds up generation. If None, do not parallelize. (default:
-            {None})
-        undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
-            {False})
     """
-    matplotlib.use('Agg')
+    #matplotlib.use('Agg')
 
     cam_serials = camera_config['serials']
     cam_dicts = camera_config['dicts']
-    session_path = session_config['session_path']
-    fps = session_config['frame_rate']
 
-    with open(triangulated_csv, 'r') as f:
+    with open(csv_path, 'r') as f:
         triagreader = csv.reader(f)
         l = next(triagreader)
         bodyparts = []
@@ -306,72 +298,110 @@ def make_triangulation_videos(camera_config, session_config, cam_serials_to_use,
         num_bodyparts = len(bodyparts)
         next(triagreader)
         triangulated_points = []
-        num_frames = 0
         for row in triagreader:
             triangulated_points.append([[] for _ in range(3)])
             for ibp in range(num_bodyparts):
                 triangulated_points[-1][0].append(float(row[1+ibp*3]))
                 triangulated_points[-1][1].append(float(row[2+ibp*3]))
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
-            num_frames += 1
-            if num_frames_limit is not None and num_frames >= num_frames_limit:
-                break
+                
     triangulated_points = np.array(triangulated_points)
+    
+    cmap = matplotlib.cm.get_cmap('jet')
+    color_idx = np.linspace(0, 1, num_bodyparts)
+    bp_cmap = cmap(color_idx)
+    # Limits in space of the markers + 10%
+    margin = 1.3
+    pcntl = 2
+    x_range = (np.nanpercentile(triangulated_points[:, 0, :], pcntl) * margin,
+               np.nanpercentile(triangulated_points[:, 0, :], 100-pcntl) * margin)
+    y_range = (np.nanpercentile(triangulated_points[:, 1, :], pcntl) * margin,
+               np.nanpercentile(triangulated_points[:, 1, :], 100-pcntl) * margin)
+    z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin,
+               np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin)
     
     for cam_serial in cam_serials_to_use:
         print('Creating video for {}'.format(cam_dicts[cam_serial]['name']))
         
+        # Try to find the correct video
+        file_list = utils.get_file_list(('mp4', 'avi', 'mpeg', 'wvm'), path=video_path)
+        vid_path = [fn for fn in file_list if str(cam_serial) in fn]
+        # If there is more than one video then give the user the option to choose
+        if len(vid_path) > 1:
+            print(' - More than one video matching the camera serial has been found in the video '+
+                  'directory.\n   Which would you like to use?')
+            for idx,file in enumerate(vid_path):
+                fn = os.path.split(file)[1]
+                print('   ['+str(idx+1)+'] ' + fn)
+                
+            uinput_string = ('   Pick the [number] corresponding to the correct video.\n   ')
+            while True:
+                user_input = input(uinput_string)
+                try:
+                    vid_path = vid_path[int(user_input)-1]
+                    break
+                except ValueError:
+                    print('Integer not given.')
             
-        cmap = matplotlib.cm.get_cmap('jet')
-        color_idx = np.linspace(0, 1, num_bodyparts)
-        bp_cmap = cmap(color_idx)
-        # Limits in space of the markers + 10%
-        margin = 1.3
-        pcntl = 2
-        x_range = (np.nanpercentile(triangulated_points[:, 0, :], pcntl) * margin,
-                   np.nanpercentile(triangulated_points[:, 0, :], 100-pcntl) * margin)
-        y_range = (np.nanpercentile(triangulated_points[:, 1, :], pcntl) * margin,
-                   np.nanpercentile(triangulated_points[:, 1, :], 100-pcntl) * margin)
-        z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin,
-                   np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin)
-
-        if parallel is None or parallel < 2:
-            fig = mpl_pp.figure(figsize=(9, 5))
-            ax1 = fig.add_subplot(1, 2, 1)
-            ax2 = fig.add_subplot(1, 2, 2, projection='3d')
-            ax2.view_init(elev=90, azim=90)
-            # Create the figure
-            for frame in tqdm(range(num_frames)):
-                ax1.cla()
-                image_path = image_list[frame]
-                ax1.imshow(mpl_pp.imread(image_path))
-
-                ax2.cla()
-                ax2.set_xlim(x_range)
-                ax2.set_ylim(y_range)
-                ax2.set_zlim(z_range)
-
-                for ibp in range(np.size(triangulated_points, 2)):
-                    ax2.scatter(triangulated_points[frame, 0, ibp],
-                                triangulated_points[frame, 1, ibp],
-                                triangulated_points[frame, 2, ibp],
-                                color=bp_cmap[ibp, :])
-
-                mpl_pp.savefig(os.path.join(output_path, 'frame' + str(frame)))
         else:
-            print('Using parallel pool to create images')
-            mip = functools.partial(make_image,
-                                    ranges=[x_range, y_range, z_range],
-                                    output_path=output_path, bp_cmap=bp_cmap)
-            with multiprocessing.Pool(parallel) as pool:
-                pool.map(mip, zip(range(num_frames), image_list[:num_frames], triangulated_points))
+            vid_path = vid_path[0]
+                
+        # Inspect the video
+        video = cv2.VideoCapture(vid_path)
+        fps = int(video.get(cv2.CAP_PROP_FPS))
+        h = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
+        num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # Make a new video keeping the old properties
+        if output_path is None:
+            output_path = os.path.split(csv_path)[0]
+        
+        fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+        output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
+        output_video = cv2.VideoWriter(output_filename, fourcc, fps, (w, h))
 
-        # Make a video of it
-        print('Making a video for {}'.format(cam_dicts[cam_serial]['name']))
-        output_image_list = utils.get_image_list(path=output_path)
-        image_tools.images_to_video(
-            output_image_list,
-            os.path.join(triangulated_path, cam_dicts[cam_serial]['name'] + '.mp4'), fps=fps)
+        # Check the frame range
+        if frame_range is not None:
+            if frame_range[1] > num_frames:
+                print('   Too many frames requested, the video will be truncated appropriately.')
+                frame_range[1] = num_frames
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+        else:
+            frame_range = (0, num_frames)
+            
+        # Create the figure
+        fig = mpl_pp.figure(figsize=(9, 5))
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+        ax2.view_init(elev=90, azim=90)
+
+        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1)):
+            _, frame = video.read() # Read the next frame if it exists
+            frame_rgb = frame[...,::-1].copy()
+            
+            ax1.cla()
+            ax1.imshow(frame_rgb)
+            ax1.set_xticks([])
+            ax1.set_yticks([])
+
+            ax2.cla()
+            ax2.set_xlim(x_range)
+            ax2.set_ylim(y_range)
+            ax2.set_zlim(z_range)
+            # Plot the bodyparts
+            for ibp in range(np.size(triangulated_points, 2)):
+                ax2.scatter(triangulated_points[f_idx, 0, ibp],
+                            triangulated_points[f_idx, 1, ibp],
+                            triangulated_points[f_idx, 2, ibp],
+                            color=bp_cmap[ibp, :])
+            
+            mpl_pp.savefig('temp_frame')
+            frame_img = cv2.imread('temp_frame.png')
+            output_video.write(frame_img)
+                
+        video.release()
+        output_video.release()
 
 
 def make_image(args, ranges=None, output_path=None, bp_cmap=None):
