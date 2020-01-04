@@ -376,7 +376,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=90, azim=90)
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1)):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1]-1, 1)):
             _, frame = video.read() # Read the next frame if it exists
             frame_rgb = frame[...,::-1].copy()
             
