@@ -263,9 +263,9 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def make_triangulation_videos(camera_config, session_config, triangulated_csv,
-                              triangulated_path=None, overwrite_temp=False,
-                              num_frames_limit=None, parallel=None):
+def make_triangulation_videos(camera_config, session_config, cam_serials_to_use,
+                              triangulated_csv, triangulated_path=None,
+                              frame_range=None, parallel=None):
     """Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -278,10 +278,9 @@ def make_triangulation_videos(camera_config, session_config, triangulated_csv,
     Keyword Arguments:
         triangulated_path {str} -- where you would like the 3d video and images to be stored.
             (default: {os.path.join(session_path, 'triangulated')})
-        overwrite_temp {bool} -- automatically overwrite folder for holding temporary images.
-            (default: {False})
-        num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
-            for testing. If None, then all frames will be analyzed. (default: None)
+        frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
+            then indicates the start and stop frame. If None then all frames will be used. (default:
+                None)
         parallel {number or None} parallelize the image creation. If integer, create that many
             processes. Significantly speeds up generation. If None, do not parallelize. (default:
             {None})
@@ -316,46 +315,11 @@ def make_triangulation_videos(camera_config, session_config, triangulated_csv,
             if num_frames_limit is not None and num_frames >= num_frames_limit:
                 break
     triangulated_points = np.array(triangulated_points)
-
-    for cam_serial in cam_serials:
-        print('Making images for {}'.format(cam_dicts[cam_serial]['name']))
-        image_list = utils.get_image_list(path=os.path.join(
-            session_path, cam_dicts[cam_serial]['name']))
-        if not os.path.isdir(triangulated_path):
-            os.mkdir(triangulated_path)
-        output_path = os.path.join(triangulated_path,
-                                   cam_dicts[cam_serial]['name'])
-        if os.path.isdir(output_path):
-            if overwrite_temp:
-                shutil.rmtree(output_path, ignore_errors=True)
-                os.mkdir(output_path)
-            else:
-                uinput_string = (
-                    "Directory {} used for image temporary hold exists. Would you like to wipe it?"
-                    "(Yes/No/Abort/Help')."
-                    "\nHaving residual files in the folder can lead to erroneus videos.\n".format(
-                        output_path))
-                while True:
-                    user_input = input(uinput_string).lower()
-                    if user_input in ('no', 'n'):
-                        print('- Proceeding...')
-                        break
-                    elif user_input in ('yes', 'y'):
-                        print('- Wiping folder...')
-                        shutil.rmtree(output_path, ignore_errors=True)
-                        os.mkdir(output_path)
-                        break
-                    elif user_input == 'abort':
-                        return
-                    elif user_input == 'help':
-                        print('- Yes: delete the folder and all its contents, and make a new one.\n'
-                              '- No: use the folder as is.\n'
-                              '- Abort: exit the function without returning anything.\n')
-                    else:
-                        print("Invalid response given.\n")
-        else:
-            os.mkdir(output_path)
-
+    
+    for cam_serial in cam_serials_to_use:
+        print('Creating video for {}'.format(cam_dicts[cam_serial]['name']))
+        
+            
         cmap = matplotlib.cm.get_cmap('jet')
         color_idx = np.linspace(0, 1, num_bodyparts)
         bp_cmap = cmap(color_idx)
