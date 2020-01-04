@@ -40,7 +40,8 @@ SLIDER = None
 
 def triangulate(camera_config, output_csv, calibration_config, pose_estimation_config,
                 labeled_csv_path, threshold=0.9, method='full_rank',
-                best_pair_n=2, num_frames_limit=None, iteration=None, undistorted_data=False):
+                best_pair_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
+                file_prefix=''):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
@@ -64,6 +65,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
         iteration {int} -- look for csv's with this iteration number. (default: {None})
         undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
             {False})
+        file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
     Output:
         output_csv {str} -- location of the output csv with all triangulated points.
     '''
@@ -85,7 +87,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
         else:
             sstr = '*_{}.csv'.format(iteration)
         list_of_csvs += glob.glob(os.path.join(
-            labeled_csv_path, '*'+ cam_dicts[cam_serial]['name']+sstr))
+            labeled_csv_path, file_prefix+'*'+ cam_dicts[cam_serial]['name']+sstr))
     if not len(list_of_csvs) == len(cam_serials):
         if iteration is not None:
             raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
@@ -182,7 +184,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
                 undistorted_points = cv2.undistortPoints(
                     distorted_points, camera_matrices[icam],
                     distortion_coefficients[icam], P=optimal_matrix)
-                
+
             # Get threshold filter
             bp_thresh = thresholds[icam][:, bodypart].astype(np.float32) > threshold
             thresh_idx = np.where(bp_thresh == 1)[0]
