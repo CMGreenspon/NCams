@@ -25,6 +25,7 @@ import matplotlib
 import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 from . import utils
 from . import image_tools
@@ -357,27 +358,35 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         if output_path is None:
             output_path = os.path.split(csv_path)[0]
         
-        fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-        output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
-        output_video = cv2.VideoWriter(output_filename, fourcc, fps, (w, h))
 
         # Check the frame range
         if frame_range is not None:
             if frame_range[1] > num_frames:
                 print('   Too many frames requested, the video will be truncated appropriately.')
                 frame_range[1] = num_frames
-            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+                video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+            
         else:
             frame_range = (0, num_frames)
             
         # Create the figure
         fig = mpl_pp.figure(figsize=(9, 5))
+        fw, fh = fig.get_size_inches() * fig.get_dpi()
+        canvas = FigureCanvas(fig)
+        
+        fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+        output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
+        output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
+        
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=90, azim=90)
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1]-1, 1)):
-            _, frame = video.read() # Read the next frame if it exists
+        for f_idx in range(frame_range[0], frame_range[1], 1):
+            fe, frame = video.read() # Read the next frame
+            if fe is False:
+                break
+            
             frame_rgb = frame[...,::-1].copy()
             
             ax1.cla()
@@ -395,14 +404,14 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
                             triangulated_points[f_idx, 1, ibp],
                             triangulated_points[f_idx, 2, ibp],
                             color=bp_cmap[ibp, :])
-            
-            mpl_pp.savefig('temp_frame')
-            frame_img = cv2.imread('temp_frame.png')
-            output_video.write(frame_img)
+                
+            canvas.draw() 
+            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
+            temp_frame = temp_frame[...,::-1].copy()
+            output_video.write(temp_frame)
                 
         video.release()
         output_video.release()
-
 
 def make_image(args, ranges=None, output_path=None, bp_cmap=None):
     iframe, image_path, triangulated_points = args

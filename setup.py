@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.1.16',
+    version='0.1.17',
     description='Calibration, pose estimation, and triangulation using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
