@@ -20,6 +20,9 @@ import glob
 import numpy as np
 from tqdm import tqdm
 import cv2
+from scipy.signal import medfilt
+from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter1d
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
@@ -266,9 +269,79 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
+def process_triangulated_data(csv_path, filt_width=5, output_path=None):
+    '''Uses median and gaussian filters to both smooth and interpolate points.
+       Will only interpolate when fewer missing values are present than the gaussian width.
+       Arguments:
+        csv_path {str} -- path of the triangulated csv.
+    Keyword Arguments:
+        filt_width {int} -- how wide the filters should be. (default: 5)
+        output_path {str} -- output directory for the smoothed csv. (default: csv_path + _smoothed)
+    
+    '''
+    
+    with open(csv_path, 'r') as f:
+        triagreader = csv.reader(f)
+        l = next(triagreader)
+        bodyparts = []
+        for i, bp in enumerate(l):
+            if (i-1)%3 == 0:
+                bodyparts.append(bp)
+        num_bodyparts = len(bodyparts)
+        next(triagreader)
+        triangulated_points = []
+        for row in triagreader:
+            triangulated_points.append([[] for _ in range(3)])
+            for ibp in range(num_bodyparts):
+                triangulated_points[-1][0].append(float(row[1+ibp*3]))
+                triangulated_points[-1][1].append(float(row[2+ibp*3]))
+                triangulated_points[-1][2].append(float(row[3+ibp*3]))
+                
+    processed_array = np.array(triangulated_points)
+    
+    for ibp in range(num_bodyparts):
+        for a in range(3):
+            # Remove outliers with a median filter
+            processed_array[:,a,ibp] = medfilt(np.squeeze(processed_array[:,a,ibp]), 
+                           kernel_size=filt_width)
+            # Apply a gaussian filter
+            v_real = np.squeeze(processed_array[:,a,ibp])
+            v_real[np.isnan(v_real)] = 0
+            v_real_filt = gaussian_filter1d(v_real, filt_width)
+            # Compensate for NaNs
+            v_nan = 0*np.squeeze(processed_array[:,a,ibp]) + 1
+            v_nan[np.isnan(v_nan)] = 0
+            v_nan_filt = gaussian_filter1d(v_nan, filt_width)
+            # Remove 0 vals
+            v_ratio = v_real_filt/v_nan_filt
+            v_ratio[v_ratio==0] = np.nan
+            
+            processed_array[:,a,ibp] = v_ratio
+                
+    if output_path is None:
+        output_csv = csv_path[:-4] + '_smoothed.csv'
+    
+    with open(output_csv, 'w', newline='') as f:
+        triagwriter = csv.writer(f)
+        bps_line = ['bodyparts']
+        for bp in bodyparts:
+            bps_line += [bp]*3
+        triagwriter.writerow(bps_line)
+        triagwriter.writerow(['coords'] + ['x', 'y', 'z']*num_bodyparts)
+        for iframe in range(num_frames):
+            rw = [iframe]
+            for ibp in range(num_bodyparts):
+                rw += [processed_array[iframe, 0, ibp],
+                       processed_array[iframe, 1, ibp],
+                       processed_array[iframe, 2, ibp]]
+            triagwriter.writerow(rw)
+            
+    return output_csv
+
+
 def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path,
-                              output_path=None, frame_range=None, parallel=None):
-    """Makes a video based on triangulated marker positions.
+                              output_path=None, frame_range=None, parallel=None, view=(90,90)):
+    '''Makes a video based on triangulated marker positions.
 
     Arguments:
         camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
@@ -283,8 +356,10 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
             then indicates the start and stop frame. If None then all frames will be used. (default:
                 None)
-    """
-    #matplotlib.use('Agg')
+        parallel {bool} -- If multiple videos are being made this can be parallelized for speed.
+        view {tuple} -- The desired (elivation, azimuth) required for the 3d plot. (default: (90,90))
+        
+    '''
 
     cam_serials = camera_config['serials']
     cam_dicts = camera_config['dicts']
@@ -354,10 +429,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         w = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
         num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        # Make a new video keeping the old properties
-        if output_path is None:
+        if output_path is None: # Use the same directory as the input CSV
             output_path = os.path.split(csv_path)[0]
-        
+        # Check if a path or filename was given
+        if os.path.isfile(output_path) is False: # Default file name
+            output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
+        else:
+            output_filename = output_path # User selected file name
 
         # Check the frame range
         if frame_range is not None:
@@ -374,13 +452,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         fw, fh = fig.get_size_inches() * fig.get_dpi()
         canvas = FigureCanvas(fig)
         
+        # Make a new video keeping the old properties
         fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-        output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
         output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
         
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
-        ax2.view_init(elev=90, azim=90)
+        ax2.view_init(elev=view[0], azim=view[1])
 
         for f_idx in range(frame_range[0], frame_range[1], 1):
             fe, frame = video.read() # Read the next frame
@@ -409,9 +487,11 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
             temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
             temp_frame = temp_frame[...,::-1].copy()
             output_video.write(temp_frame)
-                
+          
+        close(fig)
         video.release()
         output_video.release()
+        
 
 def make_image(args, ranges=None, output_path=None, bp_cmap=None):
     iframe, image_path, triangulated_points = args
