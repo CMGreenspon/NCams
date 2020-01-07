@@ -15,6 +15,7 @@ import csv
 import shutil
 import multiprocessing
 import functools
+import ntpath
 
 import glob
 import numpy as np
@@ -439,9 +440,11 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 #            print(str(np.size(triangulated_points, 0)) + ' rows')
 
         if output_path is None: # Use the same directory as the input CSV
-            output_filename = triangulated_csv_path[:-3] + 'mp4'
+            output_filename = (triangulated_csv_path[:-4] + '_' + ntpath.basename(vid_path)[:-4] +
+                               '_triangulated.mp4')
         else:
             output_filename = output_path # User selected file name
+        print('Making video into {}'.format(output_filename))
 
         # Check the frame range
         if frame_range is not None:
