@@ -298,7 +298,7 @@ def process_triangulated_data(csv_path, filt_width=5, output_path=None):
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
                 
     processed_array = np.array(triangulated_points)
-    
+    # Iterate along each bodypart and axis
     for ibp in range(num_bodyparts):
         for a in range(3):
             # Remove outliers with a median filter
@@ -451,11 +451,10 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         fig = mpl_pp.figure(figsize=(9, 5))
         fw, fh = fig.get_size_inches() * fig.get_dpi()
         canvas = FigureCanvas(fig)
-        
-        # Make a new video keeping the old properties
+        # Make a new video keeping the old properties - need to know figure size first
         fourcc = cv2.VideoWriter_fourcc(*'MPEG')
         output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
-        
+        # Create the axes
         ax1 = fig.add_subplot(1, 2, 1)
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=view[0], azim=view[1])
@@ -466,12 +465,12 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
                 break
             
             frame_rgb = frame[...,::-1].copy()
-            
+            # Clear axis 1
             ax1.cla()
             ax1.imshow(frame_rgb)
             ax1.set_xticks([])
             ax1.set_yticks([])
-
+            # Clear axis 2
             ax2.cla()
             ax2.set_xlim(x_range)
             ax2.set_ylim(y_range)
@@ -482,12 +481,12 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
                             triangulated_points[f_idx, 1, ibp],
                             triangulated_points[f_idx, 2, ibp],
                             color=bp_cmap[ibp, :])
-                
+            # Pull matplotlib data to a variable and format for writing
             canvas.draw() 
             temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
             temp_frame = temp_frame[...,::-1].copy()
             output_video.write(temp_frame)
-          
+        # Release objects
         close(fig)
         video.release()
         output_video.release()
