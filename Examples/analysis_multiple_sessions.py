@@ -140,16 +140,16 @@ deeplabcut.create_training_dataset(config_path)
 deeplabcut.train_network(config_path, gputouse=0, saveiters=25000, maxiters=250000)
 
 # %% 3 Triangulation from multiple cameras
-triangulated_path = os.path.join(proj_path, 'triangulated')
+method = 'full_rank'
+threshold = 0.9
+triangulated_path = os.path.join(proj_path, 'triangulated_{}_{}'.format(method, threshold))
 if not os.path.exists(triangulated_path):
     os.mkdir(triangulated_path)
+triangulated_csv = os.path.join(triangulated_path, 'triangulated_points.csv')
 
-method = 'full_rank'
-triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_'+method+'.csv')
-threshold = 0.9
 ncams.triangulate(
-    camera_config, session_config, calibration_config, pose_estimation_config, labeled_csv_path,
-    threshold=threshold, method=method, output_csv=triangulated_csv)
+    camera_config, triangulated_csv, calibration_config, pose_estimation_config, labeled_csv_path,
+    threshold=threshold, method=method, undistorted_data=True)
 
 # %% 4 Make markered videos
 # In big videos it takes awhile, try running with 'parallel' keyword outside of interactive Python.
