@@ -328,7 +328,7 @@ def process_triangulated_data(csv_path, filt_width=5, output_path=None):
             bps_line += [bp]*3
         triagwriter.writerow(bps_line)
         triagwriter.writerow(['coords'] + ['x', 'y', 'z']*num_bodyparts)
-        for iframe in range(num_frames):
+        for iframe in range(processed_array.shape[0]):
             rw = [iframe]
             for ibp in range(num_bodyparts):
                 rw += [processed_array[iframe, 0, ibp],
@@ -339,7 +339,7 @@ def process_triangulated_data(csv_path, filt_width=5, output_path=None):
     return output_csv
 
 
-def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path,
+def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path, skeleton=False,
                               output_path=None, frame_range=None, parallel=None, view=(90,90)):
     '''Makes a video based on triangulated marker positions.
 
@@ -431,8 +431,6 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         
         if output_path is None: # Use the same directory as the input CSV
             output_path = os.path.split(csv_path)[0]
-        # Check if a path or filename was given
-        if os.path.isfile(output_path) is False: # Default file name
             output_filename = os.path.join(output_path, 'cam' + str(cam_serial) + '_triangulated.mp4')
         else:
             output_filename = output_path # User selected file name
@@ -487,9 +485,11 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
             temp_frame = temp_frame[...,::-1].copy()
             output_video.write(temp_frame)
         # Release objects
-        close(fig)
+        mpl_pp.close(fig)
         video.release()
         output_video.release()
+        
+        return output_filename
         
 
 def make_image(args, ranges=None, output_path=None, bp_cmap=None):
