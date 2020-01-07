@@ -300,10 +300,10 @@ def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_thre
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
 
     processed_array = np.array(triangulated_points)
-    
+
     # Smooth each bodypart along each axis
     gauss_filt = Gaussian1DKernel(stddev=filt_width/10)
-    
+
     for ibp in range(num_bodyparts):
         for a in range(3):
             ibp_a = np.squeeze(processed_array[:,a,ibp])
@@ -317,7 +317,7 @@ def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_thre
             ibp_a = [np.nan if e > ut or e < lt else e for e in ibp_a]
             # Apply gaussian smoothing filter
             processed_array[:,a,ibp] = convolve(ibp_a, gauss_filt,boundary='extend')
-            
+
     if output_csv is None:
         output_csv = csv_path[:-4] + '_smoothed.csv'
 
@@ -372,16 +372,18 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 
     '''
     cam_dicts = camera_config['dicts']
-    
+
     if isinstance(video_paths, str): # just in case a string is passed
         video_paths = [video_paths]
-    
+
     if skeleton_config is not None:
         with open(skeleton_config, 'r') as yaml_file:
             dic = yaml.safe_load(yaml_file)
             bp_list = dic['bodyparts']
             bp_connections = dic['skeleton']
         skeleton = True
+    else:
+        skeleton = False
 
     with open(triangulated_csv_path, 'r') as f:
         triagreader = csv.reader(f)
@@ -429,7 +431,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         video = cv2.VideoCapture(vid_path)
         fps = int(video.get(cv2.CAP_PROP_FPS))
         num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        
+
         # Check that the number of frames matches the CSV
 #        if not num_frames == np.size(triangulated_points, 0):
 #            print('   Warning: the CSV and video do not have an equal number of frames.')
@@ -479,16 +481,16 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             ax2.set_xlim(x_range)
             ax2.set_ylim(y_range)
             ax2.set_zlim(z_range)
-            
+
             # Underlying skeleton
             if skeleton:
                 for isk in range(len(bp_connections)):
                     ibp1 = bp_list.index(bp_connections[isk][0])
                     ibp2 = bp_list.index(bp_connections[isk][1])
-                    
+
                     t_point1 = triangulated_points[f_idx, :, ibp1]
                     t_point2 = triangulated_points[f_idx, :, ibp2]
-                    
+
                     if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
                         continue
                     else:
@@ -496,7 +498,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
                                  [t_point1[1], t_point2[1]],
                                  [t_point1[2], t_point2[2]],
                                  color='k',linewidth=1)
-             
+
             # Bodypart markers
             for ibp in range(np.size(triangulated_points, 2)):
                 # Markers
@@ -504,13 +506,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
                             triangulated_points[f_idx, 1, ibp],
                             triangulated_points[f_idx, 2, ibp],
                             color=bp_cmap[ibp, :], s=marker_size)
-                    
+
             # Pull matplotlib data to a variable and format for writing
             canvas.draw()
             temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
             temp_frame = temp_frame[...,::-1].copy()
             output_video.write(temp_frame)
-            
+
         # Release objects
         mpl_pp.close(fig)
         video.release()
@@ -587,6 +589,7 @@ def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_
             processes. Significantly speeds up generation. If None, do not parallelize. (default:
             {None})
     """
+    raise DeprecationWarning
     cam_dicts = camera_config['dicts']
     session_path = session_config['session_path']
 
