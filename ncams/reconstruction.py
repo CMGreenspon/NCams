@@ -312,10 +312,9 @@ def process_triangulated_data(csv_path, filt_width=5, output_path=None):
             v_nan = 0*np.squeeze(processed_array[:,a,ibp]) + 1
             v_nan[np.isnan(v_nan)] = 0
             v_nan_filt = gaussian_filter1d(v_nan, filt_width)
-            # Remove 0 vals
+            # Get the ratio & remove 0 values
             v_ratio = v_real_filt/v_nan_filt
-            v_ratio[v_ratio==0] = np.nan
-            
+            v_ratio = [np.nan if e == 0 else e for e in v_ratio]
             processed_array[:,a,ibp] = v_ratio
                 
     if output_path is None:
