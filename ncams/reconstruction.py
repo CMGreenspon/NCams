@@ -21,8 +21,8 @@ import numpy as np
 from tqdm import tqdm
 import cv2
 from scipy.signal import medfilt
-from scipy.interpolate import interp1d
-from scipy.ndimage import gaussian_filter1d
+from astropy.convolution import convolve, Gaussian1DKernel
+import yaml
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
@@ -269,7 +269,8 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def process_triangulated_data(csv_path, filt_width=5, output_csv=None):
+def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_threshold=5,
+                              output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
        Arguments:
@@ -280,7 +281,7 @@ def process_triangulated_data(csv_path, filt_width=5, output_csv=None):
             _smoothed.csv})
 
     '''
-
+    # Load in the CSV
     with open(csv_path, 'r') as f:
         triagreader = csv.reader(f)
         l = next(triagreader)
@@ -299,25 +300,24 @@ def process_triangulated_data(csv_path, filt_width=5, output_csv=None):
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
 
     processed_array = np.array(triangulated_points)
-    # Iterate along each bodypart and axis
+    
+    # Smooth each bodypart along each axis
+    gauss_filt = Gaussian1DKernel(stddev=filt_width/10)
+    
     for ibp in range(num_bodyparts):
         for a in range(3):
-            # Remove outliers with a median filter
-            processed_array[:,a,ibp] = medfilt(np.squeeze(processed_array[:,a,ibp]),
-                           kernel_size=filt_width)
-            # Apply a gaussian filter
-            v_real = np.squeeze(processed_array[:,a,ibp])
-            v_real[np.isnan(v_real)] = 0
-            v_real_filt = gaussian_filter1d(v_real, filt_width)
-            # Compensate for NaNs
-            v_nan = 0*np.squeeze(processed_array[:,a,ibp]) + 1
-            v_nan[np.isnan(v_nan)] = 0
-            v_nan_filt = gaussian_filter1d(v_nan, filt_width)
-            # Get the ratio & remove 0 values
-            v_ratio = v_real_filt/v_nan_filt
-            v_ratio = [np.nan if e == 0 else e for e in v_ratio]
-            processed_array[:,a,ibp] = v_ratio
-
+            ibp_a = np.squeeze(processed_array[:,a,ibp])
+            # Apply median filter
+            ibp_a = medfilt(ibp_a, kernel_size=filt_width)
+            # Outlier detection
+            mean_val = np.nanmean(ibp_a)
+            std_val = np.nanstd(ibp_a)
+            ut = mean_val + std_val*outlier_sd_threshold
+            lt = mean_val - std_val*outlier_sd_threshold
+            ibp_a = [np.nan if e > ut or e < lt else e for e in ibp_a]
+            # Apply gaussian smoothing filter
+            processed_array[:,a,ibp] = convolve(ibp_a, gauss_filt,boundary='extend')
+            
     if output_csv is None:
         output_csv = csv_path[:-4] + '_smoothed.csv'
 
@@ -337,10 +337,18 @@ def process_triangulated_data(csv_path, filt_width=5, output_csv=None):
             triagwriter.writerow(rw)
 
     return output_csv
+'''
+fig = mpl_pp.figure(figsize=(9, 5))
+fig.add_subplot(1,2,1)
+mpl_pp.plot(ibp_a)
+fig.add_subplot(1,2,2)
+mpl_pp.plot(test)
+'''
 
 
-def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path, skeleton=False,
-                              output_path=None, frame_range=None, parallel=None, view=(90,90)):
+def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv_path,
+                              skeleton_config=None, marker_size=5, output_path=None, frame_range=None,
+                              parallel=None, view=(90,90)):
     '''Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -356,14 +364,23 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
             then indicates the start and stop frame. If None then all frames will be used. (default:
                 None)
+        skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
+            the example config. (default: None)
         parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
             None, then no parallelization. (default: None)
         view {tuple} -- The desired (elivation, azimuth) required for the 3d plot. (default: (90,90))
 
     '''
-
+    
     cam_serials = camera_config['serials']
     cam_dicts = camera_config['dicts']
+    
+    if skeleton_config is not None:
+        with open(skeleton_config, 'r') as yaml_file:
+            dic = yaml.safe_load(yaml_file)
+            bp_list = dic['bodyparts']
+            bp_connections = dic['skeleton']
+        skeleton = True
 
     with open(csv_path, 'r') as f:
         triagreader = csv.reader(f)
@@ -474,12 +491,32 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
             ax2.set_xlim(x_range)
             ax2.set_ylim(y_range)
             ax2.set_zlim(z_range)
-            # Plot the bodyparts
+            
+            # Underlying splines
+            if skeleton:
+                for isk in range(len(bp_connections)):
+                    ibp1 = bp_list.index(bp_connections[isk][0])
+                    ibp2 = bp_list.index(bp_connections[isk][1])
+                    
+                    t_point1 = triangulated_points[f_idx, :, ibp1]
+                    t_point2 = triangulated_points[f_idx, :, ibp2]
+                    
+                    if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
+                        continue
+                    else:
+                        ax2.plot([t_point1[0], t_point2[0]],
+                                 [t_point1[1], t_point2[1]],
+                                 [t_point1[2], t_point2[2]],
+                                 color='k',linewidth=1)
+             
+            # Bodypart markers
             for ibp in range(np.size(triangulated_points, 2)):
+                # Markers
                 ax2.scatter(triangulated_points[f_idx, 0, ibp],
                             triangulated_points[f_idx, 1, ibp],
                             triangulated_points[f_idx, 2, ibp],
-                            color=bp_cmap[ibp, :])
+                            color=bp_cmap[ibp, :], s=marker_size)
+                    
             # Pull matplotlib data to a variable and format for writing
             canvas.draw()
             temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
@@ -490,7 +527,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_path, csv
         video.release()
         output_video.release()
 
-        print(output_filename)
+        print('*  Video saved to:\n' + '   ' + output_filename)
 
 
 def _make_triangulation_video():
