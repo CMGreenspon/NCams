@@ -65,7 +65,7 @@ def get_image_list(path=None, sort=True):
 
     return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
 
-def filter_file_list(list_of_file, list_of_filters):
+def filter_file_list(list_of_files, list_of_filters):
     ''' Returns a filtered list of the input list for each filter given.
     
     In cases where images where the images from multiple cameras are stored in
