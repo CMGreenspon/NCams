@@ -269,14 +269,15 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def process_triangulated_data(csv_path, filt_width=5, output_path=None):
+def process_triangulated_data(csv_path, filt_width=5, output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
        Arguments:
         csv_path {str} -- path of the triangulated csv.
     Keyword Arguments:
         filt_width {int} -- how wide the filters should be. (default: 5)
-        output_path {str} -- output directory for the smoothed csv. (default: csv_path + _smoothed)
+        output_csv {str} -- filename for the output smoothed csv. (default: {csv_path +
+            _smoothed.csv})
 
     '''
 
@@ -318,7 +319,7 @@ def process_triangulated_data(csv_path, filt_width=5, output_path=None):
 
             processed_array[:,a,ibp] = v_ratio
 
-    if output_path is None:
+    if output_csv is None:
         output_csv = csv_path[:-4] + '_smoothed.csv'
 
     with open(output_csv, 'w', newline='') as f:
