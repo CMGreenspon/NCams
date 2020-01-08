@@ -338,13 +338,6 @@ def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_thre
             triagwriter.writerow(rw)
 
     return output_csv
-'''
-fig = mpl_pp.figure(figsize=(9, 5))
-fig.add_subplot(1,2,1)
-mpl_pp.plot(ibp_a)
-fig.add_subplot(1,2,2)
-mpl_pp.plot(test)
-'''
 
 
 def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, triangulated_csv_path,
@@ -424,7 +417,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         # Get the video
         vid_path = [fn for fn in video_paths if str(cam_serial) in fn][0]
         if isinstance(vid_path, list):
-            print('   Warning: More than one video detected matching the camera serial [' +
+            print('\tWarning: More than one video detected matching the camera serial [' +
                   str(cam_serial) + '], please inspect paths.')
             continue
 
@@ -444,14 +437,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
                                '_triangulated.mp4')
         else:
             output_filename = output_path # User selected file name
-        print('Making video into {}'.format(output_filename))
 
         # Check the frame range
         if frame_range is not None:
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
             if frame_range[1] > num_frames:
-                print('   Too many frames requested, the video will be truncated appropriately.\n')
-                frame_range[1] = num_frames
-                video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+                print('Too many frames requested, the video will be truncated appropriately.\n')
+                frame_range = (frame_range[0], num_frames)
 
         else:
             frame_range = (0, num_frames)
@@ -468,7 +460,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=view[0], azim=view[1])
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1)):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1), desc='Writing frame:):
             fe, frame = video.read() # Read the next frame
             if fe is False:
                 break
@@ -521,7 +513,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         video.release()
         output_video.release()
 
-        print('*  Video saved to:\n' + '   ' + output_filename)
+        print('*  Video saved to:\n\t' + output_filename)
 
 
 def _make_triangulation_video():
