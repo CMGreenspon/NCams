@@ -366,8 +366,8 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             and multiple cam_serials_to_use, it will OVERWRITE the video each cam_serial. If None,
             will put the new videos into the directory of triangulated_csv_path. (default: None)
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
-            then indicates the start and stop frame. If None then all frames will be used. (default:
-                None)
+            then indicates the start and end frame. If None then all frames will be used. (default:
+            None)
         skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
             the example config. (default: None)
         parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
@@ -464,7 +464,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             if frame_range[1] > num_frames:
                 print('   Too many frames requested, the video will be truncated appropriately.\n')
                 frame_range[1] = num_frames
-                video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+            # # If the above method does not work with MPEG/FFMPEG, see
+            # # @https://stackoverflow.com/questions/19404245/opencv-videocapture-set-cv-cap-prop-pos-frames-not-working
+            # and try:
+            # for i in range(frame_range[0]):
+            #     video.read()
         else:
             frame_range = (0, num_frames)
 
@@ -480,12 +486,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=view[0], azim=view[1])
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1)):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1)):
             fe, frame = video.read() # Read the next frame
             if fe is False:
+                print('Could not read the frame. Aborting and saving.')
                 break
 
-            frame_rgb = frame[...,::-1].copy()
+            frame_rgb = frame[..., ::-1].copy()
             # Clear axis 1
             ax1.cla()
             ax1.imshow(frame_rgb)
@@ -499,20 +506,19 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 
             # Underlying skeleton
             if skeleton:
-                for isk in range(len(bp_connections)):
-                    ibp1 = bp_list.index(bp_connections[isk][0])
-                    ibp2 = bp_list.index(bp_connections[isk][1])
+                for bpc in bp_connections:
+                    ibp1 = bp_list.index(bpc[0])
+                    ibp2 = bp_list.index(bpc[1])
 
                     t_point1 = triangulated_points[f_idx, :, ibp1]
                     t_point2 = triangulated_points[f_idx, :, ibp2]
 
                     if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
                         continue
-                    else:
-                        ax2.plot([t_point1[0], t_point2[0]],
-                                 [t_point1[1], t_point2[1]],
-                                 [t_point1[2], t_point2[2]],
-                                 color='k',linewidth=1)
+                    ax2.plot([t_point1[0], t_point2[0]],
+                             [t_point1[1], t_point2[1]],
+                             [t_point1[2], t_point2[2]],
+                             color='k', linewidth=1)
 
             # Bodypart markers
             for ibp in range(np.size(triangulated_points, 2)):
@@ -524,8 +530,9 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 
             # Pull matplotlib data to a variable and format for writing
             canvas.draw()
-            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
-            temp_frame = temp_frame[...,::-1].copy()
+            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(
+                int(fh), int(fw), 3)
+            temp_frame = temp_frame[..., ::-1].copy()
             output_video.write(temp_frame)
 
         # Release objects
