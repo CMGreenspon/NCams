@@ -341,8 +341,8 @@ def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_thre
 
 
 def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, triangulated_csv_path,
-                              skeleton_config=None, marker_size=5, output_path=None, frame_range=None,
-                              parallel=None, view=(90,90)):
+                              skeleton_config=None, marker_size=5, output_path=None,
+                              frame_range=None, parallel=None, view=(90, 90)):
     '''Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -350,19 +350,23 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         cam_serials_to_use {list} -- list of serials for the cameras you want videos for.
-        video_paths {str} -- path to the location of the undistorted videos.
+        video_paths {list} -- list of undistorted videos. For each cam_serials_to_use, the function
+            will choose the video filename that has the serial number within it.
         triangulated_csv_path {str} -- location of csv with triangulated points.
     Keyword Arguments:
-        output_path {str} -- where you would like the 3d video to be stored.
-            (default: triangulated_csv_path)
+        output_path {None, list or str} -- list of filenames corresponding to the 'video_paths'
+            where the 3d video are going to be stored. If str, will store into that file. If string
+            and multiple cam_serials_to_use, it will OVERWRITE the video each cam_serial. If None,
+            will put the new videos into the directory of triangulated_csv_path. (default: None)
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
-            then indicates the start and stop frame. If None then all frames will be used. (default:
-                None)
+            then indicates the start and end frame. If None then all frames will be used. (default:
+            None)
         skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
             the example config. (default: None)
         parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
             None, then no parallelization. (default: None)
-        view {tuple} -- The desired (elivation, azimuth) required for the 3d plot. (default: (90,90))
+        view {tuple} -- The desired (elivation, azimuth) required for the 3d plot. (default:
+            (90, 90))
 
     '''
     cam_dicts = camera_config['dicts']
@@ -415,11 +419,15 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         print('Creating video for {}'.format(cam_dicts[cam_serial]['name']))
 
         # Get the video
-        vid_path = [fn for fn in video_paths if str(cam_serial) in fn][0]
-        if isinstance(vid_path, list):
-            print('\tWarning: More than one video detected matching the camera serial [' +
-                  str(cam_serial) + '], please inspect paths.')
-            continue
+        vid_path = [fn for fn in video_paths if str(cam_serial) in fn]
+        if len(vid_path) == 0:
+            raise ValueError('No videos detected matching the camera serial [{}], please inspect'
+                             ' paths.'.format(cam_serial))
+        if len(vid_path) > 1:
+            raise ValueError('More than one video detected matching the camera serial [{}], please'
+                             ' inspect paths.'.format(cam_serial))
+        vid_path = vid_path[0]
+        vid_id = video_paths.index(vid_path)
 
         # Inspect the video
         video = cv2.VideoCapture(vid_path)
@@ -427,16 +435,22 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
         # Check that the number of frames matches the CSV
-#        if not num_frames == np.size(triangulated_points, 0):
-#            print('   Warning: the CSV and video do not have an equal number of frames.')
-#            print(str(num_frames) + ' frames')
-#            print(str(np.size(triangulated_points, 0)) + ' rows')
+        # if not num_frames == np.size(triangulated_points, 0):
+        #     print('   Warning: the CSV and video do not have an equal number of frames.')
+        #     print(str(num_frames) + ' frames')
+        #     print(str(np.size(triangulated_points, 0)) + ' rows')
 
         if output_path is None: # Use the same directory as the input CSV
             output_filename = (triangulated_csv_path[:-4] + '_' + ntpath.basename(vid_path)[:-4] +
                                '_triangulated.mp4')
         else:
-            output_filename = output_path # User selected file name
+            if isinstance(output_path, (list, tuple)):
+                output_filename = output_path[vid_id]
+            else:
+                output_filename = output_path
+                if len(cam_serials_to_use) > 1:
+                    raise ValueError('Multiple camera serials provided, but only one output_path.')
+        print('Making video into {}'.format(output_filename))
 
         # Check the frame range
         if frame_range is not None:
@@ -445,6 +459,12 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
                 print('Too many frames requested, the video will be truncated appropriately.\n')
                 frame_range = (frame_range[0], num_frames)
 
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+            # # If the above method does not work with MPEG/FFMPEG, see
+            # # @https://stackoverflow.com/questions/19404245/opencv-videocapture-set-cv-cap-prop-pos-frames-not-working
+            # and try:
+            # for i in range(frame_range[0]):
+            #     video.read()
         else:
             frame_range = (0, num_frames)
 
@@ -460,12 +480,13 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=view[0], azim=view[1])
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1], 1), desc='Writing frame:):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame:''):
             fe, frame = video.read() # Read the next frame
             if fe is False:
+                print('Could not read the frame. Aborting and saving.')
                 break
 
-            frame_rgb = frame[...,::-1].copy()
+            frame_rgb = frame[..., ::-1].copy()
             # Clear axis 1
             ax1.cla()
             ax1.imshow(frame_rgb)
@@ -479,20 +500,19 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 
             # Underlying skeleton
             if skeleton:
-                for isk in range(len(bp_connections)):
-                    ibp1 = bp_list.index(bp_connections[isk][0])
-                    ibp2 = bp_list.index(bp_connections[isk][1])
+                for bpc in bp_connections:
+                    ibp1 = bp_list.index(bpc[0])
+                    ibp2 = bp_list.index(bpc[1])
 
                     t_point1 = triangulated_points[f_idx, :, ibp1]
                     t_point2 = triangulated_points[f_idx, :, ibp2]
 
                     if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
                         continue
-                    else:
-                        ax2.plot([t_point1[0], t_point2[0]],
-                                 [t_point1[1], t_point2[1]],
-                                 [t_point1[2], t_point2[2]],
-                                 color='k',linewidth=1)
+                    ax2.plot([t_point1[0], t_point2[0]],
+                             [t_point1[1], t_point2[1]],
+                             [t_point1[2], t_point2[2]],
+                             color='k', linewidth=1)
 
             # Bodypart markers
             for ibp in range(np.size(triangulated_points, 2)):
@@ -504,8 +524,9 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
 
             # Pull matplotlib data to a variable and format for writing
             canvas.draw()
-            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(int(fh), int(fw), 3)
-            temp_frame = temp_frame[...,::-1].copy()
+            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(
+                int(fh), int(fw), 3)
+            temp_frame = temp_frame[..., ::-1].copy()
             output_video.write(temp_frame)
 
         # Release objects
