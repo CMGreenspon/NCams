@@ -45,7 +45,7 @@ SLIDER = None
 
 def triangulate(camera_config, output_csv, calibration_config, pose_estimation_config,
                 labeled_csv_path, threshold=0.9, method='full_rank',
-                best_pair_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
+                best_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
                 file_prefix=''):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
@@ -62,9 +62,9 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
             be used for triangulation. (default: 0.9)
         method {'full_rank' or 'best_pair'} -- method for triangulation.
             full_rank: uses all available cameras
-            best_pair: uses best 'best_pair_n' cameras to locate the point.
+            best_n: uses best n cameras to locate the point.
             (default: 'full_rank')
-        best_pair_n {number} -- how many cameras to use when best_pair method is used. (default: 2)
+        best_n {number} -- how many cameras to use when best_n method is used. (default: 2)
         num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
             for testing. If None, then all frames will be analyzed. (default: None)
         iteration {int} -- look for csv's with this iteration number. (default: {None})
@@ -216,16 +216,16 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
             # Get points for each camera
             cam_image_points = np.empty((2, num_cameras))
             cam_image_points.fill(np.nan)
-            if method == 'full_rank' or (method == 'best_pair' and num_cameras <= best_pair_n):
+            if method == 'full_rank' or (method == 'best_pair' and num_cameras <= best_n):
                 for icam in range(num_cameras):
                     cam_image_points[:, icam] = output_coordinates_filtered[icam][iframe, :, bodypart]
-            elif method == 'best_pair':
+            elif method == 'best_n':
                 # decorate-sort-undecorate sort to find the icams for the highest likelihood
                 best_likelh = [b[0] for b in sorted(
                     zip(range(num_cameras),
                         [thresholds[icam][iframe, bodypart].astype(np.float64)
                          for icam in range(num_cameras)]),
-                    key=lambda x: x[1], reverse=True)][:best_pair_n]
+                    key=lambda x: x[1], reverse=True)][:best_n]
                 for icam in [icam for icam in range(num_cameras) if icam in best_likelh]:
                     cam_image_points[:, icam] = output_coordinates_filtered[icam][iframe, :, bodypart]
 
@@ -270,7 +270,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_threshold=5,
+def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5,
                               output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
@@ -342,7 +342,8 @@ def process_triangulated_data(csv_path, filt_width=5, interps=3, outlier_sd_thre
 
 def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, triangulated_csv_path,
                               skeleton_config=None, marker_size=5, output_path=None,
-                              frame_range=None, parallel=None, view=(90, 90)):
+                              frame_range=None, parallel=None, view=(90, 120),figure_size=(9,5),
+                              figure_dpi=300):
     '''Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -365,7 +366,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             the example config. (default: None)
         parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
             None, then no parallelization. (default: None)
-        view {tuple} -- The desired (elivation, azimuth) required for the 3d plot. (default:
+        view {tuple} -- The desired (elevation, azimuth) required for the 3d plot. (default:
             (90, 90))
 
     '''
@@ -443,6 +444,14 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         if output_path is None: # Use the same directory as the input CSV
             output_filename = (triangulated_csv_path[:-4] + '_' + ntpath.basename(vid_path)[:-4] +
                                '_triangulated.mp4')
+            idx = 1
+            while os.path.exists(output_filename):
+                if idx == 1:
+                    output_filename = output_filename[:-4] + '({}).mp4'.format(idx)
+                else:
+                    output_filename = output_filename[:-7] + '({}).mp4'.format(idx)
+                idx += 1
+                
         else:
             if isinstance(output_path, (list, tuple)):
                 output_filename = output_path[vid_id]
@@ -469,7 +478,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             frame_range = (0, num_frames)
 
         # Create the figure
-        fig = mpl_pp.figure(figsize=(9, 5))
+        fig = mpl_pp.figure(figsize=figure_size, dpi=figure_dpi)
         fw, fh = fig.get_size_inches() * fig.get_dpi()
         canvas = FigureCanvas(fig)
         # Make a new video keeping the old properties - need to know figure size first

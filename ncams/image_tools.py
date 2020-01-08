@@ -111,3 +111,22 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
 
     clip = editor.ImageSequenceClip(image_filenames, fps=fps)
     clip.write_videofile(output_name, fps=fps)
+    
+def video_to_images(list_of_videos, output_directory=None):
+    '''Exports a video to a series of images.
+
+    Arguments:
+        list_of_videos {list} -- list of strings, these must either be complete paths or
+            filenames depending on cwd.
+    Keyword Arguments:
+        output_directory {string} -- where to save the images. (default: {export to the current working
+            directory as a subfolder with the same name as the video})
+    '''
+    if isinstance(list_of_videos, str):
+        list_of_videos = [list_of_videos]
+        
+    for vid_path in list_of_videos:
+        # Get the video
+        video = cv2.VideoCapture(vid_path)
+        fps = int(video.get(cv2.CAP_PROP_FPS))
+        num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
