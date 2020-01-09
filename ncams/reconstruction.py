@@ -32,8 +32,6 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 from . import utils
-from . import image_tools
-from . import camera_io
 from . import camera_tools
 
 
@@ -270,17 +268,16 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
     return output_csv
 
 
-def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5,
-                              output_csv=None):
+def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
        Arguments:
         csv_path {str} -- path of the triangulated csv.
     Keyword Arguments:
         filt_width {int} -- how wide the filters should be. (default: 5)
+        outlier_sd_threshold {int} -- documentation TODO(CMG)
         output_csv {str} -- filename for the output smoothed csv. (default: {csv_path +
             _smoothed.csv})
-
     '''
     # Load in the CSV
     with open(csv_path, 'r') as f:
@@ -337,13 +334,14 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5,
                        processed_array[iframe, 2, ibp]]
             triagwriter.writerow(rw)
 
-    return output_csv        
-        
+    return output_csv
 
-def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=None, 
-                             output_path=None, frame_range=None, view=(90, 120),figure_size=(9,5),
-                             figure_dpi=150, marker_size=5, skeleton_thickness=1, frame_count=False):
-                              
+
+def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=None,
+                             output_path=None, frame_range=None, view=(90, 120), figure_size=(9, 5),
+                             figure_dpi=150, marker_size=5, skeleton_thickness=1,
+                             frame_count=False):
+
     '''Makes a video based on triangulated marker positions.
 
     Arguments:
@@ -359,13 +357,12 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
             then all frames will be used. (default: None)
         view {tuple} -- The desired (elevation, azimuth) required for the 3d plot. (default:
             (90, 90))
-        figure_size {tuple} -- desired (width, height) of the figure. (default:(9,5))
+        figure_size {tuple} -- desired (width, height) of the figure. (default:(9, 5))
         figure_dpi {int} -- DPI of the video. (default: 150)
         marker_size {int} -- size of the markers in the 3d plot. (default: 5)
         skeleton_thickness {int} -- thickness of the connecting lines in the 3d plot. (default: 1)
 
-    '''        
-
+    '''
     if skeleton_config is not None:
         with open(skeleton_config, 'r') as yaml_file:
             dic = yaml.safe_load(yaml_file)
@@ -411,7 +408,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     video = cv2.VideoCapture(video_path)
     fps = int(video.get(cv2.CAP_PROP_FPS))
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    
+
     if output_path is None: # Use the default file name
         csv_path_head = os.path.splitext(triangulated_csv_path)[0]
         video_path_body = os.path.splitext(os.path.split(video_path)[1])[0]
@@ -424,7 +421,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
                                            '_triangulated.mp4')
         else:
             output_filename = output_path
-            
+
     output_filename = utils.iterative_filename(output_filename)
     print('File path: {}'.format(output_filename))
 
@@ -474,7 +471,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
         ax2.set_ylim(y_range)
         ax2.set_zlim(z_range)
         if frame_count:
-            ax2.set_title('Frame: ' + str(f_idx))            
+            ax2.set_title('Frame: ' + str(f_idx))
 
         # Underlying skeleton
         if skeleton:

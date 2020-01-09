@@ -16,7 +16,7 @@ Has following steps:
     b. Load existing labeled frames
 3. Triangulation from multiple cameras
 4. Make markered videos
-5. Interactive demonstration with a slider
+5. Interactive demonstration with a time slider -- not implemented
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
@@ -30,37 +30,39 @@ import ncams
 
 
 BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
+# can be used to restrict DLC memory, needs changes to DLC installation, see
+# https://github.com/nishbo/DeepLabCut
 os.environ['DLC_PER_PROCESS_GPU_MEMORY_FRACTION'] = '0.9'
 
 
 # %% 1 Load configurations
-cdatetime = '2019.12.09_16.23.02'
+cdatetime = '2019.12.19_10.38.38'
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 camera_config = ncams.yaml_to_config(os.path.join(camera_config_dir, 'config.yaml'))
 
 calibration_config, pose_estimation_config = ncams.load_camera_config(camera_config)
 
 #  Load a session config from a file
-session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_AS_CMG_2',
+session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.20_11.11.21_AS_CMG_11_subset',
                                      'session_config.yaml')
 session_config = ncams.import_session_config(session_full_filename)
 
 # which videos do you want to train on?
 training_videos = [os.path.join(session_config['session_path'],
-                                session_config['cam_dicts'][cs]['video'])
+                                session_config['cam_dicts'][cs]['ud_video'])
                    for cs in camera_config['serials']]
 
 
 # %% 2a Make a new DLC project (this or 2b)
-dlc_prj_name = 'CMGPretrainedNetwork'
-scorer = 'CMG'
-prj_date = '2019-12-03'
+dlc_prj_name = '8cams11subset'
+scorer = 'AS'
+prj_date = '2020-01-04'
 config_path = deeplabcut.create_new_project(
     dlc_prj_name, scorer, training_videos,
     working_directory=session_config['session_path'], copy_videos=False)
 dlc_proj_name = '-'.join([dlc_prj_name, scorer, prj_date])
 
-proj_path = os.path.join(BASE_DIR, dlc_proj_name)
+proj_path = os.path.join(session_config['session_path'], dlc_proj_name)
 labeled_csv_path = os.path.join(proj_path, 'labeled_videos')
 if not os.path.isdir(labeled_csv_path):
     os.mkdir(labeled_csv_path)
@@ -138,15 +140,11 @@ ncams.triangulate(
     camera_config, triangulated_csv, calibration_config, pose_estimation_config, labeled_csv_path,
     threshold=threshold, method=method, undistorted_data=True)
 
-# %% 4 Make markered videos
-# In big videos it takes awhile, try running with 'parallel' keyword outside of interactive Python.
-ncams.make_triangulation_videos(
-    camera_config, session_config, triangulated_csv,
-    triangulated_path=triangulated_path, overwrite_temp=True)
+# filter the triangulated points in 3D space
+triangulated_csv_p = os.path.join(triangulated_path, 'triangulated_points_smoothed.csv')
+ncams.process_triangulated_data(triangulated_csv, output_csv=triangulated_csv_p)
 
-# %% 5 Interactive demonstration with a slider
-# This sometimes breaks in Spyder, try running as an executable, commenting out parts of
-# 'analysis.py' that are not needed.
-ncams.reconstruction.interactive_3d_plot(
-    camera_config['serials'][0], camera_config, session_config, triangulated_csv,
-    num_frames_limit=None)
+# %% 4 Make markered video
+serial = 19335177
+video_path = camera_config['dicts'][serial]['ud_video']
+ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path)

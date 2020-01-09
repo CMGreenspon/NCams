@@ -86,13 +86,13 @@ def import_system_into_camera_config(camera_config, add_new_cameras=True):
     for icam, cam in enumerate(cam_list):
         serial = int(cam.GetUniqueID())
         if serial in camera_config['dicts'].keys():
-            cam_dicts[serial]['obj'] = cam
+            camera_config['dicts'][serial]['obj'] = cam
         else:
             print('New camera detected!')
             if add_new_cameras:
                 print('Adding co camera_config.')
                 camera_config['serials'].append(serial)
-                cam_dicts[serial] = {
+                camera_config['dicts'][serial] = {
                     'name': CAMERA_NAME.format(serial),
                     'serial': serial,
                     'obj': cam}
@@ -252,8 +252,8 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
             print('Warning: both the default flag and parameters have been passed.\n'
                   'Default parameters will be used.')
         frame_rate = 30
-        exposure_time = 2000
-        gain = 13
+        exposure_time = 2500
+        gain = 10
         trigger_mode = False
         acquisition_mode = 0
         pixel_format = PySpin.PixelFormat_BayerRG8
@@ -266,7 +266,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
     # Exposure time
     if exposure_time is not None:
         if exposure_time == 'auto':
-            cam.ExposureAuto.SetValue(PySpin.ExposureAuto_On)
+            cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Continuous)
         else:
             cam.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
             cam.ExposureTime.SetValue(exposure_time)

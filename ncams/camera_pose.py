@@ -11,11 +11,11 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 """
 
 import os
-
-import cv2
-import numpy as np
 import tkinter
 from tkinter.filedialog import askopenfilename
+
+import numpy as np
+import cv2
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
@@ -66,7 +66,7 @@ def charuco_board_detector(camera_config):
             image_list = [fn for fn in full_image_list if name in fn]
         else:
             image_list = utils.get_image_list(path=os.path.join(pose_estimation_path, name))
-        
+
         num_images[0, icam] = len(image_list)
         cam_image_list.append(image_list)
 
@@ -324,7 +324,7 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
             root = tkinter.Tk()
             root.update()
             im_path = askopenfilename(initialdir=pose_estimation_path,
-                           title = 'select the image for "{}".'.format(name))
+                                      title='select the image for "{}".'.format(name))
             root.destroy()
 
         else:
@@ -332,7 +332,7 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
 
         world_image = cv2.imread(im_path)
 
-        cam_location, cam_orientation = get_world_pose(world_image, (w,h), charuco_dict,
+        cam_location, cam_orientation = get_world_pose(world_image, (w, h), charuco_dict,
                                                        charuco_board, world_points,
                                                        camera_matrices[icam],
                                                        distortion_coefficients[icam])
@@ -360,7 +360,7 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
 
     if export_full:
         camera_io.export_pose_estimation(pose_estimation_config)
-        
+
     if show_poses:
         plot_poses(pose_estimation_config, scale_factor=1)
 
@@ -382,6 +382,10 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
             image_size {(height, width)} -- size of the images captured by the cameras.
             board_dim: list with the number of checks [height, width]
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+            pose_estimation_path {string} -- relative path to where pose estimation information is
+                stored from 'setup_path'.
+            pose_estimation_filename {string} -- name of the pickle file to store the pose
+                estimation config in/load from.
         calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
@@ -523,7 +527,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
         'serials': camera_config['serials'],
         'world_locations': world_locations,
         'world_orientations': world_orientations,
-        'path': pose_estimation_path,
+        'path': camera_config['pose_estimation_path'],
         'filename': camera_config['pose_estimation_filename'],
         'dicts': dicts
     }
@@ -568,7 +572,7 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
 
 
 def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
-                                     relative_rotations, relative_translations):
+                              relative_rotations, relative_translations):
     '''Adjusts orientations and locations based on world rotation and translation.
 
     If the camera setup is thus that the desired world origin cannot be observed by all cameras
@@ -747,7 +751,8 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     ax_max = np.max(np.hstack(cam_verts))
 
     # Set the axes and viewing angle
-    ax.set_xlim([ax_max, ax_min]) # Note that this is reversed so that the cameras are looking towards us
+    # Note that this is reversed so that the cameras are looking towards us
+    ax.set_xlim([ax_max, ax_min])
     ax.set_ylim([ax_min, ax_max])
     ax.set_zlim([ax_min, ax_max])
     ax.view_init(elev=105, azim=-90)

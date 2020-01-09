@@ -246,10 +246,10 @@ def export_pose_estimation(pose_estimation_config, path=None, filename=None):
 
     Arguments:
         pose_estimation_config {dict} -- information on estimation of relative position of all
-                cameras and the results of said pose estimation. See help(ncams.camera_tools). Should
-                have following keys:
-            path {string} -- directory where pose estimation information is stored. Should be same as
-                information in camera_config.
+                cameras and the results of said pose estimation. See help(ncams.camera_tools).
+                Should have following keys:
+            path {string} -- directory where pose estimation information is stored. Should be same
+                as information in camera_config.
             filename {string} -- name of the YAML file to store the config in/load from.
     Keyword Arguments:
         path {string} -- overrides the 'path' key in the dictionary and saves in that location.

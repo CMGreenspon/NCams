@@ -65,40 +65,42 @@ def get_image_list(path=None, sort=True):
 
     return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
 
+
 def iterative_filename(input_path):
     ''' Checks the given path and if the file exists and appends to it if necessary.'''
-    
+
     filetype = os.path.splitext(os.path.split(input_path)[1])[1]
-    
+
     output_filename = input_path
     idx = 1
     while os.path.exists(output_filename):
         output_filename = input_path[:-len(filetype)] + '({}){}'.format(idx,filetype)
         idx += 1
-    
+
     return output_filename
+
 
 def filter_file_list(list_of_files, list_of_filters):
     ''' Returns a filtered list of the input list for each filter given.
-    
+
     In cases where images where the images from multiple cameras are stored in
     one folder this provides an easy way of filtering by the serial number.
-    
+
     Keyword Arguments:
         list_of_images {list of strings} -- The unflitered list of images/files.
         list_of_filters {list of strings} -- The filter keywords.
     Output:
         filtered_lists {list of lists of strings} -- list with filtered sub-lists.
     '''
-    
+
     filtered_lists = []
     for filt in list_of_filters:
         if not isinstance(filt, str):
             filt = str(filt)
-            
+
         filtered_list = [fn for fn in list_of_files if filt in fn]
         filtered_lists.append(filtered_list)
-    
+
     return filtered_lists
 
 

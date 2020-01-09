@@ -5,6 +5,7 @@ https://github.com/CMGreenspon/NCams
 """
 import os
 import datetime
+import ntpath
 
 import deeplabcut
 
@@ -50,14 +51,14 @@ def main():
     # deeplabcut.evaluate_network(config_path, plotting=False)
 
     # which videos do you want to train on?
-    training_videos = [os.path.join(BASE_DIR, 'exp_session_2019.12.20_videos', fname)
-                       for fname in (
-            '4_cam19194005.mp4', '4_cam19194008.mp4', '4_cam19194009.mp4', '4_cam19194013.mp4',
-            '4_cam19335177.mp4', '4_cam19340298.mp4', '4_cam19340300.mp4', '4_cam19340396.mp4',
-            '5_cam19194005.mp4', '5_cam19194008.mp4', '5_cam19194009.mp4', '5_cam19194013.mp4',
-            '5_cam19335177.mp4', '5_cam19340298.mp4', '5_cam19340300.mp4', '5_cam19340396.mp4',
-            '6_cam19194005.mp4', '6_cam19194008.mp4', '6_cam19194009.mp4', '6_cam19194013.mp4',
-            '6_cam19335177.mp4', '6_cam19340298.mp4', '6_cam19340300.mp4', '6_cam19340396.mp4')]
+    video_path = os.path.join(BASE_DIR, 'exp_session_2019.12.20_videos')
+    training_videos = [os.path.join(video_path, fname) for fname in (
+        '4_cam19194005.mp4', '4_cam19194008.mp4', '4_cam19194009.mp4', '4_cam19194013.mp4',
+        '4_cam19335177.mp4', '4_cam19340298.mp4', '4_cam19340300.mp4', '4_cam19340396.mp4',
+        '5_cam19194005.mp4', '5_cam19194008.mp4', '5_cam19194009.mp4', '5_cam19194013.mp4',
+        '5_cam19335177.mp4', '5_cam19340298.mp4', '5_cam19340300.mp4', '5_cam19340396.mp4',
+        '6_cam19194005.mp4', '6_cam19194008.mp4', '6_cam19194009.mp4', '6_cam19194013.mp4',
+        '6_cam19335177.mp4', '6_cam19340298.mp4', '6_cam19340300.mp4', '6_cam19340396.mp4')]
     # print('analyzing videos')
     # deeplabcut.analyze_videos(config_path, training_videos,
     #                           gputouse=0, save_as_csv=True, destfolder=labeled_csv_path)
@@ -67,30 +68,56 @@ def main():
     #                                 draw_skeleton=True)
 
     # %% 3 Triangulation from multiple cameras
-    method = 'best_pair'
+    method = 'full_rank'
     threshold = 0.9
     triangulated_path = os.path.join(proj_path, 'triangulated_{}_{}'.format(method, threshold))
     if not os.path.exists(triangulated_path):
         os.mkdir(triangulated_path)
 
-    file_prefixes = ['4', '5', '6']
-    for file_prefix in file_prefixes:
-        triangulated_csv = os.path.join(triangulated_path, 'triangulated_points{}.csv'.format(
+    # make all videos
+    # file_prefixes = ['4', '5', '6']
+    # for file_prefix in file_prefixes:
+    #     print('Working on session {}'.format(file_prefix))
+    #     triangulated_path2 = os.path.join(triangulated_path, 'session{}'.format(file_prefix))
+    #     triangulated_csv = os.path.join(triangulated_path2, 'triangulated_points{}.csv'.format(
+    #         '' if len(file_prefix) == 0 else '_'+file_prefix))
+    #     triangulated_csv_p = os.path.join(
+    #         triangulated_path2, 'triangulated_points{}_smoothed.csv'.format(
+    #             '' if len(file_prefix) == 0 else '_'+file_prefix))
+
+    #     # ncams.triangulate(
+    #     #     camera_config, triangulated_csv, calibration_config, pose_estimation_config, labeled_csv_path,
+    #     #     threshold=threshold, method=method, undistorted_data=True, file_prefix=file_prefix)
+
+    #     # ncams.process_triangulated_data(triangulated_csv, output_csv=triangulated_csv_p)
+
+    #     # videos = [i for i in training_videos if ntpath.basename(i)[0] == file_prefix]
+
+    #     # # %% 4 Make markered videos
+    #     # ncams.make_triangulation_videos(camera_config, camera_config['serials'], videos,
+    #     #                                 triangulated_csv_p, skeleton_config=config_path)
+
+    #     # %% 5 Interactive demonstration with a slider
+    #     # ncams.reconstruction.interactive_3d_plot(
+    #     #     camera_config['serials'][0], camera_config, session_config, triangulated_csv,
+    #     #     num_frames_limit=None)
+
+    # make 1 pretty one
+    file_prefix = '4'
+    print('Working on session {}'.format(file_prefix))
+    triangulated_path2 = os.path.join(triangulated_path, 'session{}'.format(file_prefix))
+    triangulated_csv_p = os.path.join(
+        triangulated_path2, 'triangulated_points{}_smoothed.csv'.format(
             '' if len(file_prefix) == 0 else '_'+file_prefix))
 
-        ncams.triangulate(
-            camera_config, triangulated_csv, calibration_config, pose_estimation_config, labeled_csv_path,
-            threshold=threshold, method=method, undistorted_data=True, file_prefix=file_prefix)
+    serial = 19335177
+    frame_range = (50*5, 50*(5+10))
+    video_path = [i for i in training_videos
+                  if ntpath.basename(i)[0] == file_prefix and str(serial) in i][0]
+    output_path = os.path.join(triangulated_path2, 'pretty_{}_{}.mp4'.format(serial, file_prefix))
+    ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path,
+                                   frame_range=frame_range, output_path=output_path)
 
-        # # %% 4 Make markered videos
-        # ncams.make_triangulation_videos(
-        #     camera_config, session_config, triangulated_csv,
-        #     triangulated_path=triangulated_path, overwrite_temp=True, parallel=12)
-
-        # %% 5 Interactive demonstration with a slider
-        # ncams.reconstruction.interactive_3d_plot(
-        #     camera_config['serials'][0], camera_config, session_config, triangulated_csv,
-        #     num_frames_limit=None)
 
 
 if __name__ == '__main__':

@@ -41,6 +41,7 @@ BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 # If you wish to work with example data, proceed to Step 5
 # Rerun if want refresh the data storage
 cdatetime = time.strftime('%Y.%m.%d_%H.%M.%S', time.localtime())
+cdatetime = '2019.12.19_10.38.38';
 camera_config_dir = os.path.join(BASE_DIR, 'camconf_'+cdatetime)
 
 
@@ -131,7 +132,7 @@ ncams.export_calibration(calibration_config)
 # (command for loading from file is in Step 5)
 # Now we will perform a one-shot pose estimation using the synced_capture function
 # Capture the images
-ncams.spinnaker_tools.init_sync_settings(camera_config)
+ncams.spinnaker_tools.init_sync_settings(camera_config, frame_rate=5)
 
 ncams.spinnaker_tools.synced_capture_sequence(
     camera_config, 1,
@@ -210,7 +211,7 @@ ncams.export_session_config(session_config)
 
 
 # %% 7 Load a session config from a file
-session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.09_16.40.45_AS_CMG_2',
+session_full_filename = os.path.join(BASE_DIR, 'exp_session_2019.12.20_11.11.21_AS_CMG_11_subset',
                                      'session_config.yaml')
 session_config = ncams.import_session_config(session_full_filename)
 

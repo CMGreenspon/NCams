@@ -182,8 +182,8 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                     charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
-                     cam_distortion_coefficients) = charuco_calibration(cam_image_list, charuco_dict,
-                                                                    charuco_board, verbose)
+                     cam_distortion_coefficients) = charuco_calibration(
+                        cam_image_list, charuco_dict, charuco_board, verbose)
 
             # Export them to the camera folder in a readable format
             camera_calib_dict = {
@@ -330,9 +330,9 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
         distortion_coefficients = distortion_coefficients.get()
 
     # Indicate to the user if a likely error ocurred during the calibration
-    if np.sum(distortion_coefficients,1) == 0:
+    if np.sum(distortion_coefficients, 1) == 0:
         print('-> No distortion detected. Calibration has likely failed.')
-    elif np.abs(distortion_coefficients[0,4]) > 0.5:
+    elif np.abs(distortion_coefficients[0, 4]) > 0.5:
         print('-> There may be a fisheye effect. Inspect the calibration.')
     elif reprojection_error > 1:
         print('-> The reprojection error is high. Please inspect the calibration.')
