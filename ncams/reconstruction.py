@@ -444,21 +444,19 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         if output_path is None: # Use the same directory as the input CSV
             output_filename = (triangulated_csv_path[:-4] + '_' + ntpath.basename(vid_path)[:-4] +
                                '_triangulated.mp4')
-            idx = 1
-            while os.path.exists(output_filename):
-                if idx == 1:
-                    output_filename = output_filename[:-4] + '({}).mp4'.format(idx)
-                else:
-                    output_filename = output_filename[:-7] + '({}).mp4'.format(idx)
-                idx += 1
+            output_filename = utils.iterative_filename(output_filename)
                 
-        else:
+        else: # Assign predeterimed path/filename
             if isinstance(output_path, (list, tuple)):
                 output_filename = output_path[vid_id]
-            else:
+            elif isinstance(output_path, str):
                 output_filename = output_path
                 if len(cam_serials_to_use) > 1:
                     raise ValueError('Multiple camera serials provided, but only one output_path.')
+            else:
+                raise ValueError('Incompatible output_path given. Must be string or list/tuple of.')
+                
+            output_filename = utils.iterative_filename(output_filename)
         print('Making video into {}'.format(output_filename))
 
         # Check the frame range
@@ -489,7 +487,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax2.view_init(elev=view[0], azim=view[1])
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame:''):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame:'):
             fe, frame = video.read() # Read the next frame
             if fe is False:
                 print('Could not read the frame. Aborting and saving.')

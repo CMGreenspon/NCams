@@ -65,6 +65,19 @@ def get_image_list(path=None, sort=True):
 
     return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
 
+def iterative_filename(input_path):
+    ''' Checks the given path and if the file exists and appends to it if necessary.'''
+    
+    filetype = os.path.splitext(os.path.split(input_path)[1])[1]
+    
+    output_filename = input_path
+    idx = 1
+    while os.path.exists(output_filename):
+        output_filename = input_path[:-len(filetype)] + '({}){}'.format(idx,filetype)
+        idx += 1
+    
+    return output_filename
+
 def filter_file_list(list_of_files, list_of_filters):
     ''' Returns a filtered list of the input list for each filter given.
     
