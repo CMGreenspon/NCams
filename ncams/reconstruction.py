@@ -360,8 +360,8 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             and multiple cam_serials_to_use, it will OVERWRITE the video each cam_serial. If None,
             will put the new videos into the directory of triangulated_csv_path. (default: None)
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
-            then indicates the start and end frame. If None then all frames will be used. (default:
-            None)
+            then indicates the start and end frame number, including both as an interval. If None
+            then all frames will be used. (default: None)
         skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
             the example config. (default: None)
         parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
@@ -462,9 +462,9 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
         # Check the frame range
         if frame_range is not None:
             video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
-            if frame_range[1] > num_frames:
+            if frame_range[1] >= num_frames:
                 print('Too many frames requested, the video will be truncated appropriately.\n')
-                frame_range = (frame_range[0], num_frames)
+                frame_range = (frame_range[0], num_frames-1)
 
             video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
             # # If the above method does not work with MPEG/FFMPEG, see
@@ -473,7 +473,7 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
             # for i in range(frame_range[0]):
             #     video.read()
         else:
-            frame_range = (0, num_frames)
+            frame_range = (0, num_frames-1)
 
         # Create the figure
         fig = mpl_pp.figure(figsize=figure_size, dpi=figure_dpi)
