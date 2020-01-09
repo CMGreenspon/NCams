@@ -585,8 +585,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
 
     # Check if cams are ready to go
     for cam_dict in cam_dicts.values():
-        if (not cam_dict['obj'].IsInitialized() or
-                not cam_dict['obj'].IsStreaming()):
+        if (not cam_dict['obj'].IsInitialized() or not cam_dict['obj'].IsStreaming()):
             print('Cameras not setup for synchronized capture.')
             return
 
@@ -598,7 +597,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
     cam_dicts[reference_serial]['obj'].TriggerMode.SetValue(PySpin.TriggerMode_Off)
 
     # We want to offload from images in order across cameras to reduce buffer load equally
-    print('capturing...')
+    print('Capturing...')
     for i_image in tqdm.tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
