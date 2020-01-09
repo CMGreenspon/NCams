@@ -109,9 +109,14 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
         output_folder = os.path.split(image_filenames[0])[0]
 
     output_name = os.path.join(output_folder, video_filename)
+    output_filetype = os.path.splitext(output_name)[1]
 
     clip = editor.ImageSequenceClip(image_filenames, fps=fps)
-    clip.write_videofile(output_name, fps=fps)
+    
+    if output_filetype == '.gif':
+        clip.write_gif(output_name, fps=fps)
+    else:
+        clip.write_videofile(output_name, fps=fps)
 
 
 def video_to_images(list_of_videos, output_directory=None, output_format='jpeg'):
@@ -155,4 +160,3 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
             f_idx += 1
             
         video.release()
-        
