@@ -426,7 +426,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
             output_filename = output_path
             
     output_filename = utils.iterative_filename(output_filename)
-    print('File path: {}\n'.format(output_filename))
+    print('File path: {}'.format(output_filename))
 
     # Check the frame range
     if frame_range is not None:

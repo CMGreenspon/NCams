@@ -112,7 +112,7 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
     clip = editor.ImageSequenceClip(image_filenames, fps=fps)
     clip.write_videofile(output_name, fps=fps)
     
-def video_to_images(list_of_videos, output_directory=None):
+def video_to_images(list_of_videos, output_directory=None, output_format='jpeg'):
     '''Exports a video to a series of images.
 
     Arguments:
@@ -125,8 +125,38 @@ def video_to_images(list_of_videos, output_directory=None):
     if isinstance(list_of_videos, str):
         list_of_videos = [list_of_videos]
         
+    if output_directory is not None:
+        if not os.path.exists(output_directory):
+            os.mkdir(output_directory)
+        od = output_directory
+    else:
+        od = os.getcwd()
+        
     for vid_path in list_of_videos:
         # Get the video
         video = cv2.VideoCapture(vid_path)
-        fps = int(video.get(cv2.CAP_PROP_FPS))
         num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+        # Check the name
+        vid_name = os.path.splitext(os.path.split(vid_path)[1])[0]
+        image_dir = os.path.join(od, vid_name)
+        print('Exporting images to: {}'.format(image_dir))
+        if not os.path.exists(image_dir):
+            os.mkdir(image_dir)
+        
+        for f_idx in tqdm(range(num_frames), desc='Exporting frame'):
+            frame_exists, frame = video.read() # Read the next frame if it exists
+            if not frame_exists:
+                break
+            
+            fname = os.path.join(image_dir, vid_name + str(f_idx) + '.' + output_format)
+            cv2.imwrite(fname, frame)
+            f_idx += 1
+            
+        video.release()
+        
+        
+        
+        
+        
+        
+        
