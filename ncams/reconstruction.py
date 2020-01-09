@@ -337,43 +337,34 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5,
                        processed_array[iframe, 2, ibp]]
             triagwriter.writerow(rw)
 
-    return output_csv
+    return output_csv        
+        
 
-
-def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, triangulated_csv_path,
-                              skeleton_config=None, marker_size=5, output_path=None,
-                              frame_range=None, parallel=None, view=(90, 120),figure_size=(9,5),
-                              figure_dpi=300):
+def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=None, 
+                             output_path=None, frame_range=None, view=(90, 120),figure_size=(9,5),
+                             figure_dpi=150, marker_size=5, skeleton_thickness=1, frame_count=False):
+                              
     '''Makes a video based on triangulated marker positions.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
-            serials {list of numbers} -- list of camera serials.
-            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        cam_serials_to_use {list} -- list of serials for the cameras you want videos for.
-        video_paths {list} -- list of undistorted videos. For each cam_serials_to_use, the function
-            will choose the video filename that has the serial number within it.
-        triangulated_csv_path {str} -- location of csv with triangulated points.
+        video_path {str} -- Full file path of video.
+        triangulated_csv_path {str} -- Full file path of csv with triangulated points.
     Keyword Arguments:
-        output_path {None, list or str} -- list of filenames corresponding to the 'video_paths'
-            where the 3d video are going to be stored. If str, will store into that file. If string
-            and multiple cam_serials_to_use, it will OVERWRITE the video each cam_serial. If None,
-            will put the new videos into the directory of triangulated_csv_path. (default: None)
+        skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
+            the example config. (default: None)
+        output_path {str} -- Path to place the video. Will accept full file name.
+            (default: None = same as triangulated_csv)
         frame_range {tuple or None} --  part of video and points to create a video for. If a tuple
             then indicates the start and end frame number, including both as an interval. If None
             then all frames will be used. (default: None)
-        skeleton_config {str} -- Path to yaml file with both 'bodyparts' and 'skeleton' as shown in
-            the example config. (default: None)
-        parallel {int or None} -- if not None, specifies number of processes to spawn for a pool. If
-            None, then no parallelization. (default: None)
         view {tuple} -- The desired (elevation, azimuth) required for the 3d plot. (default:
             (90, 90))
+        figure_size {tuple} -- desired (width, height) of the figure. (default:(9,5))
+        figure_dpi {int} -- DPI of the video. (default: 150)
+        marker_size {int} -- size of the markers in the 3d plot. (default: 5)
+        skeleton_thickness {int} -- thickness of the connecting lines in the 3d plot. (default: 1)
 
-    '''
-    cam_dicts = camera_config['dicts']
-
-    if isinstance(video_paths, str): # just in case a string is passed
-        video_paths = [video_paths]
+    '''        
 
     if skeleton_config is not None:
         with open(skeleton_config, 'r') as yaml_file:
@@ -416,132 +407,112 @@ def make_triangulation_videos(camera_config, cam_serials_to_use, video_paths, tr
     z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin,
                np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin)
 
-    for cam_serial in cam_serials_to_use:
-        print('Creating video for {}'.format(cam_dicts[cam_serial]['name']))
-
-        # Get the video
-        vid_path = [fn for fn in video_paths if str(cam_serial) in fn]
-        if len(vid_path) == 0:
-            raise ValueError('No videos detected matching the camera serial [{}], please inspect'
-                             ' paths.'.format(cam_serial))
-        if len(vid_path) > 1:
-            raise ValueError('More than one video detected matching the camera serial [{}], please'
-                             ' inspect paths.'.format(cam_serial))
-        vid_path = vid_path[0]
-        vid_id = video_paths.index(vid_path)
-
-        # Inspect the video
-        video = cv2.VideoCapture(vid_path)
-        fps = int(video.get(cv2.CAP_PROP_FPS))
-        num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-
-        # Check that the number of frames matches the CSV
-        # if not num_frames == np.size(triangulated_points, 0):
-        #     print('   Warning: the CSV and video do not have an equal number of frames.')
-        #     print(str(num_frames) + ' frames')
-        #     print(str(np.size(triangulated_points, 0)) + ' rows')
-
-        if output_path is None: # Use the same directory as the input CSV
-            output_filename = (triangulated_csv_path[:-4] + '_' + ntpath.basename(vid_path)[:-4] +
-                               '_triangulated.mp4')
-            output_filename = utils.iterative_filename(output_filename)
-                
-        else: # Assign predeterimed path/filename
-            if isinstance(output_path, (list, tuple)):
-                output_filename = output_path[vid_id]
-            elif isinstance(output_path, str):
-                output_filename = output_path
-                if len(cam_serials_to_use) > 1:
-                    raise ValueError('Multiple camera serials provided, but only one output_path.')
-            else:
-                raise ValueError('Incompatible output_path given. Must be string or list/tuple of.')
-                
-            output_filename = utils.iterative_filename(output_filename)
-        print('Making video into {}'.format(output_filename))
-
-        # Check the frame range
-        if frame_range is not None:
-            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
-            if frame_range[1] >= num_frames:
-                print('Too many frames requested, the video will be truncated appropriately.\n')
-                frame_range = (frame_range[0], num_frames-1)
-
-            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
-            # # If the above method does not work with MPEG/FFMPEG, see
-            # # @https://stackoverflow.com/questions/19404245/opencv-videocapture-set-cv-cap-prop-pos-frames-not-working
-            # and try:
-            # for i in range(frame_range[0]):
-            #     video.read()
+    # Inspect the video
+    video = cv2.VideoCapture(video_path)
+    fps = int(video.get(cv2.CAP_PROP_FPS))
+    num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    if output_path is None: # Use the default file name
+        csv_path_head = os.path.splitext(triangulated_csv_path)[0]
+        video_path_body = os.path.splitext(os.path.split(video_path)[1])[0]
+        output_filename = (csv_path_head + '_' +  video_path_body + '_triangulated.mp4')
+    else:
+        if os.path.isdir(output_path): # Check if an existing directory
+            csv_path_body = os.path.splitext(os.path.split(triangulated_csv_path)[1])[0]
+            video_path_body = os.path.splitext(os.path.split(video_path)[1])[0]
+            output_filename = os.path.join(output_path, csv_path_body + '_' +  video_path_body +
+                                           '_triangulated.mp4')
         else:
-            frame_range = (0, num_frames-1)
+            output_filename = output_path
+            
+    output_filename = utils.iterative_filename(output_filename)
+    print('File path: {}\n'.format(output_filename))
 
-        # Create the figure
-        fig = mpl_pp.figure(figsize=figure_size, dpi=figure_dpi)
-        fw, fh = fig.get_size_inches() * fig.get_dpi()
-        canvas = FigureCanvas(fig)
-        # Make a new video keeping the old properties - need to know figure size first
-        fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-        output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
-        # Create the axes
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2, projection='3d')
-        ax2.view_init(elev=view[0], azim=view[1])
+    # Check the frame range
+    if frame_range is not None:
+        video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+        if frame_range[1] >= num_frames:
+            print('Too many frames requested, the video will be truncated appropriately.\n')
+            frame_range = (frame_range[0], num_frames-1)
 
-        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame:'):
-            fe, frame = video.read() # Read the next frame
-            if fe is False:
-                print('Could not read the frame. Aborting and saving.')
-                break
+        video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+        # # If the above method does not work with MPEG/FFMPEG, see
+        # # @https://stackoverflow.com/questions/19404245/opencv-videocapture-set-cv-cap-prop-pos-frames-not-working
+        # and try:
+        # for i in range(frame_range[0]):
+        #     video.read()
+    else:
+        frame_range = (0, num_frames-1)
 
-            frame_rgb = frame[..., ::-1].copy()
-            # Clear axis 1
-            ax1.cla()
-            ax1.imshow(frame_rgb)
-            ax1.set_xticks([])
-            ax1.set_yticks([])
-            # Clear axis 2
-            ax2.cla()
-            ax2.set_xlim(x_range)
-            ax2.set_ylim(y_range)
-            ax2.set_zlim(z_range)
+    # Create the figure
+    fig = mpl_pp.figure(figsize=figure_size, dpi=figure_dpi)
+    fw, fh = fig.get_size_inches() * fig.get_dpi()
+    canvas = FigureCanvas(fig)
+    # Make a new video keeping the old properties - need to know figure size first
+    fourcc = cv2.VideoWriter_fourcc(*'MPEG')
+    output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
+    # Create the axes
+    ax1 = fig.add_subplot(1, 2, 1)
+    ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+    ax2.view_init(elev=view[0], azim=view[1])
 
-            # Underlying skeleton
-            if skeleton:
-                for bpc in bp_connections:
-                    ibp1 = bp_list.index(bpc[0])
-                    ibp2 = bp_list.index(bpc[1])
+    for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame'):
+        fe, frame = video.read() # Read the next frame
+        if fe is False:
+            print('Could not read the frame. Aborting and saving.')
+            break
 
-                    t_point1 = triangulated_points[f_idx, :, ibp1]
-                    t_point2 = triangulated_points[f_idx, :, ibp2]
+        frame_rgb = frame[..., ::-1].copy()
+        # Clear axis 1
+        ax1.cla()
+        ax1.imshow(frame_rgb)
+        ax1.set_xticks([])
+        ax1.set_yticks([])
+        # Clear axis 2
+        ax2.cla()
+        ax2.set_xlim(x_range)
+        ax2.set_ylim(y_range)
+        ax2.set_zlim(z_range)
+        if frame_count:
+            ax2.set_title('Frame: ' + str(f_idx))            
 
-                    if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
-                        continue
-                    ax2.plot([t_point1[0], t_point2[0]],
-                             [t_point1[1], t_point2[1]],
-                             [t_point1[2], t_point2[2]],
-                             color='k', linewidth=1)
+        # Underlying skeleton
+        if skeleton:
+            for bpc in bp_connections:
+                ibp1 = bp_list.index(bpc[0])
+                ibp2 = bp_list.index(bpc[1])
 
-            # Bodypart markers
-            for ibp in range(np.size(triangulated_points, 2)):
-                # Markers
-                ax2.scatter(triangulated_points[f_idx, 0, ibp],
-                            triangulated_points[f_idx, 1, ibp],
-                            triangulated_points[f_idx, 2, ibp],
-                            color=bp_cmap[ibp, :], s=marker_size)
+                t_point1 = triangulated_points[f_idx, :, ibp1]
+                t_point2 = triangulated_points[f_idx, :, ibp2]
 
-            # Pull matplotlib data to a variable and format for writing
-            canvas.draw()
-            temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(
-                int(fh), int(fw), 3)
-            temp_frame = temp_frame[..., ::-1].copy()
-            output_video.write(temp_frame)
+                if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
+                    continue
+                ax2.plot([t_point1[0], t_point2[0]],
+                         [t_point1[1], t_point2[1]],
+                         [t_point1[2], t_point2[2]],
+                         color='k', linewidth=skeleton_thickness)
 
-        # Release objects
-        mpl_pp.close(fig)
-        video.release()
-        output_video.release()
+        # Bodypart markers
+        for ibp in range(np.size(triangulated_points, 2)):
+            # Markers
+            ax2.scatter(triangulated_points[f_idx, 0, ibp],
+                        triangulated_points[f_idx, 1, ibp],
+                        triangulated_points[f_idx, 2, ibp],
+                        color=bp_cmap[ibp, :], s=marker_size)
 
-        print('*  Video saved to:\n\t' + output_filename)
+        # Pull matplotlib data to a variable and format for writing
+        canvas.draw()
+        temp_frame = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape(
+            int(fh), int(fw), 3)
+        temp_frame = temp_frame[..., ::-1].copy()
+        output_video.write(temp_frame)
+
+    # Release objects
+    mpl_pp.close(fig)
+    video.release()
+    output_video.release()
+
+    print('*  Video saved to:\n\t' + output_filename)
 
 
 def _make_triangulation_video():
