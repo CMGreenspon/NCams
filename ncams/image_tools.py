@@ -13,6 +13,7 @@ import os
 
 from moviepy import editor # A very easy way of using FFMPEG
 import cv2
+import tqdm
 
 
 def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, output_filename=None):
@@ -105,13 +106,14 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
             directory})
     '''
     if output_folder is None:
-        output_folder = os.getcwd()
+        output_folder = os.path.split(image_filenames[0])[0]
 
     output_name = os.path.join(output_folder, video_filename)
 
     clip = editor.ImageSequenceClip(image_filenames, fps=fps)
     clip.write_videofile(output_name, fps=fps)
-    
+
+
 def video_to_images(list_of_videos, output_directory=None, output_format='jpeg'):
     '''Exports a video to a series of images.
 
@@ -148,15 +150,9 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
             if not frame_exists:
                 break
             
-            fname = os.path.join(image_dir, vid_name + str(f_idx) + '.' + output_format)
+            fname = os.path.join(image_dir, vid_name + str(f_idx+1) + '.' + output_format)
             cv2.imwrite(fname, frame)
             f_idx += 1
             
         video.release()
-        
-        
-        
-        
-        
-        
         
