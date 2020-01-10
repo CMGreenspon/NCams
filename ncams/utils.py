@@ -191,3 +191,7 @@ def import_session_config(filename):
         session_config = yaml.safe_load(yaml_file)
 
     return session_config
+
+def compare_labels(reference_csv_path, comparison_csv_path):
+    
+    return

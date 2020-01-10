@@ -340,7 +340,7 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
 def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=None,
                              output_path=None, frame_range=None, view=(90, 120), figure_size=(9, 5),
                              figure_dpi=150, marker_size=5, skeleton_thickness=1,
-                             frame_count=False):
+                             frame_count=False, frame_rate=None):
 
     '''Makes a video based on triangulated marker positions.
 
@@ -446,8 +446,11 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     fw, fh = fig.get_size_inches() * fig.get_dpi()
     canvas = FigureCanvas(fig)
     # Make a new video keeping the old properties - need to know figure size first
+    if frame_rate is None:
+        frame_rate = fps
+    
     fourcc = cv2.VideoWriter_fourcc(*'MPEG')
-    output_video = cv2.VideoWriter(output_filename, fourcc, fps, (int(fw), int(fh)))
+    output_video = cv2.VideoWriter(output_filename, fourcc, frame_rate, (int(fw), int(fh)))
     # Create the axes
     ax1 = fig.add_subplot(1, 2, 1)
     ax2 = fig.add_subplot(1, 2, 2, projection='3d')
@@ -556,35 +559,17 @@ def make_image(args, ranges=None, output_path=None, bp_cmap=None):
     mpl_pp.close(fig)
 
 
-def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_csv,
-                        num_frames_limit=None):
+def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, figure_size=(9,5),
+                         marker_size=5, skeleton_thickness=1):
     """Makes an interactive 3D plot with video and a slider to control the frame number.
 
     Arguments:
-        cam_serial {int} -- camera serial of the camera to plot.
-        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
-            serials {list of numbers} -- list of camera serials.
-            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        session_config {dict} -- information about the session. This function uses following keys:
-            session_path {str} -- location of the session data.
-        calibration_config {dict} -- see help(ncams.camera_tools).
-        pose_estimation_config {dict} -- see help(ncams.camera_tools).
-        triangulated_csv {str} -- location of csv with marked points.
-    Keyword Arguments:
-        overwrite_temp {bool} -- automatically overwrite folder for holding temporary images.
-            (default: {False})
-        fps {number} -- for making movies. (default: {30})
-        num_frames_limit {number or None} -- limit to the number of frames used for analysis. Useful
-            for testing. If None, then all frames will be analyzed. (default: None)
-        parallel {number or None} parallelize the image creation. If integer, create that many
-            processes. Significantly speeds up generation. If None, do not parallelize. (default:
-            {None})
+        vid_path {str} -- location of the video to observe.
+        triangulated_csv_path {str} -- location of csv with triangulated points corresponding to the
+            video given in vid_path.
     """
-    raise DeprecationWarning
-    cam_dicts = camera_config['dicts']
-    session_path = session_config['session_path']
-
-    with open(triangulated_csv, 'r') as f:
+    # Import the triangulated CSV
+    with open(triangulated_csv_path, 'r') as f:
         triagreader = csv.reader(f)
         l = next(triagreader)
         bodyparts = []
@@ -602,13 +587,27 @@ def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_
                 triangulated_points[-1][1].append(float(row[2+ibp*3]))
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
             num_frames += 1
-            if num_frames_limit is not None and num_frames >= num_frames_limit:
-                break
     triangulated_points = np.array(triangulated_points)
 
-    image_list = utils.get_image_list(path=os.path.join(
-        session_path, cam_dicts[cam_serial]['name']))
+    # Get the video
+    video = cv2.VideoCapture(vid_path)
+    num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    if skeleton_path is not None:
+        with open(skeleton_path, 'r') as yaml_file:
+            dic = yaml.safe_load(yaml_file)
+            bp_list = dic['bodyparts']
+            bp_connections = dic['skeleton']
+        skeleton = True
+    else:
+        skeleton = False
 
+    # Check the number of frames vs number of rows in csv
+    if num_frames != triangulated_points.shape[0]:
+        raise Warning('Number of frames in video and rows in CSV are not equal. Check that the paths'
+                      + ' given are correct.')
+
+    # Initalize the plots
     cmap = matplotlib.cm.get_cmap('jet')
     color_idx = np.linspace(0, 1, num_bodyparts)
     bp_cmap = cmap(color_idx)
@@ -624,7 +623,7 @@ def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_
 
     global FIG, FIGNUM, AXS, SLIDER
 
-    FIG = mpl_pp.figure(figsize=(9, 5))
+    FIG = mpl_pp.figure(figsize=figure_size)
     FIGNUM = mpl_pp.gcf().number
     AXS = []
     AXS.append(FIG.add_subplot(1, 2, 1))
@@ -632,26 +631,48 @@ def interactive_3d_plot(cam_serial, camera_config, session_config, triangulated_
     AXS[1].view_init(elev=90, azim=90)
 
     def update(iframe):
+        iframe = int(iframe)
         mpl_pp.figure(FIGNUM)
         AXS[0].cla()
-        image_path = image_list[int(iframe)]
-        AXS[0].imshow(mpl_pp.imread(image_path))
+        video.set(cv2.CAP_PROP_POS_FRAMES, iframe) # Set the frame to get
+        _, frame = video.read() # Read the frame
+        frame_rgb = frame[..., ::-1].copy()
+        AXS[0].imshow(frame_rgb)
 
         AXS[1].cla()
         AXS[1].set_xlim(x_range)
         AXS[1].set_ylim(y_range)
         AXS[1].set_zlim(z_range)
+            
+        # Underlying skeleton
+        if skeleton:
+            for bpc in bp_connections:
+                ibp1 = bp_list.index(bpc[0])
+                ibp2 = bp_list.index(bpc[1])
 
+                t_point1 = triangulated_points[iframe, :, ibp1]
+                t_point2 = triangulated_points[iframe, :, ibp2]
+
+                if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
+                    continue
+                AXS[1].plot([t_point1[0], t_point2[0]],
+                         [t_point1[1], t_point2[1]],
+                         [t_point1[2], t_point2[2]],
+                         color='k', linewidth=skeleton_thickness)
+
+        # Bodypart markers
         for ibp in range(np.size(triangulated_points, 2)):
-            AXS[1].scatter(triangulated_points[int(iframe), 0, ibp],
-                           triangulated_points[int(iframe), 1, ibp],
-                           triangulated_points[int(iframe), 2, ibp],
-                           color=bp_cmap[ibp, :])
+            # Markers
+            AXS[1].scatter(triangulated_points[iframe, 0, ibp],
+                        triangulated_points[iframe, 1, ibp],
+                        triangulated_points[iframe, 2, ibp],
+                        color=bp_cmap[ibp, :], s=marker_size)
+            
     update(0)
 
     axcolor = 'lightgoldenrodyellow'
     ax_ind = mpl_pp.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
-    SLIDER = mpl_pp.Slider(ax_ind, 'Ind', 0, num_frames-1, valinit=0)
+    SLIDER = mpl_pp.Slider(ax_ind, 'Frame', 0, num_frames-1, valinit=0, valstep=1, valfmt='%u')
     SLIDER.on_changed(update)
 
     mpl_pp.show()
