@@ -568,6 +568,8 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         triangulated_csv_path {str} -- location of csv with triangulated points corresponding to the
             video given in vid_path.
     """
+    global FIG, FIGNUM, AXS, SLIDER, num_frames
+    
     # Import the triangulated CSV
     with open(triangulated_csv_path, 'r') as f:
         triagreader = csv.reader(f)
@@ -579,14 +581,12 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         num_bodyparts = len(bodyparts)
         next(triagreader)
         triangulated_points = []
-        num_frames = 0
         for row in triagreader:
             triangulated_points.append([[] for _ in range(3)])
             for ibp in range(num_bodyparts):
                 triangulated_points[-1][0].append(float(row[1+ibp*3]))
                 triangulated_points[-1][1].append(float(row[2+ibp*3]))
                 triangulated_points[-1][2].append(float(row[3+ibp*3]))
-            num_frames += 1
     triangulated_points = np.array(triangulated_points)
 
     # Get the video
@@ -621,8 +621,6 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin,
                np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin)
 
-    global FIG, FIGNUM, AXS, SLIDER
-
     FIG = mpl_pp.figure(figsize=figure_size)
     FIGNUM = mpl_pp.gcf().number
     AXS = []
@@ -633,46 +631,59 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     def update(iframe):
         iframe = int(iframe)
         mpl_pp.figure(FIGNUM)
-        AXS[0].cla()
         video.set(cv2.CAP_PROP_POS_FRAMES, iframe) # Set the frame to get
-        _, frame = video.read() # Read the frame
-        frame_rgb = frame[..., ::-1].copy()
-        AXS[0].imshow(frame_rgb)
+        fe, frame = video.read() # Read the frame
+        if fe:
+            frame_rgb = frame[..., ::-1].copy()
 
-        AXS[1].cla()
-        AXS[1].set_xlim(x_range)
-        AXS[1].set_ylim(y_range)
-        AXS[1].set_zlim(z_range)
-            
-        # Underlying skeleton
-        if skeleton:
-            for bpc in bp_connections:
-                ibp1 = bp_list.index(bpc[0])
-                ibp2 = bp_list.index(bpc[1])
+            AXS[0].cla()
+            AXS[0].imshow(frame_rgb)
+    
+            AXS[1].cla()
+            AXS[1].set_xlim(x_range)
+            AXS[1].set_ylim(y_range)
+            AXS[1].set_zlim(z_range)
+                
+            # Underlying skeleton
+            if skeleton:
+                for bpc in bp_connections:
+                    ibp1 = bp_list.index(bpc[0])
+                    ibp2 = bp_list.index(bpc[1])
+    
+                    t_point1 = triangulated_points[iframe, :, ibp1]
+                    t_point2 = triangulated_points[iframe, :, ibp2]
+    
+                    if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
+                        continue
+                    AXS[1].plot([t_point1[0], t_point2[0]],
+                             [t_point1[1], t_point2[1]],
+                             [t_point1[2], t_point2[2]],
+                             color='k', linewidth=skeleton_thickness)
+    
+            # Bodypart markers
+            for ibp in range(np.size(triangulated_points, 2)):
+                # Markers
+                AXS[1].scatter(triangulated_points[iframe, 0, ibp],
+                            triangulated_points[iframe, 1, ibp],
+                            triangulated_points[iframe, 2, ibp],
+                            color=bp_cmap[ibp, :], s=marker_size)
+    
+      
+    def arrow_key_image_control(event):
+        if event.key == 'left' and SLIDER.val > 0: 
+                SLIDER.set_val(SLIDER.val - 1)
+        elif event.key == 'right' and SLIDER.val < num_frames-1:
+                SLIDER.set_val(SLIDER.val + 1)
+        else:
+            pass
 
-                t_point1 = triangulated_points[iframe, :, ibp1]
-                t_point2 = triangulated_points[iframe, :, ibp2]
-
-                if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
-                    continue
-                AXS[1].plot([t_point1[0], t_point2[0]],
-                         [t_point1[1], t_point2[1]],
-                         [t_point1[2], t_point2[2]],
-                         color='k', linewidth=skeleton_thickness)
-
-        # Bodypart markers
-        for ibp in range(np.size(triangulated_points, 2)):
-            # Markers
-            AXS[1].scatter(triangulated_points[iframe, 0, ibp],
-                        triangulated_points[iframe, 1, ibp],
-                        triangulated_points[iframe, 2, ibp],
-                        color=bp_cmap[ibp, :], s=marker_size)
-            
     update(0)
 
     axcolor = 'lightgoldenrodyellow'
     ax_ind = mpl_pp.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
     SLIDER = mpl_pp.Slider(ax_ind, 'Frame', 0, num_frames-1, valinit=0, valstep=1, valfmt='%u')
     SLIDER.on_changed(update)
+    
+    cid = FIG.canvas.mpl_connect('key_press_event', arrow_key_image_control)
 
     mpl_pp.show()
