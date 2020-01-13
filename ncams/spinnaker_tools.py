@@ -19,7 +19,7 @@ import matplotlib.pyplot as mpl_pp
 
 import cv2
 import PySpin
-import tqdm
+from tqdm import tqdm
 
 
 CAMERA_NAME = 'cam{cam_serial}'
@@ -401,7 +401,7 @@ def synced_capture_sequence(camera_config, num_images, output_folder=None, separ
     thread_list = []
     cam_dicts[reference_serial]['obj'].TriggerMode.SetValue(PySpin.TriggerMode_Off)
     # We want to offload from images in order across cameras to reduce buffer load equally
-    for i_image in tqdm.tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
             f_id = image.GetFrameID()
@@ -481,7 +481,7 @@ def synced_capture_sequence_p(camera_config, num_images, output_folder=None, sep
         PySpin.TriggerMode_Off)
     # We want to offload from images in order across cameras to reduce buffer
     # load equally
-    for _ in tqdm.tqdm(range(num_images)):
+    for _ in tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
 
@@ -598,7 +598,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
 
     # We want to offload from images in order across cameras to reduce buffer load equally
     print('Capturing...')
-    for i_image in tqdm.tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
             image_dat = image.GetNDArray()
@@ -617,7 +617,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
             image.Release()
 
     print('Saving...')
-    for i_image in tqdm.tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images)):
         for cam_serial, cam_dict in cam_dicts.items():
             (image_dat, offsetX, offsetY, width, height, pixelFormat, f_id, time_stamp
              ) = image_lists[cam_serial][i_image]

@@ -115,8 +115,11 @@ def main():
     video_path = [i for i in training_videos
                   if ntpath.basename(i)[0] == file_prefix and str(serial) in i][0]
     output_path = os.path.join(triangulated_path2, 'pretty_{}_{}.mp4'.format(serial, file_prefix))
-    ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path,
-                                   frame_range=frame_range, output_path=output_path)
+    # ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path,
+    #                                frame_range=frame_range, output_path=output_path)
+
+    ncams.reconstruction.interactive_3d_plot(video_path, triangulated_csv_p,
+                                             skeleton_path=config_path)
 
 
 

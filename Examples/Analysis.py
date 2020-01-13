@@ -16,7 +16,7 @@ Has following steps:
     b. Load existing labeled frames
 3. Triangulation from multiple cameras
 4. Make markered videos
-5. Interactive demonstration with a time slider -- not implemented
+5. Interactive demonstration with a time slider
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
@@ -148,3 +148,8 @@ ncams.process_triangulated_data(triangulated_csv, output_csv=triangulated_csv_p)
 serial = 19335177
 video_path = camera_config['dicts'][serial]['ud_video']
 ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path)
+
+# %% 5 Interactive demonstration with a slider
+# This sometimes breaks in Spyder, try running as an executable, commenting out parts of
+# 'analysis.py' that are not needed.
+ncams.reconstruction.interactive_3d_plot(video_path, triangulated_csv_p, skeleton_path=config_path)

@@ -193,48 +193,54 @@ def import_session_config(filename):
 
     return session_config
 
-def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip=1):
+
+def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip=1, verbose=False):
     ''' Compares the XY coordinates of two CSVs.
-    
+
+    The false positive & negative output variables assume the first csv (reference_csv_path) is
+    accurate.
+
     Arguments:
         reference_csv_path {str} -- the 'ground truth' CSV
         comparison_csv_path {str} -- the CSV to compare against it
-        row_skip {int} -- how many rows of the CSV to skip
-        col_skip {int} -- how many columns of the CSV to skip
-        
+
+    Keyword Arguments:
+        row_skip {int} -- how many rows of the CSV to skip. (default: {3})
+        col_skip {int} -- how many columns of the CSV to skip. (default: {1})
+        verbose {bool} -- print additional information. (default: {False})
+
     Output:
-        bp_error {array} -- euclidian pixel error for each bodypart 
+        bp_error {array} -- euclidian pixel error for each bodypart
         false_positives {array} -- number of false positives for each bodypart
         false_negatives {array} -- number of false negatives for each bodypart
-        
-    Note that the false positive & negative assume the first csv (reference_csv_path) is accurate.
     '''
-    
+
     # Load the arrays
-    csv_arrays = [[],[]]
+    csv_arrays = [[], []]
     for ifile, csv_fname in enumerate([reference_csv_path, comparison_csv_path]):
-        csv_arrays[ifile] =  np.genfromtxt(csv_fname, delimiter=',', skip_header=row_skip)
+        csv_arrays[ifile] = np.genfromtxt(csv_fname, delimiter=',', skip_header=row_skip)
         if not col_skip is None:
             csv_arrays[ifile] = csv_arrays[ifile][:, col_skip:]
-    
+
     # Check number of bodyparts - if not the same then csvs aren't comparable
     if np.shape(csv_arrays[0])[1] != np.shape(csv_arrays[1])[1]:
         raise ValueError('Different number of bodyparts in each CSV.')
     num_bp = int(np.shape(csv_arrays[0])[1] / 2)
     n_frames = np.shape(csv_arrays[0])[0]
     total_bps = num_bp*n_frames
-    
+
     # Get the list of bodyparts
-    with open(ref_csv, 'r') as f: bp_csv = list(csv.reader(f))
+    with open(reference_csv_path, 'r') as f:
+        bp_csv = list(csv.reader(f))
     bp_csv = bp_csv[1]
     bodyparts = []
-    for bp in range(1,len(bp_csv),2):
+    for bp in range(1, len(bp_csv), 2):
         bodyparts.append(bp_csv[bp])
-    
+
     # Let's do some counting
-    false_positives = np.zeros((1,num_bp))
-    false_negatives = np.zeros((1,num_bp))
-    bp_error = np.zeros((1,num_bp))
+    false_positives = np.zeros((1, num_bp))
+    false_negatives = np.zeros((1, num_bp))
+    bp_error = np.zeros((1, num_bp))
     for bp in range(num_bp):
         xy_error = []
         fps = 0
@@ -242,9 +248,9 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
         for frame in range(n_frames):
             ref_vals = csv_arrays[0][frame, bp*2:(bp*2)+2]
             comp_vals = csv_arrays[1][frame, bp*2:(bp*2)+2]
-            
+
             # Evaluate:
-            # XY error 
+            # XY error
             if not np.all(np.isnan(ref_vals)) and not np.all(np.isnan(comp_vals)):
                 err = np.sqrt((ref_vals[0] - comp_vals[0])**2 + (ref_vals[1] - comp_vals[1])**2)
                 xy_error.append(err)
@@ -254,21 +260,19 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
             # False positive
             elif not np.all(np.isnan(ref_vals)) and np.all(np.isnan(comp_vals)):
                 fps += 1
-                
-        bp_error[0,bp] = np.nanmean(xy_error)
-        false_positives[0,bp] = fps
-        false_negatives[0,bp] = fns
-        
-    
-        
+
+        bp_error[0, bp] = np.nanmean(xy_error)
+        false_positives[0, bp] = fps
+        false_negatives[0, bp] = fns
+
     print('Mean error: {} pixels \nFalse positives: {}/{} \nFalse negatives: {}/{}\n'.format(
-            np.round(np.nanmean(bp_error),3), int(np.sum(false_positives)), int(total_bps),
-            int(np.sum(false_negatives)), int(total_bps)))
-    
+        np.round(np.nanmean(bp_error), 3), int(np.sum(false_positives)), int(total_bps),
+        int(np.sum(false_negatives)), int(total_bps)))
+
     if verbose:
         for bp in range(num_bp):
-            print(bodyparts[bp] + ': Error = {}, FPs = {}, FNs = {}'.format(np.round(bp_error[0,bp],3),
-                  int(false_positives[0,bp]),int(false_negatives[0,bp])))
-        
-    
+            print('{}: Error = {}, FPs = {}, FNs = {}'.format(
+                bodyparts[bp], np.round(bp_error[0, bp], 3), int(false_positives[0, bp]),
+                int(false_negatives[0, bp])))
+
     return bp_error, false_positives, false_negatives

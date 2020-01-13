@@ -13,7 +13,7 @@ import os
 
 from moviepy import editor # A very easy way of using FFMPEG
 import cv2
-import tqdm
+from tqdm import tqdm
 
 
 def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, output_filename=None):
@@ -112,7 +112,7 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
     output_filetype = os.path.splitext(output_name)[1]
 
     clip = editor.ImageSequenceClip(image_filenames, fps=fps)
-    
+
     if output_filetype == '.gif':
         clip.write_gif(output_name, fps=fps)
     else:
@@ -131,14 +131,14 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
     '''
     if isinstance(list_of_videos, str):
         list_of_videos = [list_of_videos]
-        
+
     if output_directory is not None:
         if not os.path.exists(output_directory):
             os.mkdir(output_directory)
         od = output_directory
     else:
         od = os.getcwd()
-        
+
     for vid_path in list_of_videos:
         # Get the video
         video = cv2.VideoCapture(vid_path)
@@ -149,14 +149,14 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
         print('Exporting images to: {}'.format(image_dir))
         if not os.path.exists(image_dir):
             os.mkdir(image_dir)
-        
+
         for f_idx in tqdm(range(num_frames), desc='Exporting frame'):
             frame_exists, frame = video.read() # Read the next frame if it exists
             if not frame_exists:
                 break
-            
+
             fname = os.path.join(image_dir, vid_name + str(f_idx+1) + '.' + output_format)
             cv2.imwrite(fname, frame)
             f_idx += 1
-            
+
         video.release()

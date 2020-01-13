@@ -182,7 +182,7 @@ def triangulate(camera_config, output_csv, calibration_config, pose_estimation_c
             # Get the distorted points
             distorted_points = image_coordinates[icam][:, :, bodypart]
             if undistorted_data:
-                undistorted_points = distorted_points.reshape(distorted_points.shape[0],1,2)
+                undistorted_points = distorted_points.reshape(np.shape(distorted_points)[0], 1, 2)
             else: # Undistort them
                 undistorted_points = cv2.undistortPoints(
                     distorted_points, camera_matrices[icam],
@@ -326,7 +326,7 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
             bps_line += [bp]*3
         triagwriter.writerow(bps_line)
         triagwriter.writerow(['coords'] + ['x', 'y', 'z']*num_bodyparts)
-        for iframe in range(processed_array.shape[0]):
+        for iframe in range(np.shape(processed_array)[0]):
             rw = [iframe]
             for ibp in range(num_bodyparts):
                 rw += [processed_array[iframe, 0, ibp],
@@ -448,7 +448,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     # Make a new video keeping the old properties - need to know figure size first
     if frame_rate is None:
         frame_rate = fps
-    
+
     fourcc = cv2.VideoWriter_fourcc(*'MPEG')
     output_video = cv2.VideoWriter(output_filename, fourcc, frame_rate, (int(fw), int(fh)))
     # Create the axes
@@ -559,8 +559,8 @@ def make_image(args, ranges=None, output_path=None, bp_cmap=None):
     mpl_pp.close(fig)
 
 
-def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, figure_size=(9,5),
-                         marker_size=5, skeleton_thickness=1):
+def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, figure_size=(9, 5),
+                        marker_size=5, skeleton_thickness=1):
     """Makes an interactive 3D plot with video and a slider to control the frame number.
 
     Arguments:
@@ -568,8 +568,8 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         triangulated_csv_path {str} -- location of csv with triangulated points corresponding to the
             video given in vid_path.
     """
-    global FIG, FIGNUM, AXS, SLIDER, num_frames
-    
+    global FIG, FIGNUM, AXS, SLIDER
+
     # Import the triangulated CSV
     with open(triangulated_csv_path, 'r') as f:
         triagreader = csv.reader(f)
@@ -592,7 +592,7 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     # Get the video
     video = cv2.VideoCapture(vid_path)
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-    
+
     if skeleton_path is not None:
         with open(skeleton_path, 'r') as yaml_file:
             dic = yaml.safe_load(yaml_file)
@@ -603,7 +603,7 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         skeleton = False
 
     # Check the number of frames vs number of rows in csv
-    if num_frames != triangulated_points.shape[0]:
+    if num_frames != np.shape(triangulated_points)[0]:
         raise Warning('Number of frames in video and rows in CSV are not equal. Check that the paths'
                       + ' given are correct.')
 
@@ -638,42 +638,42 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
 
             AXS[0].cla()
             AXS[0].imshow(frame_rgb)
-    
+
             AXS[1].cla()
             AXS[1].set_xlim(x_range)
             AXS[1].set_ylim(y_range)
             AXS[1].set_zlim(z_range)
-                
+
             # Underlying skeleton
             if skeleton:
                 for bpc in bp_connections:
                     ibp1 = bp_list.index(bpc[0])
                     ibp2 = bp_list.index(bpc[1])
-    
+
                     t_point1 = triangulated_points[iframe, :, ibp1]
                     t_point2 = triangulated_points[iframe, :, ibp2]
-    
+
                     if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
                         continue
                     AXS[1].plot([t_point1[0], t_point2[0]],
-                             [t_point1[1], t_point2[1]],
-                             [t_point1[2], t_point2[2]],
-                             color='k', linewidth=skeleton_thickness)
-    
+                                [t_point1[1], t_point2[1]],
+                                [t_point1[2], t_point2[2]],
+                                color='k', linewidth=skeleton_thickness)
+
             # Bodypart markers
             for ibp in range(np.size(triangulated_points, 2)):
                 # Markers
                 AXS[1].scatter(triangulated_points[iframe, 0, ibp],
-                            triangulated_points[iframe, 1, ibp],
-                            triangulated_points[iframe, 2, ibp],
-                            color=bp_cmap[ibp, :], s=marker_size)
-    
-      
+                               triangulated_points[iframe, 1, ibp],
+                               triangulated_points[iframe, 2, ibp],
+                               color=bp_cmap[ibp, :], s=marker_size)
+
+
     def arrow_key_image_control(event):
-        if event.key == 'left' and SLIDER.val > 0: 
-                SLIDER.set_val(SLIDER.val - 1)
+        if event.key == 'left' and SLIDER.val > 0:
+            SLIDER.set_val(SLIDER.val - 1)
         elif event.key == 'right' and SLIDER.val < num_frames-1:
-                SLIDER.set_val(SLIDER.val + 1)
+            SLIDER.set_val(SLIDER.val + 1)
         else:
             pass
 
@@ -683,7 +683,7 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     ax_ind = mpl_pp.axes([0.15, 0.1, 0.65, 0.03], facecolor=axcolor)
     SLIDER = mpl_pp.Slider(ax_ind, 'Frame', 0, num_frames-1, valinit=0, valstep=1, valfmt='%u')
     SLIDER.on_changed(update)
-    
+
     cid = FIG.canvas.mpl_connect('key_press_event', arrow_key_image_control)
 
     mpl_pp.show()
