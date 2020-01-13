@@ -15,9 +15,9 @@ Hardware:
 - FLIR cameras (if using provided [tools](ncams/spinnaker_tools.py) to record)
 
 Software:
-- [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
-- [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
 - [DeepLabCut](https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md) - if using it for labeling markers. See below for installation recommendations.
+ - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
+ - [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
 - [Spinnaker module](https://flir.app.boxcn.net/v/SpinnakerSDK/folder/68522911814) if using FLIR cameras for capture.
 
 If you have problems with installations, check our [installation tips](INSTALLATION.md).
