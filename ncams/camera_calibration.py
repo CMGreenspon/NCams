@@ -374,7 +374,8 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     num_horz_plots = int(np.floor(np.sqrt(num_cameras)))
     num_vert_plots = int(np.ceil(num_cameras/num_horz_plots))
 
-    _, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
+    fig, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
+    fig.canvas.set_window_title('NCams: Calibration inspection')
     # Get the images and plot for each camera
     for icam, serial in enumerate(serials):
         # Folder navigation

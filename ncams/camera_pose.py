@@ -727,6 +727,7 @@ def plot_poses(pose_estimation_config, scale_factor=1):
 
     # Create a figure with axes
     fig = mpl_pp.figure()
+    fig.canvas.set_window_title('NCams: Camera poses')
     ax = fig.gca(projection='3d')
 
     # Keep the verts for setting the axes later
