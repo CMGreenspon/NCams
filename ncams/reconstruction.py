@@ -340,7 +340,8 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
 def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=None,
                              output_path=None, frame_range=None, view=(90, 120), figure_size=(9, 5),
                              figure_dpi=150, marker_size=5, skeleton_thickness=1,
-                             frame_count=False, frame_rate=None):
+                             frame_count=False, frame_rate=None, thrd_video_path=None,
+                             thrd_video_frame_offset=0, third_video_crop_hw=None, ranges=None):
 
     '''Makes a video based on triangulated marker positions.
 
@@ -361,6 +362,12 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
         figure_dpi {int} -- DPI of the video. (default: 150)
         marker_size {int} -- size of the markers in the 3d plot. (default: 5)
         skeleton_thickness {int} -- thickness of the connecting lines in the 3d plot. (default: 1)
+        thrd_video_path {str} -- add another video from this path to the side. (default: None)
+        thrd_video_frame_offset {int} -- start the added vide from this frame. (default: 0)
+        third_video_crop_hw {list of 2 slices} -- crop the third video using numpy slices.
+            (default: None)
+        ranges {list of 2-lists} -- overwrites xrange, yrange and zrange for the 3d plot. Individual
+            elements can be None. (default: None)
 
     '''
     if skeleton_config is not None:
@@ -395,14 +402,24 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     color_idx = np.linspace(0, 1, num_bodyparts)
     bp_cmap = cmap(color_idx)
     # Limits in space of the markers + 10%
-    margin = 1.3
-    pcntl = 2
-    x_range = (np.nanpercentile(triangulated_points[:, 0, :], pcntl) * margin,
-               np.nanpercentile(triangulated_points[:, 0, :], 100-pcntl) * margin)
-    y_range = (np.nanpercentile(triangulated_points[:, 1, :], pcntl) * margin,
-               np.nanpercentile(triangulated_points[:, 1, :], 100-pcntl) * margin)
-    z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin,
-               np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin)
+    margin_min = 0.7
+    margin_max = 1.3
+    pcntl = 0.1
+    if ranges is None or ranges[0] is None:
+        x_range = (np.nanpercentile(triangulated_points[:, 0, :], pcntl) * margin_min,
+                   np.nanpercentile(triangulated_points[:, 0, :], 100-pcntl) * margin_max)
+    else:
+        x_range = ranges[0]
+    if ranges is None or ranges[1] is None:
+        y_range = (np.nanpercentile(triangulated_points[:, 1, :], pcntl) * margin_min,
+                   np.nanpercentile(triangulated_points[:, 1, :], 100-pcntl) * margin_max)
+    else:
+        y_range = ranges[1]
+    if ranges is None or ranges[2] is None:
+        z_range = (np.nanpercentile(triangulated_points[:, 2, :], pcntl) * margin_min,
+                   np.nanpercentile(triangulated_points[:, 2, :], 100-pcntl) * margin_max)
+    else:
+        z_range = ranges[2]
 
     # Inspect the video
     video = cv2.VideoCapture(video_path)
@@ -441,6 +458,13 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     else:
         frame_range = (0, num_frames-1)
 
+    # load the third video
+    if thrd_video_path is not None:
+        thrd_video = cv2.VideoCapture(thrd_video_path)
+        # thrd_video.set(cv2.CAP_PROP_POS_FRAMES, thrd_video_frame_offset) # Set the start position
+        thrd_fe, thrd_frame = thrd_video.read()
+        thrd_video_fps = int(thrd_video.get(cv2.CAP_PROP_FPS))
+
     # Create the figure
     fig = mpl_pp.figure(figsize=figure_size, dpi=figure_dpi)
     fw, fh = fig.get_size_inches() * fig.get_dpi()
@@ -452,8 +476,13 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     fourcc = cv2.VideoWriter_fourcc(*'MPEG')
     output_video = cv2.VideoWriter(output_filename, fourcc, frame_rate, (int(fw), int(fh)))
     # Create the axes
-    ax1 = fig.add_subplot(1, 2, 1)
-    ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+    if thrd_video_path is None:
+        ax1 = fig.add_subplot(1, 2, 1)
+        ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+    else:
+        ax1 = fig.add_subplot(1, 3, 1)
+        ax2 = fig.add_subplot(1, 3, 2, projection='3d')
+        ax3 = fig.add_subplot(1, 3, 3)
     ax2.view_init(elev=view[0], azim=view[1])
 
     for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame'):
@@ -475,6 +504,32 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
         ax2.set_zlim(z_range)
         if frame_count:
             ax2.set_title('Frame: ' + str(f_idx))
+
+        # Handle video 3
+        if thrd_video_path is not None:
+            frame_from_start = f_idx - frame_range[0]
+            thrd_frame_from_start = (thrd_video_frame_offset +
+                                     int(frame_from_start/fps*thrd_video_fps))
+            # tv_cf = thrd_video.get(cv2.CAP_PROP_POS_FRAMES)
+            while thrd_video.get(cv2.CAP_PROP_POS_FRAMES) < thrd_frame_from_start:
+                thrd_fe, thrd_frame = thrd_video.read()
+            # thrd_video.set(cv2.CAP_PROP_POS_FRAMES, thrd_frame_from_start)
+            # thrd_fe, thrd_frame = thrd_video.read()  # Read the next frame
+            if thrd_fe is False:
+                print('Could not read the third video frame. Frame in the raw {},'
+                      ' frame_from_start: {} thrd_frame_from_start: {}'.format(
+                          f_idx, frame_from_start, thrd_frame_from_start))
+            else:
+                thrd_frame_rgb = thrd_frame[..., ::-1].copy()
+                if third_video_crop_hw is not None:
+                    if third_video_crop_hw[0] is not None:
+                        thrd_frame_rgb = thrd_frame_rgb[third_video_crop_hw[0], :]
+                    if third_video_crop_hw[1] is not None:
+                        thrd_frame_rgb = thrd_frame_rgb[:, third_video_crop_hw[1]]
+                ax3.cla()
+                ax3.imshow(thrd_frame_rgb)
+                ax3.set_xticks([])
+                ax3.set_yticks([])
 
         # Underlying skeleton
         if skeleton:
