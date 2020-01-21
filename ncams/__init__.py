@@ -6,7 +6,7 @@ https://github.com/CMGreenspon/NCams
 """
 
 __all__ = ['utils', 'image_tools', 'camera_io', 'camera_tools', 'camera_calibration', 'camera_pose',
-           'reconstruction']
+           'reconstruction', 'inverse_kinematics']
 
 
 from .utils import import_session_config, export_session_config
@@ -16,3 +16,4 @@ from . import camera_tools
 from .camera_calibration import multi_camera_calibration
 from . import camera_pose
 from .reconstruction import triangulate, make_triangulation_video, process_triangulated_data
+from . import inverse_kinematics
