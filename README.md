@@ -6,7 +6,7 @@ NCams is installed as a Pythron module with several submodules that include came
 
 ## Getting Started
 
-This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example raw data is available on [Dropbox](https://www.dropbox.com/sh/k7obdf85dhmynvp/AABiCadSKrQEHYv0nfdjUpjBa)
+This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example raw data is available on [Dropbox](https://www.dropbox.com/sh/k7obdf85dhmynvp/AABiCadSKrQEHYv0nfdjUpjBa).
 
 ### Prerequisites
 
