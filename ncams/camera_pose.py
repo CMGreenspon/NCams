@@ -16,6 +16,7 @@ from tkinter.filedialog import askopenfilename
 
 import numpy as np
 import cv2
+import math
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
@@ -613,7 +614,7 @@ def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
 
 
 #################### Pose assessement functions
-def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config):
+def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config, undistort=True):
     '''
 
     [Long description]
@@ -706,7 +707,8 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
 
     
     # Triangulate the points
-    triangulated_points = np.empty((np.shape(world_points)[0],3))
+    n_world_points = np.shape(world_points)[0]
+    triangulated_points = np.empty((n_world_points,3))
     triangulated_points.fill(np.nan)
     
     for p in range(np.shape(world_points)[0]):
@@ -741,13 +743,23 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
         u_euclid = (u/u[-1, :])[0:-1, :]
         triangulated_points[p, :] = np.transpose(u_euclid)
         
+    # Compute the euclidian error for each point
+    triang_error = np.zeros((n_world_points,1))
+    for p in range(n_world_points):
+        triang_error[p] = np.sqrt(np.sum([(a - b) ** 2 for a, b in zip(world_points[p,0,:],
+                                                                       triangulated_points[p, :])]))
+        
+        
     fig = mpl_pp.figure()
     fig.canvas.set_window_title('NCams: Charucoboard Markers')
     ax = fig.gca(projection='3d')
-    for p in range(np.shape(world_points)[0]):
+    for p in range(n_world_points):
         ax.scatter(world_points[p,0,0],world_points[p,0,1],world_points[p,0,2], color='b')
+        ax.text(world_points[p,0,0], world_points[p,0,1], world_points[p,0,2], str(p), color='b')
         ax.scatter(triangulated_points[p,0],triangulated_points[p,1],triangulated_points[p,2],
                    color='r')
+        ax.text(triangulated_points[p,0], triangulated_points[p,1], triangulated_points[p,2],
+                str(p), color='r')
             
     
 

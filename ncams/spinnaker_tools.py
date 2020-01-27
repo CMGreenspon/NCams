@@ -244,8 +244,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
     if cam.IsStreaming():
         cam.EndAcquisition()
 
-    # To avoid overwriting when not called the default parameter is instead
-    # available which will overwrite everything
+    # The default parameter will overwrite everything
     if default:
         if any(param is not None for param in [
                frame_rate, exposure_time, gain, trigger_mode, acquisition_mode, pixel_format]):
@@ -253,7 +252,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
                   'Default parameters will be used.')
         frame_rate = 30
         exposure_time = 2500
-        gain = 10
+        gain = 1
         trigger_mode = False
         acquisition_mode = 0
         pixel_format = PySpin.PixelFormat_BayerRG8
@@ -312,6 +311,11 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         frame_rate {number} -- fps to set the cameras to. (default: {30})
         num_images {number or None} -- number of images to set to capture. If None, captures
             indefinitely. (default: {None})
+            
+    This utilizes hardware triggering as described on the FLIR support page:
+        https://www.flir.com/support-center/iis/machine-vision/application-note/
+        configuring-synchronized-capture-with-multiple-cameras/
+        
     '''
     cam_dicts = camera_config['dicts']
     reference_serial = camera_config['reference_camera_serial']
@@ -356,9 +360,9 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         cam_dict['obj'].TriggerSource.SetValue(PySpin.TriggerSource_Line3)
         cam_dict['obj'].TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
         cam_dict['obj'].TriggerMode.SetValue(PySpin.TriggerMode_On)
-        # As is being controlled by the trigger
+        # As is being controlled by the trigger - will cause errors if left as true
         cam_dict['obj'].AcquisitionFrameRateEnable.SetValue(False)
-        # This should only prime the cameras:
+        # This should only prime the cameras and not actually begin taking images
         cam_dict['obj'].BeginAcquisition()
 
 
@@ -811,7 +815,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     '''
     # Check input
     if isinstance(cam_obj, list):
-        raise ValueError('capture_sequence only accepts "CameraPtr" objects, not lists of them.')
+        raise ValueError('capture_sequence_gui only accepts "CameraPtr" objects, not lists of them.')
 
     if output_path is None:
         output_path = os.getcwd()
@@ -822,7 +826,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     if not cam_obj.IsInitialized():
         cam_obj.Init()
 
-    max_fr = cam_obj.AcquisitionFrameRate.GetValue()
+    max_fr = cam_obj.AcquisitionFrameRate.GetMax()
     set_cam_settings(cam_obj, acquisition_mode=0, frame_rate=max_fr)
 
     if isinstance(num_images, int):
@@ -838,7 +842,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     print('Please note that framerate control does not work in this mode.')
 
     # Get ready
-    mpl_pp.figure('Image viewer')
+    mpl_pp.figure('NCams: Live image capture')
     thread_list = []
     idx = 0
     # Set
