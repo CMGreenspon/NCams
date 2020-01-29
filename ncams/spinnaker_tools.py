@@ -13,6 +13,7 @@ import os
 import threading
 import logging
 import multiprocessing
+import time
 
 import numpy as np
 import matplotlib.pyplot as mpl_pp
@@ -300,7 +301,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
 
 
 # Synchronized capture
-def init_sync_settings(camera_config, frame_rate=30, num_images=None):
+def init_sync_settings(camera_config, frame_rate=30, num_images=None, wb_vals='auto'):
     '''Initializes all cameras for sequence capture.
 
     Arguments:
@@ -311,6 +312,9 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         frame_rate {number} -- fps to set the cameras to. (default: {30})
         num_images {number or None} -- number of images to set to capture. If None, captures
             indefinitely. (default: {None})
+        wb_vals {string or tuple} -- optional white balance settings. If 'auto', sets all cameras to 
+        auto white balance. If 'main', will auto white balance the main camera and then apply those
+        values to all other cameras. If a tuple, will apply the (red,blue) ratios to all cameras.
             
     This utilizes hardware triggering as described on the FLIR support page:
         https://www.flir.com/support-center/iis/machine-vision/application-note/
@@ -319,6 +323,22 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
     '''
     cam_dicts = camera_config['dicts']
     reference_serial = camera_config['reference_camera_serial']
+    
+    # Need to parse the white value option first
+    if wb_vals is 'main':
+        if not cam_dicts[reference_serial]['obj'].IsInitialized():
+            cam_dicts[reference_serial]['obj'].Init()
+            
+        cam_dicts[reference_serial]['obj'].BalanceWhiteAuto.SetValue(1)
+        cam_dicts[reference_serial]['obj'].BeginAcquisition()
+        time.sleep(1)
+        cam_dicts[reference_serial]['obj'].EndAcquisition()
+        cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(0)
+        red_ratio = cam_dict[reference_serial]['obj'].BalanceRatio.GetValue()
+        cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(1)
+        blue_ratio = cam_dict[reference_serial]['obj'].BalanceRatio.GetValue()
+        wb_vals = (red_ratio, blue_ratio)
+            
 
     # Settings for each camera
     nodemap = []
@@ -341,6 +361,17 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         elif isinstance(num_images, int):
             cam_dict['obj'].AcquisitionMode.SetValue(PySpin.AcquisitionMode_MultiFrame)
             cam_dict['obj'].AcquisitionFrameCount.SetValue(num_images)
+            
+        # White balance
+        if wb_vals is 'auto':
+            cam_dict['obj'].BalanceWhiteAuto.SetValue(2)
+        elif isinstance(wb_vals, tuple):
+            cam_dict['obj'].BalanceWhiteAuto.SetValue(0)
+            cam_dict['obj'].BalanceRatioSelector.SetValue(0)
+            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[0])
+            cam_dict['obj'].BalanceRatioSelector.SetValue(1)
+            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[1])
+            
 
     # Primary cam settings
     # Triggering
@@ -362,6 +393,7 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         cam_dict['obj'].TriggerMode.SetValue(PySpin.TriggerMode_On)
         # As is being controlled by the trigger - will cause errors if left as true
         cam_dict['obj'].AcquisitionFrameRateEnable.SetValue(False)
+        # Set the white balance values
         # This should only prime the cameras and not actually begin taking images
         cam_dict['obj'].BeginAcquisition()
 
