@@ -325,7 +325,7 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None, wb_vals='a
     reference_serial = camera_config['reference_camera_serial']
     
     # Need to parse the white value option first
-    if wb_vals is 'main':
+    if wb_vals == 'main': # Take the balance ratios from the reference camera
         if not cam_dicts[reference_serial]['obj'].IsInitialized():
             cam_dicts[reference_serial]['obj'].Init()
             
@@ -334,12 +334,11 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None, wb_vals='a
         time.sleep(1)
         cam_dicts[reference_serial]['obj'].EndAcquisition()
         cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(0)
-        red_ratio = cam_dict[reference_serial]['obj'].BalanceRatio.GetValue()
+        red_ratio = cam_dicts[reference_serial]['obj'].BalanceRatio.GetValue()
         cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(1)
-        blue_ratio = cam_dict[reference_serial]['obj'].BalanceRatio.GetValue()
+        blue_ratio = cam_dicts[reference_serial]['obj'].BalanceRatio.GetValue()
         wb_vals = (red_ratio, blue_ratio)
             
-
     # Settings for each camera
     nodemap = []
     for cam_dict in cam_dicts.values():
@@ -363,15 +362,14 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None, wb_vals='a
             cam_dict['obj'].AcquisitionFrameCount.SetValue(num_images)
             
         # White balance
-        if wb_vals is 'auto':
+        if wb_vals == 'auto':
             cam_dict['obj'].BalanceWhiteAuto.SetValue(2)
         elif isinstance(wb_vals, tuple):
             cam_dict['obj'].BalanceWhiteAuto.SetValue(0)
             cam_dict['obj'].BalanceRatioSelector.SetValue(0)
             cam_dict['obj'].BalanceRatio.SetValue(wb_vals[0])
             cam_dict['obj'].BalanceRatioSelector.SetValue(1)
-            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[1])
-            
+            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[1])   
 
     # Primary cam settings
     # Triggering
