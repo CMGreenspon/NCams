@@ -12,6 +12,9 @@ import csv
 import math
 import xml.etree.ElementTree as ET
 
+import numpy
+import scipy.signal
+
 
 IK_XML_STR = r'''<?xml version="1.0" encoding="UTF-8" ?>
 <OpenSimDocument Version="40000">
@@ -357,3 +360,98 @@ def rdc_touchpad3d(frame_number, value_dict, dist_desired=(105, 79, 105, 79), wa
             marker_name_dict['tp_left_c'])
     print('Frame {} distances: lf: {} mm, fr: {} mm, rb: {} mm, bl: {} mm.{}'.format(
         frame_number, lf, fr, rb, bl, warnings))
+
+
+def import_mot(fname):
+    '''Import OpenSim motion file into a python structure.
+
+    Arguments:
+        fname {str} -- motion file.
+
+    Returns a list:
+        dof_names {list of str} -- names of DOFs.
+        times {list of numbers} -- time series.
+        dofs {list} -- each item corresponds to values for that DOF for each frame.
+    '''
+    with open(fname, 'r') as f:
+        rdr = csv.reader(f, dialect='excel-tab')
+
+        l = next(rdr)
+        while len(l) < 1 or not l[0].strip().lower() == 'time':
+            l = next(rdr)
+
+        dof_names = [i.strip() for i in l[1:]]
+
+        times = []
+        dofs = [[] for _ in dof_names]
+
+        for li in rdr:
+            times.append(float(li[0]))
+            for idof, vdof in enumerate(li[1:]):
+                dofs[idof].append(float(vdof))
+    return dof_names, times, dofs
+
+
+def export_mot(fname, dof_names, times, dofs):
+    '''Exports python structures into a motion file for OpenSim.
+
+    Arguments:
+        fname {str} -- filename of the mot file to output into.
+        dof_names {list of str} -- each element is the DOF string name.
+        times {list of numbers} -- time series.
+        dofs {list} -- each item corresponds to values for that DOF for each frame.
+    '''
+    with open(fname, 'w', newline='') as f:
+        wrr = csv.writer(f, dialect='excel-tab')
+
+        wrr.writerow(['Coordinates'])
+        wrr.writerow(['version=1'])
+        wrr.writerow(['nRows={}'.format(len(times))])
+        wrr.writerow(['nColumns={}'.format(len(dof_names)+1)])
+        wrr.writerow(['inDegrees=yes'])
+        wrr.writerow([])
+        wrr.writerow(['Units are S.I. units (second, meters, Newtons, ...)'])
+        wrr.writerow(['Angles are in degrees.'])
+        wrr.writerow([])
+        wrr.writerow(['endheader'])
+        wrr.writerow(['time'] + dof_names)
+
+        for itime, time in enumerate(times):
+            wrr.writerow([time] + [dof_vals[itime] for dof_vals in dofs])
+
+
+def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None):
+    '''Filters the motion from a file and saves it.
+
+    Arguments:
+        in_fname {str} -- filename with inverse kinematics motion to filter.
+        ou_fname {str} -- filename for output of the filtered kinematics.
+
+    Keyword Arguments:
+        median_kernel_size {odd int} -- size of the kernel for median filter. Has to be odd.
+            (default: 11)
+        ou_rate {number} -- output rate. If not equal to in_rate, the signal is going to be
+            resampled before median filter. (default: {same as input rate measured from input motion
+            file})
+    '''
+    # load
+    dof_names, times, dofs = import_mot(in_fname)
+
+    in_rate = numpy.mean(numpy.diff(times))
+    if ou_rate is None:
+        ou_rate = in_rate
+
+    # resample
+    if in_rate != ou_rate:
+        num_ou = int(len(times)*ou_rate/in_rate)
+        for idof in range(len(dofs)):
+            dofs[idof] = scipy.signal.resample(dofs[idof], num_ou, t=times, window=None)[0]
+        times = scipy.signal.resample(dofs[0], num_ou, t=times, window=None)[1]
+        times = [t/ou_rate*in_rate for t in times]
+
+    # median filter
+    for idof in range(len(dofs)):
+        dofs[idof] = scipy.signal.medfilt(dofs[idof], kernel_size=median_kernel_size)
+
+    # output
+    export_mot(ou_fname, dof_names, times, dofs)

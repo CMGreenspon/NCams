@@ -341,7 +341,8 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
                              output_path=None, frame_range=None, view=(90, 120), figure_size=(9, 5),
                              figure_dpi=150, marker_size=5, skeleton_thickness=1,
                              frame_count=False, frame_rate=None, thrd_video_path=None,
-                             thrd_video_frame_offset=0, third_video_crop_hw=None, ranges=None):
+                             thrd_video_frame_offset=0, third_video_crop_hw=None, ranges=None,
+                             plot_markers=True):
 
     '''Makes a video based on triangulated marker positions.
 
@@ -368,7 +369,8 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
             (default: None)
         ranges {list of 2-lists} -- overwrites xrange, yrange and zrange for the 3d plot. Individual
             elements can be None. (default: None)
-
+        plot_markers {bool} -- plot 3D view of the markers. Having it False with no third_video_path
+            set can lead to unexpected behavior. (default: True)
     '''
     if skeleton_config is not None:
         with open(skeleton_config, 'r') as yaml_file:
@@ -476,14 +478,19 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     fourcc = cv2.VideoWriter_fourcc(*'MPEG')
     output_video = cv2.VideoWriter(output_filename, fourcc, frame_rate, (int(fw), int(fh)))
     # Create the axes
-    if thrd_video_path is None:
-        ax1 = fig.add_subplot(1, 2, 1)
-        ax2 = fig.add_subplot(1, 2, 2, projection='3d')
+    if thrd_video_path is None and plot_markers:
+        ax_video = fig.add_subplot(1, 2, 1)
+        ax_3d = fig.add_subplot(1, 2, 2, projection='3d')
+    elif thrd_video_path is not None:
+        ax_video = fig.add_subplot(1, 2, 1)
+        ax_third = fig.add_subplot(1, 2, 2)
     else:
-        ax1 = fig.add_subplot(1, 3, 1)
-        ax2 = fig.add_subplot(1, 3, 2, projection='3d')
-        ax3 = fig.add_subplot(1, 3, 3)
-    ax2.view_init(elev=view[0], azim=view[1])
+        ax_video = fig.add_subplot(1, 3, 1)
+        ax_3d = fig.add_subplot(1, 3, 2, projection='3d')
+        ax_third = fig.add_subplot(1, 3, 3)
+
+    if plot_markers:
+        ax_3d.view_init(elev=view[0], azim=view[1])
 
     for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Writing frame'):
         fe, frame = video.read() # Read the next frame
@@ -493,17 +500,18 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
 
         frame_rgb = frame[..., ::-1].copy()
         # Clear axis 1
-        ax1.cla()
-        ax1.imshow(frame_rgb)
-        ax1.set_xticks([])
-        ax1.set_yticks([])
+        ax_video.cla()
+        ax_video.imshow(frame_rgb)
+        ax_video.set_xticks([])
+        ax_video.set_yticks([])
         # Clear axis 2
-        ax2.cla()
-        ax2.set_xlim(x_range)
-        ax2.set_ylim(y_range)
-        ax2.set_zlim(z_range)
-        if frame_count:
-            ax2.set_title('Frame: ' + str(f_idx))
+        if plot_markers:
+            ax_3d.cla()
+            ax_3d.set_xlim(x_range)
+            ax_3d.set_ylim(y_range)
+            ax_3d.set_zlim(z_range)
+            if frame_count:
+                ax_3d.set_title('Frame: ' + str(f_idx))
 
         # Handle video 3
         if thrd_video_path is not None:
@@ -526,13 +534,13 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
                         thrd_frame_rgb = thrd_frame_rgb[third_video_crop_hw[0], :]
                     if third_video_crop_hw[1] is not None:
                         thrd_frame_rgb = thrd_frame_rgb[:, third_video_crop_hw[1]]
-                ax3.cla()
-                ax3.imshow(thrd_frame_rgb)
-                ax3.set_xticks([])
-                ax3.set_yticks([])
+                ax_third.cla()
+                ax_third.imshow(thrd_frame_rgb)
+                ax_third.set_xticks([])
+                ax_third.set_yticks([])
 
         # Underlying skeleton
-        if skeleton:
+        if plot_markers and skeleton:
             for bpc in bp_connections:
                 ibp1 = bp_list.index(bpc[0])
                 ibp2 = bp_list.index(bpc[1])
@@ -542,18 +550,19 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
 
                 if any(np.isnan(t_point1)) or any(np.isnan(t_point1)):
                     continue
-                ax2.plot([t_point1[0], t_point2[0]],
-                         [t_point1[1], t_point2[1]],
-                         [t_point1[2], t_point2[2]],
-                         color='k', linewidth=skeleton_thickness)
+                ax_3d.plot([t_point1[0], t_point2[0]],
+                           [t_point1[1], t_point2[1]],
+                           [t_point1[2], t_point2[2]],
+                           color='k', linewidth=skeleton_thickness)
 
         # Bodypart markers
-        for ibp in range(np.size(triangulated_points, 2)):
-            # Markers
-            ax2.scatter(triangulated_points[f_idx, 0, ibp],
-                        triangulated_points[f_idx, 1, ibp],
-                        triangulated_points[f_idx, 2, ibp],
-                        color=bp_cmap[ibp, :], s=marker_size)
+        if plot_markers:
+            for ibp in range(np.size(triangulated_points, 2)):
+                # Markers
+                ax_3d.scatter(triangulated_points[f_idx, 0, ibp],
+                              triangulated_points[f_idx, 1, ibp],
+                              triangulated_points[f_idx, 2, ibp],
+                              color=bp_cmap[ibp, :], s=marker_size)
 
         # Pull matplotlib data to a variable and format for writing
         canvas.draw()
