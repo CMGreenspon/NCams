@@ -10,6 +10,7 @@ Functions related to setting up and analyzing inverse kinematics using OpenSim (
 import ntpath
 import csv
 import math
+import xml.etree.ElementTree as ET
 
 
 IK_XML_STR = r'''<?xml version="1.0" encoding="UTF-8" ?>
@@ -49,7 +50,9 @@ IK_XML_STR = r'''<?xml version="1.0" encoding="UTF-8" ?>
 
 def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_convert=None,
                         rate=50, repeat=0, zero_marker='scapula_anterior', frame_range=None,
-                        runtime_data_check=None):
+                        runtime_data_check=None, rotation=None,
+                        ik_file=None, ik_weight_type='nans',
+                        ik_xml_str=None, ik_out_mot_file='out_inv_kin_mot'):
     '''Transforms triangulated data from NCams/DLC format into OpenSim trc.
 
     Arguments:
@@ -77,10 +80,28 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 value_dict {dict} -- dictionary relating the maker name in NCams/DLC style to the
                     marker locations (x, y, z) in units after the data_unit_convert.
             (default: {pass})
+        rotation {function} -- is applied to every point (x,y,z). Is supposed to accept a list with
+            3 numbers (vector in NCams coordinate system) and return a list with three numbers
+            (vector in OSim coordinate system). (default: {returns same vector})
+        ik_file {str or None} -- makes a config file to run inverse kinematics in OSim. If None, the
+            it is not created. (default: None)
+        ik_weight_type {'nans', 'ones', 'likelihood'} -- an algorithm to pick a weight for each
+            marker:
+            'nans' -- weight for a marker equals to 1 - portion of points where it was NaN.
+            'ones' -- all weights are 1.
+            'likelihood' -- not implemented.
+            (default: 'nans')
+        ik_xml_str {str} -- XML structure of the output inverse kinematic file. See
+            ncams.inverse_kinematics.IK_XML_STR for an example of input. (default:
+            ncams.inverse_kinematics.IK_XML_STR)
+        ik_out_mot_file {str} --  filename of the output inverse kinematics file.
+            {default: 'out_inv_kin_mot'}
     '''
     if data_unit_convert is None:
         data_unit_convert = lambda x: x*100  # dm to mm
     period = 1./rate
+    if rotation is None:
+        rotation = lambda x: x
 
     if frame_range is None:
         with open(triang_csv, 'r') as f:
@@ -125,6 +146,7 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             data_copy = []
 
         next(rdr)
+        # skip the first frame until the desired frame_range
         if frame_range is not None and frame_range[0] > 0:
             while int(next(rdr)[0]) < frame_range[0] - 1:
                 pass
@@ -156,9 +178,9 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 if 'nan' in (li[ix].lower(), li[iy].lower(), li[iz].lower()):
                     value_dict[bp] = ['', '', '']
                 else:
-                    value_dict[bp] = [data_unit_convert(float(li[ix])-zero_x),
-                                      data_unit_convert(float(li[iy])-zero_y),
-                                      data_unit_convert(float(li[iz])-zero_z)]
+                    value_dict[bp] = rotation([[data_unit_convert(float(li[ix])-zero_x),
+                                                data_unit_convert(float(li[iy])-zero_y),
+                                                data_unit_convert(float(li[iz])-zero_z)]])
                     num_dats[bp] += 1
 
             lo = [i+1, i*period]
@@ -174,6 +196,7 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             # print a runtime report
             if runtime_data_check is not None:
                 runtime_data_check(i, value_dict)
+        time_range = [0, (i-1)*period]
 
         print('Portion of the data being data and not NaNs:')
         print('\n'.join('\t{}: {:.3f}'.format(marker_name_dict[bp], num_dats[bp]/n_frames)
@@ -189,6 +212,98 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 wrr.writerow(lo)
         if repeat > 0:
             print('Added {} copies of data.'.format(repeat))
+
+    # make inverse kinematic config file for OSim
+    if ik_file is not None:
+        if ik_xml_str is None:
+            ik_xml_str = IK_XML_STR
+        print('Making IK file {}'.format(ik_file))
+        root = ET.fromstring(ik_xml_str)
+        if root.tag != 'OpenSimDocument':
+            raise ValueError('Wrong structure of the IK string. OpenSimDocument is not present at '
+                             'top-level.')
+
+        ikt = root.find('InverseKinematicsTool')
+        if ikt is None:
+            # default structure of the IKT, like in the IK_XML_STR
+            ikt = ET.Element('InverseKinematicsTool')
+            ikt.append(ET.Element('results_directory', text='./'))
+            ikt.append(ET.Element('input_directory'))
+            ikt.append(ET.Element('model_file', text='Unassigned'))
+            ikt.append(ET.Element('constraint_weight', text='Inf'))
+            ikt.append(ET.Element('accuracy', text='1.e-05'))
+            ikt.append(ET.Element('coordinate_file', text='Unassigned'))
+            ikt.append(ET.Element('report_errors', text='true'))
+            ikt.append(ET.Element('report_marker_locations', text='false'))
+            root.append(ikt)
+
+        ikts = ikt.find('IKTaskSet')
+        if ikts is None:
+            ikts = ET.Element('IKTaskSet')
+            ikts.append(ET.Element('groups'))
+
+        iktso = ikts.find('objects')
+        if iktso is None:
+            iktso = ET.Element('objects')
+            ikts.append(iktso)
+
+        if iktso.text is None or len(iktso.text) == 0:
+            iktso.text = '\n' + ' '*16
+
+        if iktso.tail is None or len(iktso.tail) == 0:
+            pass
+        iktso.tail = '\n' + ' '*12
+
+        for bp in bodyparts:
+            bpe = ET.Element('IKMarkerTask')
+            bpe.set('name', marker_name_dict[bp])
+            bpe.text = '\n' + ' '*20
+            bpe.tail = '\n' + ' '*16
+
+            # calculate the weight of the marker
+            if ik_weight_type == 'nans':
+                bp_weight = num_dats[bp]/n_frames
+            elif ik_weight_type == 'ones':
+                bp_weight = 1
+            elif ik_weight_type == 'likelihood':
+                raise NotImplementedError('Using likelihood for estimation of the marker weight.')
+
+            if bp_weight < 1e-8:
+                bp_apply = 'false'
+            else:
+                bp_apply = 'true'
+
+            bpe_a = ET.Element('apply')
+            bpe_a.text = bp_apply
+            bpe_a.tail = '\n' + ' '*20
+            bpe.append(bpe_a)
+            bpe_w = ET.Element('weight')
+            bpe_w.text = str(bp_weight)
+            bpe_w.tail = '\n' + ' '*16
+            bpe.append(bpe_w)
+
+            iktso.append(bpe)
+
+        ikt_tr = ikt.find('time_range')
+        if ikt_tr is None:
+            ikt_tr = ET.Element('time_range')
+            ikt.append(ikt_tr)
+        ikt_tr.text = '{} {}'.format(time_range[0], time_range[1])
+
+        ikt_mf = ikt.find('marker_file')
+        if ikt_mf is None:
+            ikt_mf = ET.Element('marker_file')
+            ikt.append(ikt_mf)
+        ikt_mf.text = trc_file
+
+        ikt_omf = ikt.find('output_motion_file')
+        if ikt_omf is None:
+            ikt_omf = ET.Element('output_motion_file')
+            ikt.append(ikt_omf)
+        ikt_omf.text = ik_out_mot_file
+
+        tree = ET.ElementTree(element=root)
+        tree.write(ik_file, encoding='UTF-8', xml_declaration=True)
 
 
 def rdc_touchpad3d(frame_number, value_dict, dist_desired=(105, 79, 105, 79), warn_threshold=5,

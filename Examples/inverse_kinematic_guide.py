@@ -18,6 +18,9 @@ Has following steps:
 """
 # %% 0 Imports
 import os
+
+from scipy.spatial.transform import Rotation as R
+
 import ncams
 
 
@@ -37,10 +40,25 @@ marker_name_dict = ncams.utils.dic_from_csv('marker_meta.csv', 'sDlcMarker', 'sO
 triangulated_csv = os.path.join(triangulated_path, 'triangulated_points_4_smoothed.csv')
 trc_file = os.path.join(ik_dir, 'triangulated_4_marshmallow.trc')
 frame_range = (260, 360)
+
+# makes an inverse kinematic config while importing data
+ik_file = os.path.join(ik_dir, 'full_arm_model_IK_4_marshmallow.xml')
+ik_out_mot_file = os.path.join(ik_dir, 'out_inv_kin_4_marshmallow_lt.mot')
+
+# rotate the data from the NCams coordinate system
+# preview the rotations by loading the model and using 'File->Preview experimental data'
+# the right click on the loaded kinematics and 'Transform'. If using our model and our
+# calibration, the rotations should be as described below:
+r = R.from_euler('zyx', [0, 90, 180], degrees=True)
+# scipy.spatial.transform.Rotation.apply returns an ndarray with vertical vectors, so the
+# function is changed in the lambda
+rot = lambda v: r.apply(v)[0].tolist()
+
 ncams.inverse_kinematics.triangulated_to_trc(
     triangulated_csv, trc_file, marker_name_dict,
     data_unit_convert=lambda x: x*100,  # dm to mm
-    rate=50, zero_marker='scapula_anterior', frame_range=frame_range)
+    rate=50, zero_marker='scapula_anterior', frame_range=frame_range, rotation=rot,
+    ik_file=ik_file, ik_out_mot_file=ik_out_mot_file)
 
 # %% 2 Scale the model
 # Select a data subset for which you know the approximate joint angles
