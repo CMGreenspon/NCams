@@ -97,11 +97,13 @@ ncams.inverse_kinematics.smooth_motion(ik_out_mot_file, ik_filtered_mot_file,
 # press the button again. Save the video path to 'ik_video_path'.
 video_path = os.path.join(BASE_DIR, 'exp_session_2019.12.20_videos', '4_cam19335177.mp4')
 ik_video_path = os.path.join(ik_dir, '4_marshmallow.webm')  # manually set filename
+frame_offset = 0  # estimate manually with an external program, e.g. MPC-HC
 output_path = os.path.join(ik_dir, 'marshmallow_19335177_4.mp4')
 ncams.make_triangulation_video(
     video_path, triangulated_csv, skeleton_config=config_path,
     frame_range=frame_range, output_path=output_path,
-    thrd_video_path=ik_video_path, thrd_video_frame_offset=0,  # if the IK movement starts later
+    thrd_video_path=ik_video_path,
+    thrd_video_frame_offset=frame_offset,  # if the IK movement starts later
     third_video_crop_hw=[slice(50, -100), slice(350, -700)],  # crops the IK video
     figure_dpi=300,
     ranges=((-0.33, 3), (-2, 2), (-1.33, 6.74)),  # manually set ranges for 3D plot

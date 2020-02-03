@@ -78,17 +78,21 @@ def make_combined_videos():
 
     suffixes = ['remote', 'marshmallow', 'wave', 'pen']
     frame_ranges = [(103, 140), (260, 360), (510, 650), (1919, 2019)]
+    # estimate manually with an external program, e.g. MPC-HC, easier if recorded more than one loop
+    # from OpenSim
+    frame_offsets = [23, 0, 7, 3]
     video_path = os.path.join(BASE_DIR, 'exp_session_2019.12.20_videos', '4_cam19335177.mp4')
-    for frame_range, suffix in zip(frame_ranges, suffixes):
+    for frame_range, suffix, frame_offset in zip(frame_ranges, suffixes, frame_offsets):
         # Load the motion generated during inverse kinematics and play it.
-        # To record a video, press a camera button in the top right corner of the viewer. To stop recording,
-        # press the button again. Save the video path to 'ik_video_path'.
+        # To record a video, press a camera button in the top right corner of the viewer. To stop
+        # recording, press the button again. Save the video path to 'ik_video_path'.
         ik_video_path = os.path.join(ik_dir, '4_{}.webm'.format(suffix))  # manually set filename
         output_path = os.path.join(ik_dir, '4_{}_19335177_4.mp4'.format(suffix))
         ncams.make_triangulation_video(
             video_path, triangulated_csv, skeleton_config=config_path,
             frame_range=frame_range, output_path=output_path,
-            thrd_video_path=ik_video_path, thrd_video_frame_offset=0,  # if the IK movement starts later
+            thrd_video_path=ik_video_path,
+            thrd_video_frame_offset=frame_offset,  # if the IK movement starts later
             third_video_crop_hw=[slice(0, -100), slice(350, -700)],  # crops the IK video
             figure_dpi=300,
             ranges=((-0.33, 3), (-2, 2), (-1.33, 6.74)),  # manually set ranges for 3D plot
