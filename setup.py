@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 """
 
@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.1.30',
+    version='0.1.31',
     description='Calibration, pose estimation, and triangulation using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",

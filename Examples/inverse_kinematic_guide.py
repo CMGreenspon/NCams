@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
 Guidelines and NCams code to run to perform an inverse kinematic analysis of the triangulated data.
@@ -15,6 +15,7 @@ Has following steps:
 2. Scale the model
 3. Run the inverse kinematic tool
 4. Record the video of IKs and put it alongside the camera video
+
 """
 # %% 0 Imports
 import os

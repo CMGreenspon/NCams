@@ -1,7 +1,7 @@
 """Main module for NCams package.
 
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 """
 

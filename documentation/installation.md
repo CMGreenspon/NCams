@@ -1,13 +1,12 @@
 # Notes on software installation for NCams
 
-
 ## FLIR Cameras Setup (Spinnaker)
 
 1. Install SpinView for testing whether the cameras work with full [SDK](https://flir.app.boxcn.net/v/SpinnakerSDK/folder/73503062578).
 2. Test whether the cameras are properly setup by running SpinView (for example, located in `C:\Program Files\Point Grey Research\Spinnaker\bin64\vs2015\SpinView_WPF.exe`)
 3. Install [Spinnaker module](https://flir.app.boxcn.net/v/SpinnakerSDK/folder/68522911814) into your Python (after installing DeepLabCut, using pip install).
 
-Do NOT try to install PySpin using pip, it will install a different package.
+Do NOT try to install PySpin using pip, it will install a different, unrelated package.
 
 
 ## DeepLabCut
