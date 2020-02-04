@@ -14,10 +14,6 @@ This project's code is available on [GitHub](https://github.com/CMGreenspon/NCam
 
 ### Prerequisites
 
-Hardware:
-- NVIDIA videocard that supports CUDA
-- FLIR cameras (if using provided [tools](ncams/spinnaker_tools.py) to record)
-
 Software:
 - [DeepLabCut](https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md) - if using it for labeling markers. See below for installation recommendations.
  - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
@@ -27,6 +23,8 @@ Software:
 - Module dependencies are listed in the [setup](setup.py) file.
 
 If you have problems with installations, check out our [installation tips](installation.md).
+
+There are no hardware prerequisites for the core functionality of the toolbox. If using DeepLabCut or the spinnaker_tools, however, then an NVIDIA videocard that supports CUDA or FLIR cameras are required resspectively.
 
 ## Installation
 
