@@ -239,12 +239,6 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
     corners, ids, _ = cv2.aruco.detectMarkers(image, charuco_dict)
     _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
         corners, ids, image, charuco_board)
-    # Get the optimal camera matrix
-    temp_optim, _ = cv2.getOptimalNewCameraMatrix(camera_matrix, cam_distortion_coefficients,
-                                                  (w, h), 1, (w, h))
-    # Undistort image points
-    undistorted_points = cv2.undistortPoints(
-        np.vstack(charuco_corners), camera_matrix, cam_distortion_coefficients, P=temp_optim)
     # Match to world points
     filtered_world_points = []
     for cid in charuco_ids:
@@ -253,7 +247,7 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
 
     # PnP
     _, cam_orientation, camera_location = cv2.solvePnP(
-        filtered_world_points, undistorted_points,
+        filtered_world_points, charuco_corners,
         camera_matrix, cam_distortion_coefficients)
 
     return camera_location, cam_orientation
