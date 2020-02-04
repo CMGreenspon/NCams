@@ -2,9 +2,9 @@
 
 NCams is a toolbox for recording videos from multiple cameras, extracting 3D marker trajectories and estimate skeletal kinematics.
 
-![Dr. Greenspon eating a marshmellow](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AABqGpds9AiLt-15xEnSLk23a/Gifs/marshmallow_cropped.gif)
+![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif)
 
-![Dr. Greenspon writing](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AAB-F1TAG-J9wQSPg6C0srUpa/Gifs/pen_cropped.gif)
+![Dr. Greenspon writing](images/pen_cropped.gif)
 
 NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras, preparing inverse kinematics, filtering in 2D or 3D. The module can run on Windows or *nix.
 
@@ -56,6 +56,8 @@ The [analysis](Examples/analysis.py) goes over marking images with DeepLabCut, t
 
 The [guide](Examples/inverse_kinematic_guide.py) describes the necessary tools and steps to obtain joint angles of a skeletal model that follow the measured markers using OpenSim (SimTK). We use a [publically available skeletal model](??? not yet) of the human right arm and hand that we [modified](opensim_models) and markered to fit our purposes.
 
+![Dr. Greenspon eating a marshmallow, stills](images/marshmallow.png)
+
 ## Structure of the repository
 
 - [ncams](ncams) -- imported module
@@ -63,7 +65,7 @@ The [guide](Examples/inverse_kinematic_guide.py) describes the necessary tools a
 - [documentation](documentation) -- various documentation on NCams
 - [opensim_models](opensim_models) -- OpenSim skeletal models that we use for inverse kinematics
 - [dlc_markers](dlc_markers) -- images with location of markers relatively to bone segments and a DLC config with marker names and skeleton
-
+- [images](images) -- demonstrational images and gifs
 
 ## Authors
 
