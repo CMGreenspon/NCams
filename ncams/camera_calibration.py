@@ -370,7 +370,6 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     num_markers = (board_dim[0]-1) * (board_dim[1]-1)
     # Get layout of output array
     num_cameras = len(serials)
-
     num_horz_plots = int(np.floor(np.sqrt(num_cameras)))
     num_vert_plots = int(np.ceil(num_cameras/num_horz_plots))
 
