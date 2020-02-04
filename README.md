@@ -1,6 +1,6 @@
 # NCams
 
-NCams is a toolbox for recording videos from multiple cameras, extracting 3D marker trajectories and estimate skeletal kinematics.
+NCams is a toolbox for intrinsic and extrinsic calibration for multiple cameras, extracting 3D marker trajectories and estimate skeletal kinematics. It also supports recording with FLIR cameras.
 
 ![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif)
 
