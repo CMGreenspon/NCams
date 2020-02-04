@@ -6,7 +6,7 @@ NCams is a toolbox for recording videos from multiple cameras, extracting 3D mar
 
 ![Dr. Greenspon writing](images/pen_cropped.gif)
 
-NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras, preparing inverse kinematics, filtering in 2D or 3D. The module can run on Windows or *nix.
+NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras, preparing inverse kinematics, filtering in 2D or 3D. The module can run on Windows or Unix/Linux.
 
 ## Getting Started
 
@@ -69,6 +69,6 @@ The [guide](Examples/inverse_kinematic_guide.py) describes the necessary tools a
 
 ## Authors
 
-- [**Charles M Greenspon**](https://github.org/CMGreenspon)
-- [**Anton Sobinov**](https://github.org/nishbo)
+- [**Charles M. Greenspon**](https://github.com/CMGreenspon)
+- [**Anton Sobinov**](https://github.com/nishbo)
 - Developed in [Bensmaia Lab](http://bensmaialab.org/).
