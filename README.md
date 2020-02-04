@@ -2,9 +2,9 @@
 
 NCams is a toolbox for recording videos from multiple cameras, extracting 3D marker trajectories and estimate skeletal kinematics.
 
-[Dr. Greenspon eating a marshmellow](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AABqGpds9AiLt-15xEnSLk23a/Gifs/marshmallow_cropped.gif)
+![Dr. Greenspon eating a marshmellow](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AABqGpds9AiLt-15xEnSLk23a/Gifs/marshmallow_cropped.gif)
 
-[Dr. Greenspon writing](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AAB-F1TAG-J9wQSPg6C0srUpa/Gifs/pen_cropped.gif)
+![Dr. Greenspon writing](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AAB-F1TAG-J9wQSPg6C0srUpa/Gifs/pen_cropped.gif)
 
 NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras, preparing inverse kinematics, filtering in 2D or 3D. The module can run on Windows or *nix.
 
