@@ -342,7 +342,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
                              figure_dpi=150, marker_size=5, skeleton_thickness=1,
                              frame_count=False, frame_rate=None, thrd_video_path=None,
                              thrd_video_frame_offset=0, third_video_crop_hw=None, ranges=None,
-                             plot_markers=True):
+                             plot_markers=True, horizontal_subplots=True, timeseries=None):
 
     '''Makes a video based on triangulated marker positions.
 
@@ -365,12 +365,13 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
         skeleton_thickness {int} -- thickness of the connecting lines in the 3d plot. (default: 1)
         thrd_video_path {str} -- add another video from this path to the side. (default: None)
         thrd_video_frame_offset {int} -- start the added vide from this frame. (default: 0)
-        third_video_crop_hw {list of 2 slices} -- crop the third video using numpy slices.
+        third_video_crop_hw {list of 2 slices} -- crop the third video using slices.
             (default: None)
         ranges {list of 2-lists} -- overwrites xrange, yrange and zrange for the 3d plot. Individual
             elements can be None. (default: None)
         plot_markers {bool} -- plot 3D view of the markers. Having it False with no third_video_path
             set can lead to unexpected behavior. (default: True)
+        horizontal_subplots {bool} -- makes subplots horizontal, otherwise vertical. (default: True)
     '''
     if skeleton_config is not None:
         with open(skeleton_config, 'r') as yaml_file:
@@ -475,19 +476,30 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     if frame_rate is None:
         frame_rate = fps
 
+    if horizontal_subplots:
+        xn_sbps = lambda num_subplots: 1
+        yn_sbps = lambda num_subplots: num_subplots
+    else:
+        xn_sbps = lambda num_subplots: num_subplots
+        yn_sbps = lambda num_subplots: 1
+
+
     fourcc = cv2.VideoWriter_fourcc(*'MPEG')
     output_video = cv2.VideoWriter(output_filename, fourcc, frame_rate, (int(fw), int(fh)))
     # Create the axes
     if thrd_video_path is None and plot_markers:
-        ax_video = fig.add_subplot(1, 2, 1)
-        ax_3d = fig.add_subplot(1, 2, 2, projection='3d')
+        num_subplots = 2
+        ax_video = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 1)
+        ax_3d = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 2, projection='3d')
     elif thrd_video_path is not None:
-        ax_video = fig.add_subplot(1, 2, 1)
-        ax_third = fig.add_subplot(1, 2, 2)
+        num_subplots = 2
+        ax_video = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 1)
+        ax_third = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 2)
     else:
-        ax_video = fig.add_subplot(1, 3, 1)
-        ax_3d = fig.add_subplot(1, 3, 2, projection='3d')
-        ax_third = fig.add_subplot(1, 3, 3)
+        num_subplots = 3
+        ax_video = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 1)
+        ax_3d = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 2, projection='3d')
+        ax_third = fig.add_subplot(xn_sbps(num_subplots), yn_sbps(num_subplots), 3)
 
     if plot_markers:
         ax_3d.view_init(elev=view[0], azim=view[1])

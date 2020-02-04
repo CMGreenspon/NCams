@@ -8,6 +8,7 @@ https://github.com/CMGreenspon/NCams
 """
 import os
 
+import matplotlib.pyplot as mpl_pp
 from scipy.spatial.transform import Rotation as R
 
 import ncams
@@ -96,10 +97,34 @@ def make_combined_videos():
             third_video_crop_hw=[slice(0, -100), slice(350, -700)],  # crops the IK video
             figure_dpi=300,
             ranges=((-0.33, 3), (-2, 2), (-1.33, 6.74)),  # manually set ranges for 3D plot
-            plot_markers=False)
+            plot_markers=False, horizontal_subplots=True)
+
+
+def make_gifs_and_timeseries():
+    BASE_DIR = os.path.join('C://', 'FLIR_cameras', 'PublicExample')
+    proj_path = os.path.join(BASE_DIR, '2019.12.20_8camsNoMarkers-AS-2019-12-23')
+    ik_dir = os.path.join(proj_path, 'inverse_kinematics')
+
+    filenames = ['4_marshmallow_19335177_4', '4_pen_19335177_4', '4_remote_19335177_4',
+                 '4_wave_19335177_4']
+    # filenames = ['4_marshmallow_19335177_4']
+    for filename in filenames:
+        video = os.path.join(ik_dir, '{}.mp4'.format(filename))
+        video_images_dir = os.path.join(ik_dir, '{}'.format(filename))
+        ncams.image_tools.video_to_images(video, output_directory=ik_dir, output_format='jpeg')
+        video_images = ncams.utils.get_image_list(path=video_images_dir)
+        gif = os.path.join(ik_dir, '{}.gif'.format(filename))
+        ncams.image_tools.images_to_video(video_images, gif, fps=25)
+
+        video = os.path.join(ik_dir, '{}_vertical2.mp4'.format(filename))
+        fig_name = os.path.join(ik_dir, '{}_timeseries.png'.format(filename))
+        ncams.image_tools.video_to_timeseries(video, fig_name, num_images=5, figure_size=(9, 5),
+                                              figure_dpi=200,
+                                              crop_hw=[slice(450, -350), slice(2275, -2150)])
 
 
 if __name__ == '__main__':
     # import_kinematics()
     # filter_joint_angles()
-    make_combined_videos()
+    # make_combined_videos()
+    make_gifs_and_timeseries()

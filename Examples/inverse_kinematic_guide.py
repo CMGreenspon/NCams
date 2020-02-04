@@ -108,3 +108,18 @@ ncams.make_triangulation_video(
     figure_dpi=300,
     ranges=((-0.33, 3), (-2, 2), (-1.33, 6.74)),  # manually set ranges for 3D plot
     plot_markers=False)
+
+
+# %% 6 make gifs and timeseries
+# filenames = ['4_marshmallow_19335177_4', '4_pen_19335177_4']
+filenames = ['4_marshmallow_19335177_4']
+for filename in filenames:
+    # video = os.path.join(ik_dir, '{}.mp4'.format(filename))
+    # video_images_dir = os.path.join(ik_dir, '{}'.format(filename))
+    # ncams.image_tools.video_to_images(video, output_directory=ik_dir, output_format='jpeg')
+    # video_images = ncams.utils.get_image_list(path=video_images_dir)
+    # gif = os.path.join(ik_dir, '{}.gif'.format(filename))
+    # ncams.image_tools.images_to_video(video_images, gif, fps=25)
+
+    video = os.path.join(ik_dir, '{}_vertical.mp4'.format(filename))
+    ncams.image_tools.video_to_timeseries(video, num_images=5, figure_size=(9, 5), figure_dpi=300)
