@@ -10,6 +10,8 @@ This file has assorted tips related to NCams and DeepLabCut.
 
 ## Continuing teaching a NN on new videos
 
+Instead of using `deeplabcut.add_new_videos` to add new videos to the project and sample training data from them, one can do the following steps:
+
 1. Edit your config.yaml by replacing the video list with the new videos, save the text referencing the old videos. You may want to change the `numframes2pick` variable in config, too.
 2. Extract frames: `deeplabcut.extract_frames(config_path, mode='automatic', algo='uniform', crop=False, userfeedback=False)`
 3. Label frames: `deeplabcut.label_frames(config_path)`

@@ -22,7 +22,7 @@ Software:
 - [OpenSim 4.0](https://simtk.org/frs/index.php?group_id=91#package_id319) to calculate inverse kinematics.
 - Module dependencies are listed in the [setup](setup.py) file.
 
-If you have problems with installations, check out our [installation tips](installation.md).
+If you have problems with installations, check out our [installation tips](documentation/installation.md).
 
 There are no hardware prerequisites for the core functionality of the toolbox. If using DeepLabCut or the spinnaker_tools, however, then an NVIDIA videocard that supports CUDA or FLIR cameras are required resspectively.
 
@@ -48,7 +48,7 @@ The [analysis](Examples/analysis.py) goes over marking images with DeepLabCut, t
 
 [Analysis of multiple sessions](Examples/analysis_multiple_sessions.py) follows the analysis example, but is specifically designed to handle multiple sessions of recordings from the same cameras.
 
-[Tips](documetnation/tips.md) have suggestions on NCams/DeepLabCut use that can be useful.
+[Tips](documentation/tips.md) have suggestions on NCams/DeepLabCut use that can be useful.
 
 ### Inverse kinematics
 
