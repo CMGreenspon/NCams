@@ -19,6 +19,12 @@ Has following steps:
 5. Interactive demonstration with a time slider
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
+
+deeplabcut module is licensed under GNU Lesser General Public License v3.0
+see lgpl-3.0.md
+DeepLabCut2.0 Toolbox (deeplabcut.org)
+© A. & M. Mathis Labs
+https://github.com/AlexEMG/DeepLabCut
 """
 
 # %% 0 Imports

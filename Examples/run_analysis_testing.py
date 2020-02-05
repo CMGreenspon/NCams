@@ -2,6 +2,12 @@
 NCams Toolbox
 Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
+
+deeplabcut module is licensed under GNU Lesser General Public License v3.0
+see lgpl-3.0.md
+DeepLabCut2.0 Toolbox (deeplabcut.org)
+© A. & M. Mathis Labs
+https://github.com/AlexEMG/DeepLabCut
 """
 import os
 import datetime
