@@ -156,10 +156,12 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
 
         num_dats = dict(zip(bodyparts, [0]*n_bodyparts))
 
+        broke = False
         for i, li in enumerate(rdr):
             # when to stop based on frame_range
             if (frame_range is not None and frame_range[1] is not None and
                     int(li[0]) > frame_range[1]):
+                broke = True
                 break
 
             # first iteration, set up zeros
@@ -199,7 +201,10 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             # print a runtime report
             if runtime_data_check is not None:
                 runtime_data_check(i, value_dict)
-        time_range = [0, (i-1)*period]
+        if broke:
+            time_range = [0, (i-1)*period]
+        else:
+            time_range = [0, i*period]
 
         print('Portion of the data being data and not NaNs:')
         print('\n'.join('\t{}: {:.3f}'.format(marker_name_dict[bp], num_dats[bp]/n_frames)
