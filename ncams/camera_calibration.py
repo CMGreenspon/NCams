@@ -426,8 +426,8 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                             example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
                                 example_image, example_corners)
                             # Undistort the corners and image
-                            undistorted_corners = cv2.undistortPoints(
-                                example_corners, cam_mat, dist_coeffs, P=new_cam_mat)
+                            undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
+                                                                      dist_coeffs, P=new_cam_mat)
                             undistorted_image = image_tools.undistort_image(
                                 example_image, calibration_config['dicts'][serial])
                             undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(

@@ -16,7 +16,6 @@ from tkinter.filedialog import askopenfilename
 
 import numpy as np
 import cv2
-import math
 
 import matplotlib
 import matplotlib.pyplot as mpl_pp
@@ -27,6 +26,7 @@ from . import utils
 from . import camera_io
 from . import camera_tools
 from . import image_tools
+from . import reconstruction
 
 
 #################### Board detectors
@@ -234,13 +234,19 @@ def get_optimal_pose_method(input_array, board_type, num_corners):
 
 #################### Pose estimation methods
 def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points, camera_matrix,
-                   cam_distortion_coefficients):
-    (w,h) = image_size
+                   cam_distortion_coefficients, ch_ids_to_ignore=None):
     # Get the image points
     # Detect the aruco markers and IDs
     corners, ids, _ = cv2.aruco.detectMarkers(image, charuco_dict)
     _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
         corners, ids, image, charuco_board)
+
+    # Sort out the charuco markers to identify
+    if not ch_ids_to_ignore is None:
+        ch_filter_idx = np.isin(charuco_ids, ch_ids_to_ignore)
+        charuco_ids = charuco_ids[~ch_filter_idx]
+        charuco_corners = charuco_corners[~ch_filter_idx]
+    
     # Match to world points
     filtered_world_points = []
     for cid in charuco_ids:
@@ -252,10 +258,11 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
         filtered_world_points, charuco_corners,
         camera_matrix, cam_distortion_coefficients)
 
-    return camera_location, cam_orientation
+    return camera_location, cam_orientation, charuco_corners, charuco_ids
 
 
-def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show_poses=False):
+def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show_poses=False,
+                       ch_ids_to_ignore=None):
     '''Position estimation based on a single frame from each camera.
 
     Assumes that a single synchronized image was taken where all cameras can see the calibration
@@ -290,25 +297,38 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
             dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
                 see below.
 
-        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
-                keys:
-            serial {number} -- UID of the camera.
-            world_location {np.array} -- world location of the camera.
-            world_orientation {np.array} -- world orientation of the camera.
+                camera_pe_dict {dict} -- info on pose estimation of a single camera. 
+                    Sould have following keys:
+                    serial {number} -- UID of the camera.
+                    world_location {np.array} -- world location of the camera.
+                    world_orientation {np.array} -- world orientation of the camera.
+                    
+        image_info {dict} -- outputs of the intermediary steps, useful for inspection of results.
+            Uses camera serials as keys:
+            image_paths {list of strings} -- the paths of the images used
+            charuco_corners {list of arrays} -- the x,y coordinates of the detected markers.
+            charuco_ids {list of arrays} -- the ID number of the detected corners
     '''
+    # Format inputs
     names = [camera_config['dicts'][serial]['name'] for serial in camera_config['serials']]
     pose_estimation_path = os.path.join(camera_config['setup_path'],
                                         camera_config['pose_estimation_path'])
     camera_matrices = calibration_config['camera_matrices']
     distortion_coefficients = calibration_config['distortion_coefficients']
-
+    # Construct the board
     charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
     world_points = camera_tools.create_world_points(camera_config)
     h, w = camera_config['image_size']
+    # Get the images
     im_list = utils.get_image_list(path=pose_estimation_path)
-
+    # Prepare outputs
     world_locations = []
     world_orientations = []
+    paths_used = []
+    charuco_corners = []
+    charuco_ids = []
+    
+    # Get 
     for icam, name in enumerate(names):
         # Find the correct image
         im_name = [i for i in im_list if name in i]
@@ -328,22 +348,33 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
 
         world_image = cv2.imread(im_path)
 
-        cam_location, cam_orientation = get_world_pose(world_image, (w, h), charuco_dict,
-                                                       charuco_board, world_points,
-                                                       camera_matrices[icam],
-                                                       distortion_coefficients[icam])
+        cam_location, cam_orientation, ch_corners, ch_ids = get_world_pose(
+            world_image, (w, h), charuco_dict,  charuco_board, world_points, camera_matrices[icam],
+            distortion_coefficients[icam], ch_ids_to_ignore)
 
+        paths_used.append(im_path)
+        charuco_corners.append(ch_corners)
+        charuco_ids.append(ch_ids)
+        
         world_locations.append(cam_location)
         world_orientations.append(cam_orientation)
 
     # Make the output structure
     dicts = {}
+    pose_info = {}
     for icam, serial in enumerate(camera_config['serials']):
         dicts[serial] = {
             'serial': serial,
             'world_location': world_locations[icam],
             'world_orientation': world_orientations[icam]
         }
+        
+        pose_info[serial] = {
+            'serial': serial,
+            'image_path': paths_used[icam],
+            'charuco_corners': charuco_corners[icam],
+            'charuco_ids': charuco_ids[icam]
+            }
 
     pose_estimation_config = {
         'serials': camera_config['serials'],
@@ -358,9 +389,9 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
         camera_io.export_pose_estimation(pose_estimation_config)
 
     if show_poses:
-        plot_poses(pose_estimation_config, scale_factor=1)
+        plot_poses(pose_estimation_config, camera_config, scale_factor=1)
 
-    return pose_estimation_config
+    return pose_estimation_config, pose_info
 
 
 def common_pose_estimation(camera_config, calibration_config, cam_image_points, detection_logit,
@@ -465,7 +496,7 @@ def common_pose_estimation(camera_config, calibration_config, cam_image_points, 
             camera_matrices[icam], distortion_coefficients[icam], (w, h), 1, (w, h))
         undistorted_points.append(cv2.undistortPoints(
             np.vstack(filtered_image_points[icam]), camera_matrices[icam],
-            distortion_coefficients[icam], P=temp_optim)
+            distortion_coefficients[icam], P=temp_optim))
 
     # Perform the initial stereo calibration
     stereo_calib_flags = 0
@@ -607,8 +638,8 @@ def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
 
 
 #################### Pose assessement functions
-def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config,
-                            undistort=True, error_threshold=0.5):
+def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config, pose_info,
+                            distorted_images=True, error_threshold=0.5):
     '''
 
     [Long description]
@@ -621,120 +652,49 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
         []
     '''
     
-    '''
-    Steps:
-        1. Take in the pose estimation & calibration configuration as well as camera configuration
-        2. Using the given poses triangulate the points and then compare to the ground truth
-        3. Then reproject the 3d to 2d and compare with the original detected points
-    '''
-    
-    # Extract the relevant info to make more easily accessible
-    # Board detection stuff
-    charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
-    world_points = camera_tools.create_world_points(camera_config)
-    h, w = camera_config['image_size']
-    im_list = utils.get_image_list(path=pose_estimation_config['path'])
-    names = [camera_config['dicts'][serial]['name'] for serial in camera_config['serials']]
-    num_cameras = len(names)
-    
-    # Triangulation stuff
+    # Unpack everything
+    serials = camera_config['serials']
+    num_cameras = len(serials)
     camera_matrices = calibration_config['camera_matrices']
     distortion_coefficients = calibration_config['distortion_coefficients']
     world_locations = pose_estimation_config['world_locations']
     world_orientations = pose_estimation_config['world_orientations']
-    
+    # Use world_points as ground truth
+    world_points = camera_tools.create_world_points(camera_config)
+    # Make projection matrices for triangulation
     projection_matrices = []
+    optimal_matrices = []
     for icam in range(num_cameras):
         projection_matrices.append(camera_tools.make_projection_matrix(
             camera_matrices[icam], world_orientations[icam], world_locations[icam]))
-
-    # Get the points and ids for each camera
-    image_points, im_ids = [], []
-    for icam, name in enumerate(names):
-        # Find the correct image
-        im_name = [i for i in im_list if name in i]
-        # If more than one image contains the camera name ask user to select
-        if len(im_name) > 1:
-            print('--> Multiple images contain the camera name. Select the correct file for'
-                  ' "{}".'.format(name))
-            # Select the file
-            root = tkinter.Tk()
-            root.update()
-            im_path = askopenfilename(initialdir=pose_estimation_config['path'],
-                                      title='select the image for "{}".'.format(name))
-            root.destroy()
-
-        else:
-            im_path = os.path.join(pose_estimation_config['path'], im_name[0])
-            
-        # Get the optimal camera matrix
         optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
-            camera_matrices[icam],
-            distortion_coefficients[icam],
-            (camera_config['image_size'][1], camera_config['image_size'][0]),
-            1,
-            (camera_config['image_size'][1], camera_config['image_size'][0]))
-
-        # Load the image
-        img = cv2.imread(im_path)
-        # Detect the aruco markers and get IDs
-        corners, ids, _ = cv2.aruco.detectMarkers(img, charuco_dict)
-        if ids is not None:
-            # Find the corners and IDs
-            _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
-                corners, ids, img, charuco_board)
-            if isinstance(charuco_corners, np.ndarray):  # If present then append
-                # Undistort the values
-                if undistort:
-                    charuco_corners = cv2.undistortPoints(
-                        charuco_corners, camera_matrices[icam],
-                        distortion_coefficients[icam], P=optimal_matrix)
-                
-                image_points.append(charuco_corners)
-                im_ids.append(charuco_ids)
-            else:  # For formatting/indexing
-                image_points.append([])
-                im_ids.append([])
-        else:
-            image_points.append([])
-            im_ids.append([])
-
+            camera_matrices[icam], distortion_coefficients[icam],
+                (camera_config['image_size'][1], camera_config['image_size'][0]), 1,
+                (camera_config['image_size'][1], camera_config['image_size'][0]))
+        optimal_matrices.append(optimal_matrix)
+#%%
     # Triangulate the points
     n_world_points = np.shape(world_points)[0]
     triangulated_points = np.empty((n_world_points,3))
     triangulated_points.fill(np.nan)
     
     for p in range(np.shape(world_points)[0]):
-        point_idx = np.zeros((1,num_cameras), dtype=bool)
-        im_vals = np.zeros((num_cameras, 2))
-        # Check which cameras have each point
-        for cam_idx in range(num_cameras):
-            if np.any(im_ids[cam_idx] == p):
-                point_idx[0,cam_idx] = True
-                p_idx = np.where(im_ids[cam_idx] == p)[0][0]
-                im_vals[cam_idx,:] = image_points[cam_idx][p_idx,0,:]
-        # Check which and if enough cameras detected the point
-        cams_detecting = np.sum(point_idx)
-        if cams_detecting < 2:
-            pass#continue
-        cam_idx = np.where(point_idx == True)[1]
-        decomp_matrix = np.empty((cams_detecting*2, 4))
-        # Triangulate those points
-        for idx, icam in enumerate(cam_idx):
-            point_mat = im_vals[icam, :]
-            projection_mat = projection_matrices[icam]
-
-            temp_decomp = np.vstack([
-                [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
-                [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
-
-            decomp_matrix[idx*2:idx*2 + 2, :] = temp_decomp
-
-        Q = decomp_matrix.T.dot(decomp_matrix)
-        u, _, _ = np.linalg.svd(Q)
-        u = u[:, -1, np.newaxis]
-        u_euclid = (u/u[-1, :])[0:-1, :]
-        triangulated_points[p, :] = np.transpose(u_euclid)
+        cam_idx = np.zeros((num_cameras,), dtype=bool)
+        coords_2d = []
+        ch_projection_matrices = []
+        for icam, serial in enumerate(serials): # For each camera see if the ch_id is present
+            ch_idx = np.where(pose_info[serial]['charuco_ids'] == p)[0]
+            if np.shape(ch_idx) == (1,): # If present then undistort the point and add projection mat
+                cam_idx[icam] = True
+                distorted_point = pose_info[serial]['charuco_corners'][ch_idx,0,:]
+                undistorted_point = np.reshape(
+                    cv2.undistortPoints(distorted_point, camera_matrices[icam],
+                    distortion_coefficients[icam], P=optimal_matrices[icam]), (1,2))
+                coords_2d.append(distorted_point)
+                ch_projection_matrices.append(projection_matrices[icam])
+            
+        triangulated_points[p,:] = np.transpose(reconstruction.triangulate(coords_2d,
+                                                                           ch_projection_matrices))
         
     # Compute the euclidian error for each point
     triang_error = np.zeros((n_world_points,1))
@@ -743,77 +703,67 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
                                                                        triangulated_points[p, :])]))  
     # Find any points with concerningly high errors
     error_boolean = triang_error > error_threshold
-    error_idx = np.where(error_boolean == False)[0]
+    if np.sum(error_boolean) >= 0:
+        print('\tSome markers have not triangulated well.\n' + 
+              '\tConsider inspecting marker detection and refining markers used for PnP.')
+    error_idx = np.where(error_boolean == True)[0]
+    # Take the bad world points for easy plotting later
+    bad_world_points = world_points[error_idx,0,:]
     
-    # Plot the reconstruction
+    # Plot the reconstruction of the charuco board
     fig = mpl_pp.figure()
     fig.canvas.set_window_title('NCams: Charucoboard Triangulations')
     ax = fig.gca(projection='3d')
+    ax.set_ylabel('Y')
+    ax.set_xlabel('X')
+    ax.set_zlabel('Z')
     for p in range(n_world_points):
         ax.scatter(world_points[p,0,0],world_points[p,0,1],world_points[p,0,2], color='b')
         ax.text(world_points[p,0,0], world_points[p,0,1], world_points[p,0,2], str(p), color='b')
-        ax.scatter(triangulated_points[p,0],triangulated_points[p,1],triangulated_points[p,2],
-                   color='r')
-        ax.text(triangulated_points[p,0], triangulated_points[p,1], triangulated_points[p,2],
-                str(p), color='r')
+        if not any(np.isnan(triangulated_points[p,:])):
+            ax.scatter(triangulated_points[p,0],triangulated_points[p,1],triangulated_points[p,2],
+                       color='r')
+            ax.text(triangulated_points[p,0], triangulated_points[p,1], triangulated_points[p,2],
+                    str(p), color='r')
     
-    # Show the bad points regrojected to each camera
-    num_cameras = len(names)
+    # Show the bad points reprojected to each camera
     num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
     num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
     fig, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
     fig.canvas.set_window_title('NCams: Charucoboard Reprojections')
     
-    # Back project the bad points to each image to identify bad cameras
-    for icam, name in enumerate(names):
-        # Find the correct image
-        im_name = [i for i in im_list if name in i]
-        # If more than one image contains the camera name ask user to select
-        if len(im_name) > 1:
-            print('--> Multiple images contain the camera name. Select the correct file for'
-                  ' "{}".'.format(name))
-            # Select the file
-            root = tkinter.Tk()
-            root.update()
-            im_path = askopenfilename(initialdir=pose_estimation_config['path'],
-                                      title='select the image for "{}".'.format(name))
-            root.destroy()
-
-        else:
-            im_path = os.path.join(pose_estimation_config['path'], im_name[0])
-            
-        # Get the optimal camera matrix
-        optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
-            camera_matrices[icam],
-            distortion_coefficients[icam],
-            (camera_config['image_size'][1], camera_config['image_size'][0]),
-            1,
-            (camera_config['image_size'][1], camera_config['image_size'][0]))
-
-        # Load the image & undistort it
-        img = matplotlib.image.imread(im_path)
-        cam_serial = calibration_config['serials'][icam]
-        img_undistorted = image_tools.undistort_image(img, calibration_config['dicts'][cam_serial])
-        cam_serial = calibration_config['serials'][icam]
-        # Plot the unannotated image
+    for icam, serial in enumerate(serials):
+        # Get the correct axis
         vert_ind = int(np.floor(icam / num_horz_plots))
         horz_ind = icam - num_horz_plots * vert_ind
+        # Load and plot the image
+        img = matplotlib.image.imread(pose_info[serial]['image_path'])
         axs[vert_ind, horz_ind].imshow(img)
-        # Project the points for the camera
-        projected_points = np.squeeze(cv2.projectPoints(triangulated_points, world_orientations[icam],
+        # Project the ground truth
+        projected_ground_truth = np.squeeze(cv2.projectPoints(bad_world_points, world_orientations[icam],
                                              world_locations[icam], camera_matrices[icam],
                                              distortion_coefficients[icam])[0])
-        # Overlay the outlying points
-        outlying_points = projected_points[error_idx, :]
-        axs[vert_ind, horz_ind].scatter(outlying_points[:,0], outlying_points[:,1])
+        axs[vert_ind, horz_ind].scatter(projected_ground_truth[:,0], projected_ground_truth[:,1],
+                                        color='b')
+        # Do the bad points (if they exist)
+        q_bool = np.isin(pose_info[serial]['charuco_ids'], error_idx) 
+        if np.any(q_bool):
+            bad_image_points = []
+            for ip, p in enumerate(error_idx):
+                p_idx = np.where(pose_info[serial]['charuco_ids'] == error_idx[ip])[0]
+                bad_image_points.append(pose_info[serial]['charuco_corners'][p_idx,0,:])
+            bad_image_points = np.vstack(bad_image_points)
+            
+            axs[vert_ind, horz_ind].scatter(bad_image_points[:,0], bad_image_points[:,1], color='r')
+                
         # Clean up the graph
-        axs[vert_ind, horz_ind].set_title(camera_config['dicts'][cam_serial]['name'])
+        axs[vert_ind, horz_ind].set_title(camera_config['dicts'][serial]['name'])
         axs[vert_ind, horz_ind].set_xticks([])
         axs[vert_ind, horz_ind].set_yticks([])
-        
+        #%%
     
 
-def plot_poses(pose_estimation_config, scale_factor=1):
+def plot_poses(pose_estimation_config, camera_config, scale_factor=1):
     '''Creates a plot showing the location and orientation of all cameras.
 
     Creates a plot showing the location and orientation of all cameras given based on translation
@@ -830,14 +780,9 @@ def plot_poses(pose_estimation_config, scale_factor=1):
     world_orientations = pose_estimation_config['world_orientations']
     serials = pose_estimation_config['serials']
     num_cameras = len(serials)
-
-    # Only accepts list format so check if this is true only when a single camera is present
-    if num_cameras == 1:  # AS: Not sure if needed anymore
-        if isinstance(world_locations, np.ndarray):
-            world_locations = [world_locations]
-        if isinstance(world_orientations, np.ndarray):
-            world_orientations = [world_orientations]
-
+    
+    world_points = np.squeeze(camera_tools.create_world_points(camera_config))
+    
     # Create a figure with axes
     fig = mpl_pp.figure()
     fig.canvas.set_window_title('NCams: Camera poses')
@@ -859,6 +804,8 @@ def plot_poses(pose_estimation_config, scale_factor=1):
         # Give each camera a label
         ax.text(np.asscalar(cam_center[0]), np.asscalar(cam_center[1]), np.asscalar(cam_center[2]),
                 'Cam ' + str(serials[icam]))
+        
+    ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
 
     # mpl is weird about maintaining aspect ratios so this has to be done
     ax_min = np.min(np.hstack(cam_verts))

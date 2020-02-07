@@ -40,8 +40,58 @@ FIGNUM = None
 AXS = None
 SLIDER = None
 
-
-def triangulate(camera_config, output_csv, calibration_config, pose_estimation_config,
+def triangulate(image_coordinates, projection_matrices, mode='full_rank', confidence_values=None):
+    
+    # Check if image coordinates are formatted properly
+    if isinstance(image_coordinates, list):
+        if np.shape(image_coordinates[0]) == (1,2):
+            image_coordinates = np.vstack(image_coordinates)
+        elif np.shape(image_coordinates[0]) == (2,1):
+            image_coordinates = np.transpose(np.hstack(image_coordinates))
+    num_cameras = np.shape(image_coordinates)[0]
+    
+    if num_cameras < 2: # return NaNs if insufficient points to triangulate
+        u_3d = np.zeros((3,1))
+        u_3d.fill(np.nan)
+        return u_3d
+    
+    if num_cameras != len(projection_matrices):
+        raise ValueError('Different number of coordinate pairs and projection matrices given.')
+    
+    if mode == 'full_rank':
+        decomp_matrix = np.empty((num_cameras*2, 4))
+        for decomp_idx in range(num_cameras):
+            point_mat = image_coordinates[decomp_idx, :]
+            projection_mat = projection_matrices[decomp_idx]
+    
+            temp_decomp = np.vstack([
+                [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
+                [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
+    
+            decomp_matrix[decomp_idx*2:decomp_idx*2 + 2, :] = temp_decomp
+    
+        Q = decomp_matrix.T.dot(decomp_matrix)
+        u, _, _ = np.linalg.svd(Q)
+        u = u[:, -1, np.newaxis]
+        u_3d = (u/u[-1, :])[0:-1, :]
+        
+    elif mode == 'best_pair':
+        # Check confidence values match other inputs
+        if isinstance(confidence_values, None):
+            raise ValueError('No confidence values given.')
+        if num_cameras != np.shape(confidence_values)[0]:
+            raise ValueError('Different number of coordinate pairs and confidence values given.')
+            
+    elif mode == 'cluster':
+        raise NotImplementedError()
+        
+        
+    else:
+        raise ValueError('No compatible mode given. Use "full_rank", "best_pair", or "cluster".')
+    
+    return u_3d
+    
+def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimation_config,
                 labeled_csv_path, threshold=0.9, method='full_rank',
                 best_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
                 file_prefix=''):
