@@ -73,7 +73,7 @@ def triangulate(image_coordinates, projection_matrices, mode='full_rank', confid
         Q = decomp_matrix.T.dot(decomp_matrix)
         u, _, _ = np.linalg.svd(Q)
         u = u[:, -1, np.newaxis]
-        u_3d = (u/u[-1, :])[0:-1, :]
+        u_3d = np.transpose((u/u[-1, :])[0:-1, :])
         
     elif mode == 'best_pair':
         # Check confidence values match other inputs

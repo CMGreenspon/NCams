@@ -112,7 +112,7 @@ def make_projection_matrix(camera_matrix, world_orientation, world_location):
 
 
 def create_board(camera_config, output=False, plotting=False, dpi=300, output_format='pdf',
-                 padding=0, target_size=None, dictionary=None):
+                 padding=None, target_size=None, dictionary=None):
     '''Creates a board image.
 
     Creates either a checkerboard or charucoboard that can be printed and used for camera
@@ -193,7 +193,7 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
                                                      secondary_length/100, output_dict)
 
         # The board is compiled upside down so the top of the image is actually the bottom,
-        # to avoid confusion it's rotated below
+        # to avoid confusion it's rotated here
         board_img = np.rot90(output_board.draw((int(board_width * dpmm), int(board_height * dpmm)),
                                                board_img, 1, 1), 2)
     else:
