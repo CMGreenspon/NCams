@@ -121,7 +121,8 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
         clip.write_videofile(output_name, fps=fps)
 
 
-def video_to_images(list_of_videos, output_directory=None, output_format='jpeg'):
+def video_to_images(list_of_videos, output_directory=None, output_format='jpeg',
+                    frame_range=None, dlc_filename_format=False):
     '''Exports a video to a series of images.
 
     Arguments:
@@ -130,6 +131,10 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
     Keyword Arguments:
         output_directory {string} -- where to save the images. (default: {export to the current working
             directory as a subfolder with the same name as the video})
+        frame_range {2-list of numbers or None} -- frame range to export from the file. If a tuple
+            then indicates the start and end frame number, including both as an interval. If None
+            then all frames will be used. If frame_range[1] is None, continue until the last frame.
+            (default: None)
     '''
     if isinstance(list_of_videos, str):
         list_of_videos = [list_of_videos]
@@ -145,6 +150,18 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
         # Get the video
         video = cv2.VideoCapture(vid_path)
         num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        # Check the frame range
+        if frame_range is not None:
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+            if frame_range[1] >= num_frames:
+                print('Too many frames requested, the video will be truncated appropriately.\n')
+                frame_range = (frame_range[0], num_frames-1)
+
+            video.set(cv2.CAP_PROP_POS_FRAMES, frame_range[0]) # Set the start position
+        else:
+            frame_range = (0, num_frames-1)
+
         # Check the name
         vid_name = os.path.splitext(os.path.split(vid_path)[1])[0]
         image_dir = os.path.join(od, vid_name)
@@ -152,14 +169,16 @@ def video_to_images(list_of_videos, output_directory=None, output_format='jpeg')
         if not os.path.exists(image_dir):
             os.mkdir(image_dir)
 
-        for f_idx in tqdm(range(num_frames), desc='Exporting frame'):
+        for f_idx in tqdm(range(frame_range[0], frame_range[1]+1), desc='Exporting frame'):
             frame_exists, frame = video.read() # Read the next frame if it exists
             if not frame_exists:
                 break
 
-            fname = os.path.join(image_dir, vid_name + str(f_idx+1) + '.' + output_format)
+            if dlc_filename_format:
+                fname = os.path.join(image_dir, 'img{:04d}.{}'.format(f_idx, output_format))
+            else:
+                fname = os.path.join(image_dir, vid_name + str(f_idx) + '.' + output_format)
             cv2.imwrite(fname, frame)
-            f_idx += 1
 
         video.release()
 
