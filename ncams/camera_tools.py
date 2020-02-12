@@ -125,6 +125,8 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
             check_size {number} -- height and width of a single check mark, mm.
             setup_path {string} -- directory where the camera setup is located, including
                 config.yaml.
+            units {str} -- the desired unit of scale for the world. ('m' = meter, 'dm' = decimeter,
+                 'cm' = centimeter, 'mm' = millimeter)
 
     Keyword Arguments:
         output {bool} -- save the image to the drive. (default: {False})
@@ -187,10 +189,24 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
             custom_dict = cv2.aruco.Dictionary_get(dictionary)
             output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
                                                            custom_dict)
-
+        
+        if camera_config['units'] == 'mm':
+            scale_unit = 1
+        elif camera_config['units'] == 'cm':
+            scale_unit = 10
+        elif camera_config['units'] == 'dm':
+            scale_unit = 100
+        elif camera_config['units'] == 'm':
+            scale_unit = 1000
+        else:
+            raise Warning('Invalid scale unit given. Defaulting to centimeters')
+            scale_unit = 10
+        
         secondary_length = check_size * 0.6 # What portion of the check the aruco marker takes up
-        output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1], check_size/100,
-                                                     secondary_length/100, output_dict)
+        output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1],
+                                                     check_size/scale_unit,
+                                                     secondary_length/scale_unit,
+                                                     output_dict)
 
         # The board is compiled upside down so the top of the image is actually the bottom,
         # to avoid confusion it's rotated here

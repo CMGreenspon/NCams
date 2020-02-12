@@ -262,7 +262,7 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
 
 
 def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show_poses=False,
-                       inspect = True, ch_ids_to_ignore=None):
+                       inspect = False, ch_ids_to_ignore=None):
     '''Position estimation based on a single frame from each camera.
 
     Assumes that a single synchronized image was taken where all cameras can see the calibration
@@ -390,6 +390,9 @@ def one_shot_multi_PnP(camera_config, calibration_config, export_full=True, show
 
     if show_poses:
         plot_poses(pose_estimation_config, camera_config, scale_factor=1)
+        
+    if inspect:
+        inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config, pose_info)
 
     return pose_estimation_config, pose_info
 
@@ -639,17 +642,46 @@ def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
 
 #################### Pose assessement functions
 def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_config, pose_info,
-                            error_threshold=0.1):
-    '''
-
-    [Long description]
+                            error_threshold=0.1, world_points=None):
+    ''' Examines the outputs of the pose estimate (currently only supports one_shot_multi_PnP) to
+    provide metrics pertaining to the system accuracy (triangulation and 2D reprojection accuracy).
 
     Arguments:
-        []
+        camera_config {dict} -- see help(ncams.camera_tools). Must have following keys:
+            serials {list of numbers} -- list of camera serials.
+            board_dim {list} -- size of the board used for the pose estimation
+            board_type {str} -- though assumed to be a charucoboard this must still be present.
+            check_size {int} -- size of the checks of the charucoboard
+        calibration_config {dict} -- dictionary containing the intrinsic parameters of each camera.
+            camera_matrices {list of arrays} -- 3x3 camera matrix for each camera
+            distortion_coefficients {list of arrays} -- distortion coefficients for each camera
+        pose_estimation_config {dict} -- dictionary with the extrinsic parameters.
+            world_locations {list of arrays} -- translation vectors
+            world_orientations {list of arrays} -- rotation matrices-
+        pose_info {dict} -- secondary output of the one_shot_multi_PnP function, contains a dict 
+            for each camera (serials matching those in camera_config) with:
+                serial {int} -- serial number for the camera (redundant)
+                image_path {str} -- full path to the image used for pose estimation
+                charuco_corners {array} -- xy coordinates of each detected corner in the image
+                charuco_ids {array} -- id of each corner (relates to the constructed board)
     Keyword Arguments:
-        []
+        error_threshold {double} -- threshold for triangulation error considered too high
+            (default = 0.1)
+        world_points {array} -- if the user is not creating world points with the built in function
+            then they can create their own reference world points to use for calculations
+            (default = None)
     Output:
-        []
+        This function primarily outputs plots for inspection but will also update the pose_info 
+        dictionary. 3D & 2D error values will also be printed to the console.
+        The entire dictionary will have a 'pose_accuracy' key added to it containing:
+            'bad_points' {list} -- indices of world points that have triangulation errors greater
+                than the error threshold
+            'reprojection_error' {array} -- average reprojection error between the world points
+                and the detected charuco corners
+            'triangulation_error' {array} -- euclidian error for each marker and the triangulated
+                point if more than two cameras detected it.
+        Each cameras dictionary will also be appended with:
+            'reprojection_error' {array} -- the reprojection error for each charuco corner detected.
     '''
     
     # Unpack everything
@@ -660,7 +692,8 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
     world_locations = pose_estimation_config['world_locations']
     world_orientations = pose_estimation_config['world_orientations']
     # Use world_points as ground truth
-    world_points = camera_tools.create_world_points(camera_config)
+    if world_points is None: # Allows for user to pass arbitrary world points if desired
+        world_points = camera_tools.create_world_points(camera_config)
     # Make projection matrices for triangulation
     projection_matrices = []
     optimal_matrices = []
@@ -703,15 +736,19 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
                                                                        triangulated_points[p, :])]))  
     # Find any points with concerningly high errors
     error_boolean = triang_error > error_threshold
+    pose_info['pose_accuracy'] = {'bad_points': [], 'triangulation_error': '',
+                                  'reprojection_error': ''}
     if np.sum(error_boolean) > 0:
         print('\tSome markers have not triangulated well.\n' + 
               '\tConsider inspecting marker detection and refining markers used for PnP.\n' +
               '\tReprojections will only show bad points.')
         error_idx = np.where(error_boolean == True)[0]
+        pose_info['pose_accuracy']['bad_points'] = error_idx
         
     mean_3d_error = np.round(np.nanmean(triang_error),3)
     median_3d_error = np.round(np.nanmedian(triang_error),3)
-    print('\tMean/median 3D error = {}, {} units'.format(mean_3d_error, median_3d_error))
+    pose_info['pose_accuracy']['triangulation_error'] = triang_error
+    print('Mean/median 3D error = {}, {} units'.format(mean_3d_error, median_3d_error))
     
     fig = mpl_pp.figure()
     fig.canvas.set_window_title('NCams: Charucoboard Triangulations')
@@ -748,7 +785,13 @@ def inspect_pose_estimation(camera_config, calibration_config, pose_estimation_c
             reproj_error[p] = np.sqrt(np.sum([(a - b) ** 2 for a, b in zip(world_points_2d[p,:], 
                                                                          detected_points[p,:])]))
         reprojection_error.append(np.nanmean(reproj_error))
+        pose_info[serial]['reprojection_error'] = reproj_error
+        
     reprojection_error = np.vstack(reprojection_error)
+    pose_info['pose_accuracy']['reprojection_error'] = reprojection_error
+    mean_2d_error = np.round(np.nanmean(reprojection_error),3)
+    median_2d_error = np.round(np.nanmedian(reprojection_error),3)
+    print('Mean/median 2D error = {}, {} pixels'.format(mean_2d_error, median_2d_error))
         
     # Show the ground truth reprojections vs identified locations
     num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
@@ -799,7 +842,7 @@ def plot_poses(pose_estimation_config, camera_config, scale_factor=1):
     
     # Create a figure with axes
     fig = mpl_pp.figure()
-    fig.canvas.set_window_title('NCams: Camera poses')
+    fig.canvas.set_window_title('NCams: Camera Poses')
     ax = fig.gca(projection='3d')
 
     # Keep the verts for setting the axes later

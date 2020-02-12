@@ -213,15 +213,6 @@ def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimati
     # Undistort the points and then threshold
     output_coordinates_filtered = []
     for icam in range(num_cameras):
-        # Get the optimal camera matrix
-        if not undistorted_data:
-            optimal_matrix, _ = cv2.getOptimalNewCameraMatrix(
-                camera_matrices[icam],
-                distortion_coefficients[icam],
-                (camera_config['image_size'][1], camera_config['image_size'][0]),
-                1,
-                (camera_config['image_size'][1], camera_config['image_size'][0]))
-
         # output_array = np.empty((num_frames, 2, num_bodyparts))
         filtered_output_array = np.empty((num_frames, 2, num_bodyparts))
         # The filtered one needs NaN points so we know which to ignore
@@ -236,7 +227,7 @@ def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimati
             else: # Undistort them
                 undistorted_points = cv2.undistortPoints(
                     distorted_points, camera_matrices[icam],
-                    distortion_coefficients[icam], P=optimal_matrix)
+                    distortion_coefficients[icam], None, P=camera_matrices[icam])
 
             # Get threshold filter
             bp_thresh = thresholds[icam][:, bodypart].astype(np.float32) > threshold

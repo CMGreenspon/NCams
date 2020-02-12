@@ -110,7 +110,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
 
     # Preliminary stuff
     num_cameras = len(serials)  # How many cameras are there
-    print('Beginning calibration of {} camera{}.'.format(
+    print('Beginning calibration of {} camera{}'.format(
         num_cameras, 's' if num_cameras > 1 else ''))
 
     for icam, serial in enumerate(serials):
@@ -406,9 +406,6 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                 image_ind = image_index  # user-selected image
             example_image = matplotlib.image.imread(image_list[image_ind])
 
-            # Get new camera matrix
-            h, w = example_image.shape[:2]
-            new_cam_mat = cv2.getOptimalNewCameraMatrix(cam_mat, dist_coeffs, (w, h), 1, (w, h))[0]
             if board_type == 'charuco':
                 # Detect the markers
                 charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
@@ -427,13 +424,13 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                                 example_image, example_corners)
                             # Undistort the corners and image
                             undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
-                                                                      dist_coeffs, P=new_cam_mat)
+                                                                      dist_coeffs, P=cam_mat)
                             undistorted_image = image_tools.undistort_image(
                                 example_image, calibration_config['dicts'][serial])
                             undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
                                 undistorted_image, undistorted_corners)
                         elif image_index is not None:
-                            print(' - Board not detected in requested image.')
+                            print(' - Board not detected in requested image')
                             example_image_annotated = np.zeros(example_image.shape)
                             undistorted_image_annotated = np.zeros(example_image.shape)
                             board_in_image = True
@@ -448,7 +445,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                     example_image_annotated = cv2.drawChessboardCorners(
                         example_image, (board_dim[0]-1, board_dim[1]-1), corners, board_logit)
                     undistorted_corners = cv2.undistortPoints(
-                        corners, cam_mat, dist_coeffs, P=new_cam_mat)
+                        corners, cam_mat, dist_coeffs, P=cam_mat)
                     undistorted_image = image_tools.undistort_image(
                         example_image, calibration_config['dicts'][serial])
                     undistorted_image_annotated = cv2.drawChessboardCorners(
