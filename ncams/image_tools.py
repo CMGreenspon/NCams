@@ -67,9 +67,6 @@ def undistort_image(image, camera_calib_dict):
         camera_calib_dict {dict} -- see help(ncams.camera_tools). Sould have following keys:
             distortion_coefficients {np.array} -- distortion coefficients for the camera.
             camera_matrix {np.array} -- camera calibration matrifor the camera.
-    Keyword Arguments:
-        crop_and_resize {boolean} -- if true the optimal undistorted region (from
-            getOptimalNewCameraMatrix) will be selected for the output. (default: {False})
     Output:
         undistorted_image {np.array X Y Color} --  undistorted image array.
     '''

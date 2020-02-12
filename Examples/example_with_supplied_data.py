@@ -35,9 +35,7 @@ lab: Sliman Bensmaia
 
 # %% 0 Imports
 import os
-
 import ncams
-
 
 BASE_DIR = os.path.join('C:\\', 'FLIR_cameras', 'PublicExample')
 
