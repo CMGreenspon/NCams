@@ -23,7 +23,7 @@ from . import camera_io
 from . import camera_tools
 
 
-def multi_camera_calibration(camera_config, override=False, inspect=False, export_full=True,
+def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=False, export_full=True,
                              verbose=False):
     '''Computes distortion coefficients from automatically selected images.
 
@@ -33,14 +33,14 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
     cam_calibration folder a pickle file containing all calibrations will be saved.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
-            calibration_path {string} -- relative path to where calibration information is stored
+            intrinsic_path {string} -- relative path to where calibration information is stored
                 from 'setup_path'.
-            calibration_filename {string} -- name of the pickle file to store the calibration config
+            intrinsic_filename {string} -- name of the pickle file to store the calibration config
                 in/load from.
 
     Keyword Arguments:
@@ -48,25 +48,26 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
             (default: {False})
         inspect {bool} -- whether to call the inspection function. (default: {False})
         export_full {bool} -- save the calibration to a dedicated file. (default: {True})
+        verbose {bool} -- extra info given about error checks or bad images.
 
     Output:
-        calibration_config {dict} -- information on camera calibration and the results of said
+        intrinsics_config {dict} -- information on camera calibration and the results of said
                 calibraion. See help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
             reprojection_errors {list of numbers} -- average error in pixels for each camera.
             path {string} -- directory where calibration information is stored. Should be same as
-                information in camera_config.
+                information in ncams_config.
             filename {string} -- name of the pickle file to store the config in/load from.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see help(ncams.camera_tools).
     '''
     # Unpack the dict
-    serials = camera_config['serials']
-    calib_dir = os.path.join(camera_config['setup_path'], camera_config['calibration_path'])
+    serials = ncams_config['serials']
+    calib_dir = os.path.join(ncams_config['setup_path'], ncams_config['intrinsic_path'])
 
-    calib_pickle_filename = os.path.join(calib_dir, camera_config['calibration_filename'])
+    calib_pickle_filename = os.path.join(calib_dir, ncams_config['intrinsic_filename'])
 
     # First check if there is a calibration file
     if os.path.exists(calib_pickle_filename) and not override:
@@ -79,10 +80,10 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
             user_input = input(uinput_string).lower()
             if user_input in ('no', 'n'):
                 # Let's save time and load that instead
-                calibration_config = camera_io.import_calibration(camera_config)
+                intrinsics_config = camera_io.import_intrinsics(ncams_config)
                 if inspect:
-                    inspect_calibration(camera_config, calibration_config)
-                return calibration_config
+                    inspect_intrinsics(ncams_config, intrinsics_config)
+                return intrinsics_config
             if user_input in ('yes', 'y'):
                 print('- Rerunning calibration.')
                 break
@@ -115,7 +116,10 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
 
     for icam, serial in enumerate(serials):
         print('- Camera {} of {}.'.format(icam+1, num_cameras))
-        cam_name = camera_config['dicts'][serial]['name']
+        if 'dicts' in ncams_config.keys(): # If the name is explicitly defined then use it
+            cam_name = ncams_config['dicts'][serial]['name']
+        else: # otherwise assume it's 'cam' + serial
+            cam_name = 'cam' + str(serial)
 
         # Check if images are in current directory or in a subdirectory
         if num_cameras == 1:
@@ -171,15 +175,15 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                         len(cam_image_list)))
 
                 # Get coefficients and matrices for each camera
-                if camera_config['board_type'] == 'checkerboard':
-                    world_points = camera_tools.create_world_points(camera_config)
+                if ncams_config['board_type'] == 'checkerboard':
+                    world_points = camera_tools.create_world_points(ncams_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
                      cam_distortion_coefficients) = checkerboard_calibration(
-                         cam_image_list, camera_config['board_dim'], world_points)
-                elif camera_config['board_type'] == 'charuco':
+                         cam_image_list, ncams_config['board_dim'], world_points)
+                elif ncams_config['board_type'] == 'charuco':
                     # Create the board - world points included
-                    charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
+                    charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
                     # Run the calibration:
                     (reprojection_error, camera_matrix,
                      cam_distortion_coefficients) = charuco_calibration(
@@ -192,7 +196,7 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
                 'camera_matrix': camera_matrix,
                 'reprojection_error': reprojection_error
             }
-            camera_io.calibration_to_yaml(cam_calib_filename, camera_calib_dict)
+            camera_io.intrinsic_to_yaml(cam_calib_filename, camera_calib_dict)
 
         # Return these to the workspace
         reprojection_errors.append(reprojection_error)
@@ -200,31 +204,31 @@ def multi_camera_calibration(camera_config, override=False, inspect=False, expor
         camera_matrices.append(camera_matrix)
         dicts[serial] = camera_calib_dict
 
-    calibration_config = {
+    intrinsics_config = {
         'serials': serials,
         'distortion_coefficients': distortion_coefficients,
         'camera_matrices': camera_matrices,
         'reprojection_errors': reprojection_errors,
         'path': calib_dir,
-        'filename': camera_config['calibration_filename'],
+        'filename': ncams_config['intrinsic_filename'],
         'dicts': dicts
     }
 
     print('* Calibration complete.')
     if export_full:
-        camera_io.export_calibration(calibration_config)
+        camera_io.export_intrinsics(intrinsics_config)
 
     if inspect:
-        inspect_calibration(camera_config, calibration_config)
+        inspect_intrinsics(ncams_config, intrinsics_config)
 
-    return calibration_config
+    return intrinsics_config
 
 
 def checkerboard_calibration(cam_image_list, board_dim, world_points):
     '''Calibrates cameras using a checkerboard.
 
     Attempts to find a checkerboard in each image and performs the basic calibration. It is
-    suggested to use the inspect_calibration tool to check if the calibration is good.
+    suggested to use the inspect_intrinsics tool to check if the calibration is good.
 
     Arguments:
         cam_image_list {list} -- list of images to search for checkerboards in.
@@ -266,7 +270,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
     '''Calibrates cameras using a charuco board.
 
     Attempts to find the given charucoboard in each image and performs the basic calibration. It is
-    suggested to use the inspect_calibration tool to check if the calibration is good.
+    suggested to use the inspect_intrinsics tool to check if the calibration is good.
 
     Arguments:
         cam_image_list {list} -- list of images to search for checkerboards in.
@@ -340,7 +344,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
     return reprojection_error, camera_matrix, distortion_coefficients
 
 
-def inspect_calibration(camera_config, calibration_config, image_index=None):
+def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
     '''Provides the user with undistorted and distorted images for them to compare and inspect.
 
     Searches through images in calibration directory or uses a selected image and shows the user
@@ -350,22 +354,22 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     is too much fisheye distortion.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict', see
                 below.
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
-            calibration_path {string} -- relative path to where calibration information is stored
+            intrinsic_path {string} -- relative path to where calibration information is stored
                 from 'setup_path'.
     Keyword Arguments:
         image_index {int} -- a specific frame number to look at (default: {first image w/ board in
             it})
     '''
-    serials = camera_config['serials']
-    board_type = camera_config['board_type']
-    board_dim = camera_config['board_dim']
-    calibration_path = os.path.join(camera_config['setup_path'], camera_config['calibration_path'])
+    serials = ncams_config['serials']
+    board_type = ncams_config['board_type']
+    board_dim = ncams_config['board_dim']
+    intrinsic_path = os.path.join(ncams_config['setup_path'], ncams_config['intrinsic_path'])
 
     num_markers = (board_dim[0]-1) * (board_dim[1]-1)
     # Get layout of output array
@@ -379,15 +383,20 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
     for icam, serial in enumerate(serials):
         # Folder navigation
         # If there is more than one camera assume subdirectories are present
-        cam_calib_dir = os.path.join(calibration_path, camera_config['dicts'][serial]['name'])
+        if 'dicts' in ncams_config.keys():
+            cam_calib_dir = os.path.join(intrinsic_path, ncams_config['dicts'][serial]['name'])
+            cam_name = ncams_config['dicts'][serial]['name']
+        else:
+            cam_name = 'cam' + str(serial)
+            cam_calib_dir = os.path.join(intrinsic_path, cam_name)
         # Check if images are in current directory or in a subdirectory
         if num_cameras == 1 and not os.path.exists(cam_calib_dir):
             # camera pictures are not mixed
-            cam_calib_dir = calibration_path
+            cam_calib_dir = intrinsic_path
 
         # Get the appropriate camera matrices
-        cam_mat = calibration_config['dicts'][serial]['camera_matrix']
-        dist_coeffs = calibration_config['dicts'][serial]['distortion_coefficients']
+        cam_mat = intrinsics_config['dicts'][serial]['camera_matrix']
+        dist_coeffs = intrinsics_config['dicts'][serial]['distortion_coefficients']
 
         image_list = utils.get_image_list(path=cam_calib_dir)
         num_markers_images = [-np.inf for _ in image_list]
@@ -408,7 +417,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
 
             if board_type == 'charuco':
                 # Detect the markers
-                charuco_dict, charuco_board, _ = camera_tools.create_board(camera_config)
+                charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
                 corners, ids, rejected_points = cv2.aruco.detectMarkers(example_image, charuco_dict)
                 if ids is not None:
                     # Find the checkerboard corners
@@ -426,7 +435,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                             undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
                                                                       dist_coeffs, P=cam_mat)
                             undistorted_image = image_tools.undistort_image(
-                                example_image, calibration_config['dicts'][serial])
+                                example_image, intrinsics_config['dicts'][serial])
                             undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
                                 undistorted_image, undistorted_corners)
                         elif image_index is not None:
@@ -447,7 +456,7 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
                     undistorted_corners = cv2.undistortPoints(
                         corners, cam_mat, dist_coeffs, P=cam_mat)
                     undistorted_image = image_tools.undistort_image(
-                        example_image, calibration_config['dicts'][serial])
+                        example_image, intrinsics_config['dicts'][serial])
                     undistorted_image_annotated = cv2.drawChessboardCorners(
                         undistorted_image, (board_dim[0]-1, board_dim[1]-1), undistorted_corners,
                         board_logit)
@@ -465,7 +474,6 @@ def inspect_calibration(camera_config, calibration_config, image_index=None):
         horz_ind = icam - num_horz_plots * vert_ind
         axs[vert_ind, horz_ind].imshow(cat_image)
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
-            camera_config['dicts'][serial]['name'],
-            calibration_config['dicts'][serial]['reprojection_error']))
+            cam_name, intrinsics_config['dicts'][serial]['reprojection_error']))
         axs[vert_ind, horz_ind].set_xticks([])
         axs[vert_ind, horz_ind].set_yticks([])

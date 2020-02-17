@@ -17,7 +17,7 @@ import multiprocessing
 import functools
 import ntpath
 
-import glob
+from glob import glob
 import numpy as np
 from tqdm import tqdm
 import cv2
@@ -40,19 +40,54 @@ FIGNUM = None
 AXS = None
 SLIDER = None
 
-def triangulate(image_coordinates, projection_matrices, mode='full_rank', confidence_values=None):
+def triangulate(image_coordinates, projection_matrices, mode='full_rank', confidence_values=None,
+                threshold=None):
+    '''
+    The base triangulation function for NCams. Takes image coordinates and projection matrices from
+    2+ cameras and will produce a triangulated point with the desired approach.
+   
+    Arguments:
+        image_coordinates {array or list of} -- the x,y coordinates of a given marker for multiple
+            cameras. The points must be in the format (1,2) if in a list or (n,2) if an array.
+        projection_matrices {list} -- the projection matrices for the cameras corresponding
+        to each image points input.
+        
+    Keyword Arguments:
+        mode {str} -- the triangulation method to use:
+            full_rank - performs SVD to find the point with the least squares error between all
+                projection lines. If a threshold is given along with confidence values then only
+                points above the threshold will be used.
+            best_pair - uses the two cameras with the highest confidence values for the
+                triangulation. If a threshold is given then only points above the threshold will
+                be considered.
+            cluster - [in development] performs all combinations of triangulations and checks for 
+                outlying points suggesting erroneous image coordinates from one or more cameras.
+                After removing the camera(s) that produce out of cluser points it then performs the
+                full_rank triangulation.  
+        confidence_values {list or array} -- the confidence values for the points given by the
+            marking system (e.g. DeepLabCut)
+        threshold {float} -- the minimum confidence value to accept for triangulation.
+    
+    Output:
+        u_3d {(1,3) np.array} -- the triangulated point produced.
+    
+    ''' 
+    u_3d = np.zeros((1,3))
+    u_3d.fill(np.nan)
     
     # Check if image coordinates are formatted properly
     if isinstance(image_coordinates, list):
-        if np.shape(image_coordinates[0]) == (1,2):
+        if len(image_coordinates) > 1:
             image_coordinates = np.vstack(image_coordinates)
-        elif np.shape(image_coordinates[0]) == (2,1):
-            image_coordinates = np.transpose(np.hstack(image_coordinates))
-    num_cameras = np.shape(image_coordinates)[0]
+        else:
+            return u_3d
     
+    if not np.shape(image_coordinates)[1] == 2:
+        raise ValueError('ncams.reconstruction.triangulate only accepts numpy.ndarrays or lists of' + 
+                         'in the format (camera, [x,y])')
+    
+    num_cameras = np.shape(image_coordinates)[0]
     if num_cameras < 2: # return NaNs if insufficient points to triangulate
-        u_3d = np.zeros((3,1))
-        u_3d.fill(np.nan)
         return u_3d
     
     if num_cameras != len(projection_matrices):
@@ -91,19 +126,19 @@ def triangulate(image_coordinates, projection_matrices, mode='full_rank', confid
     
     return u_3d
     
-def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimation_config,
-                labeled_csv_path, threshold=0.9, method='full_rank',
+def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_config,
+                labeled_csv_path, threshold=0.5, method='full_rank',
                 best_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
                 file_prefix=''):
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
             dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
         output_csv {str} -- file to save the triangulated points into.
-        calibration_config {dict} -- see help(ncams.camera_tools).
-        pose_estimation_config {dict} -- see help(ncams.camera_tools).
+        intrinsics_config {dict} -- see help(ncams.camera_tools).
+        extrinsics_config {dict} -- see help(ncams.camera_tools).
         labeled_csv_path {str} -- locations of csv's with marked points.
     Keyword Arguments:
         threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
@@ -120,17 +155,17 @@ def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimati
             {False})
         file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
     Output:
-        output_csv {str} -- location of the output csv with all triangulated points.
+        output_csv {csv file} -- csv containing all triangulated points.
     '''
-    cam_serials = camera_config['serials']
-    cam_dicts = camera_config['dicts']
+    cam_serials = ncams_config['serials']
+    cam_dicts = ncams_config['dicts']
 
-    camera_matrices = calibration_config['camera_matrices']
+    camera_matrices = intrinsics_config['camera_matrices']
     if not undistorted_data:
-        distortion_coefficients = calibration_config['distortion_coefficients']
+        distortion_coefficients = intrinsics_config['distortion_coefficients']
 
-    world_locations = pose_estimation_config['world_locations']
-    world_orientations = pose_estimation_config['world_orientations']
+    world_locations = extrinsics_config['world_locations']
+    world_orientations = extrinsics_config['world_orientations']
 
     # Get data files
     list_of_csvs = []
@@ -139,7 +174,7 @@ def triangulate_csv(camera_config, output_csv, calibration_config, pose_estimati
             sstr = '*.csv'
         else:
             sstr = '*_{}.csv'.format(iteration)
-        list_of_csvs += glob.glob(os.path.join(
+        list_of_csvs += glob(os.path.join(
             labeled_csv_path, file_prefix+'*'+ cam_dicts[cam_serial]['name']+sstr))
     if not len(list_of_csvs) == len(cam_serials):
         if iteration is not None:

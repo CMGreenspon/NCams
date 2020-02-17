@@ -33,6 +33,9 @@ def get_file_list(file_extensions, path=None, sort=True):
     Output:
         strings {list of strings} -- list of all filenames with specified extension.
     '''
+    if isinstance(file_extensions, str):
+        file_extensions = [file_extensions]
+    
     if file_extensions is None or len(file_extensions) == 0:
         file_extensions = ('*', )
     else:

@@ -21,11 +21,11 @@ from . import utils
 
 
 ################### Camera config
-def config_to_yaml(camera_config, setup_path=None, setup_filename=None):
+def config_to_yaml(ncams_config, setup_path=None, setup_filename=None):
     '''Export camera config into a YAML file.
 
     Arguments:
-        camera_config {dict} -- information about camera configuration. For the full description,
+        ncams_config {dict} -- information about camera configuration. For the full description,
                 see help(ncams.camera_tools). This function uses following keys:
             setup_path {string} -- directory where the camera setup is located, including
                 config.yaml.
@@ -37,31 +37,35 @@ def config_to_yaml(camera_config, setup_path=None, setup_filename=None):
         setup_filename {string} - overrides the filename of the config file. (default:
             {None})
     '''
-    serials = camera_config['serials']
+    serials = ncams_config['serials']
 
     # the camera objects are not pickleable, need to remove them before copy
-    if 'obj' in camera_config['dicts'][serials[0]].keys():
-        cam_objs = []
-        for serial in serials:
-            cam_objs.append(camera_config['dicts'][serial]['obj'])
-            del camera_config['dicts'][serial]['obj']  # not picklable
+    if 'dicts' in ncams_config.keys():
+        if 'obj' in ncams_config['dicts'][serials[0]].keys():
+            cam_objs = []
+            for serial in serials:
+                cam_objs.append(ncams_config['dicts'][serial]['obj'])
+                del ncams_config['dicts'][serial]['obj']  # not picklable
+        else:
+            cam_objs = None
+
+        if 'system' in ncams_config.keys():
+            system = ncams_config['system']
+            del ncams_config['system']
+        else:
+            system = None
+    
+        out_dict = deepcopy(ncams_config)
+    
+        # and then restore
+        if cam_objs is not None:
+            for serial, cam_obj in zip(serials, cam_objs):
+                ncams_config['dicts'][serial]['obj'] = cam_obj
+        if system is not None:
+            ncams_config['system'] = system
+    
     else:
-        cam_objs = None
-
-    if 'system' in camera_config.keys():
-        system = camera_config['system']
-        del camera_config['system']
-    else:
-        system = None
-
-    out_dict = deepcopy(camera_config)
-
-    # and then restore
-    if cam_objs is not None:
-        for serial, cam_obj in zip(serials, cam_objs):
-            camera_config['dicts'][serial]['obj'] = cam_obj
-    if system is not None:
-        camera_config['system'] = system
+        out_dict = deepcopy(ncams_config)
 
     # If we want to save everything as a list instead of numpy ndarray:
     out_dict = utils.dict_values_numpy_to_list(out_dict)
@@ -84,20 +88,20 @@ def yaml_to_config(filename):
     '''Imports camera config from a YAML file.
 
     Arguments:
-        filename {string} -- filename of the YAML camera_config file.
+        filename {string} -- filename of the YAML ncams_config file.
 
     Output:
-        camera_config {dict} -- see help(ncams.camera_tools).
+        ncams_config {dict} -- see help(ncams.camera_tools).
     '''
     with open(filename, 'r') as yaml_file:
-        camera_config = yaml.safe_load(yaml_file)
+        ncams_config = yaml.safe_load(yaml_file)
 
-    return camera_config
+    return ncams_config
 
 
 ################### Camera calibration
 # Single camera:
-def calibration_to_yaml(filename, camera_calib_dict):
+def intrinsic_to_yaml(filename, camera_calib_dict):
     '''Exports camera calibration info for a single camera into a YAML file.
 
     Arguments:
@@ -141,22 +145,22 @@ def yaml_to_calibration(filename):
 
 
 # Multiple cameras:
-def export_calibration(calibration_config, path=None, filename=None):
+def export_intrinsics(intrinsic_config, path=None, filename=None):
     '''Exports camera calibration info for all cameras in the setup into a pickle file.
 
     Does NOT export the 'dicts' key because of redundancy.
 
     Arguments:
-        calibration_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        intrinsic_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             path {string} -- directory where calibration information is stored. Should be same as
-                information in camera_config.
+                information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
     Keyword Arguments:
         path {string} -- overrides the 'path' key in the dictionary and saves in that location.
         filename {string} -- overrides the 'filename' key in the dictionary and saves in that
             location.
     '''
-    out_dict = deepcopy(calibration_config)
+    out_dict = deepcopy(intrinsic_config)
 
     if 'dicts' in out_dict.keys():
         del out_dict['dicts']
@@ -173,90 +177,90 @@ def export_calibration(calibration_config, path=None, filename=None):
         pickle.dump(out_dict, f)
 
 
-def import_calibration(camera_config):
+def import_intrinsics(ncams_config):
     '''Imports camera calibration info for all cameras in the setup from a pickle file.
 
-    Reorders the loaded information to adhere to 'serials' in camera_config.
+    Reorders the loaded information to adhere to 'serials' in ncams_config.
 
     Arguments:
-        camera_config {dict} -- information about camera configuration. Should have following keys:
+        ncams_config {dict} -- information about camera configuration. Should have following keys:
             serials {list of numbers} -- list of camera serials.
             setup_path {string} -- directory where the camera setup is located.
-            calibration_path {string} -- relative path to where calibration information is stored
+            intrinsic_path {string} -- relative path to where calibration information is stored
                 from 'setup_path'.
-            calibration_filename {string} -- name of the pickle file to store the calibration
+            intrinsic_filename {string} -- name of the pickle file to store the calibration
                 config in/load from.
     Output:
-        calibration_config {dict} -- information on camera calibration and the results of said
-                calibraion. Order of each list MUST adhere to calibration_config['serials'] AND
-                camera_config['serials']. Should have following keys:
+        intrinsic_config {dict} -- information on camera calibration and the results of said
+                calibraion. Order of each list MUST adhere to intrinsic_config['serials'] AND
+                ncams_config['serials']. Should have following keys:
             serials {list of numbers} -- list of camera serials.
             distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
             camera_matrices {list of np.arrays} -- camera calibration matrices for each camera
             reprojection_errors {list of numbers} -- reprojection errors for each camera
             path {string} -- directory where calibration information is stored. Should be same as
-                information in camera_config.
+                information in ncams_config.
             dicts {dict of 'camera_calib_dict's} -- keys are serials, values are
                 'camera_calib_dict', see help(ncams.camera_tools).
             filename {string} -- name of the pickle file to store the config in/load from.
     '''
     # Get the path name
-    filename = os.path.join(camera_config['setup_path'], camera_config['calibration_path'],
-                            camera_config['calibration_filename'])
+    filename = os.path.join(ncams_config['setup_path'], ncams_config['intrinsic_path'],
+                            ncams_config['intrinsic_filename'])
 
     # Load the file
     with open(filename, 'rb') as f:
-        _calibration_config = pickle.load(f)
+        _intrinsic_config = pickle.load(f)
 
-    calibration_config = deepcopy(_calibration_config)
+    intrinsic_config = deepcopy(_intrinsic_config)
     # we want to keep whatever other info was stored just in case
-    calibration_config['serials'] = []
-    calibration_config['distortion_coefficients'] = []
-    calibration_config['camera_matrices'] = []
-    calibration_config['reprojection_errors'] = []
-    calibration_config['dicts'] = {}
+    intrinsic_config['serials'] = []
+    intrinsic_config['distortion_coefficients'] = []
+    intrinsic_config['camera_matrices'] = []
+    intrinsic_config['reprojection_errors'] = []
+    intrinsic_config['dicts'] = {}
 
-    for serial in camera_config['serials']:
-        idx = _calibration_config['serials'].index(serial)
+    for serial in ncams_config['serials']:
+        idx = _intrinsic_config['serials'].index(serial)
 
-        calibration_config['serials'].append(
-            _calibration_config['serials'][idx])
-        calibration_config['distortion_coefficients'].append(
-            _calibration_config['distortion_coefficients'][idx])
-        calibration_config['camera_matrices'].append(
-            _calibration_config['camera_matrices'][idx])
-        calibration_config['reprojection_errors'].append(
-            _calibration_config['reprojection_errors'][idx])
+        intrinsic_config['serials'].append(
+            _intrinsic_config['serials'][idx])
+        intrinsic_config['distortion_coefficients'].append(
+            _intrinsic_config['distortion_coefficients'][idx])
+        intrinsic_config['camera_matrices'].append(
+            _intrinsic_config['camera_matrices'][idx])
+        intrinsic_config['reprojection_errors'].append(
+            _intrinsic_config['reprojection_errors'][idx])
 
-        calibration_config['dicts'][serial] = {
+        intrinsic_config['dicts'][serial] = {
             'serial': serial,
-            'distortion_coefficients': _calibration_config['distortion_coefficients'][idx],
-            'camera_matrix': _calibration_config['camera_matrices'][idx],
-            'reprojection_error': _calibration_config['reprojection_errors'][idx]
+            'distortion_coefficients': _intrinsic_config['distortion_coefficients'][idx],
+            'camera_matrix': _intrinsic_config['camera_matrices'][idx],
+            'reprojection_error': _intrinsic_config['reprojection_errors'][idx]
         }
 
-    return calibration_config
+    return intrinsic_config
 
 
 ################### Pose estimation
-def export_pose_estimation(pose_estimation_config, path=None, filename=None):
+def export_extrinsics(extrinsic_config, path=None, filename=None):
     '''Exports relative position estimation info for all cameras in the setup into a pickle file.
 
     Does NOT export the 'dicts' key because of redundancy.
 
     Arguments:
-        pose_estimation_config {dict} -- information on estimation of relative position of all
+        extrinsic_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. See help(ncams.camera_tools).
                 Should have following keys:
             path {string} -- directory where pose estimation information is stored. Should be same
-                as information in camera_config.
+                as information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
     Keyword Arguments:
         path {string} -- overrides the 'path' key in the dictionary and saves in that location.
         filename {string} -- overrides the 'filename' key in the dictionary and saves in that
             location.
     '''
-    out_dict = deepcopy(pose_estimation_config)
+    out_dict = deepcopy(extrinsic_config)
 
     if 'dicts' in out_dict.keys():
         del out_dict['dicts']
@@ -273,94 +277,94 @@ def export_pose_estimation(pose_estimation_config, path=None, filename=None):
         pickle.dump(out_dict, f)
 
 
-def import_pose_estimation(camera_config):
+def import_extrinsics(ncams_config):
     '''Imports camera calibration info for all cameras in the setup from a pickle file.
 
-    Reorders the loaded information to adhere to 'serials' in camera_config.
+    Reorders the loaded information to adhere to 'serials' in ncams_config.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
-            pose_estimation_path {string} -- relative path to where pose estimation information is
+            extrinsic_path {string} -- relative path to where pose estimation information is
                 stored from 'setup_path'.
-            pose_estimation_filename {string} -- name of the pickle file to store the pose
+            extrinsic_filename {string} -- name of the pickle file to store the pose
                 estimation config in/load from.
     Output:
-        pose_estimation_config {dict} -- information on estimation of relative position of all
+        extrinsic_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. Order of each list MUST adhere to
-                pose_estimation_config['serials'] and camera_config['serials']. Should
+                extrinsic_config['serials'] and ncams_config['serials']. Should
                 have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
             path {string} -- directory where pose estimation information is stored. Should be same
-                as information in camera_config.
+                as information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
     '''
     # Get the path name
-    filename = os.path.join(camera_config['setup_path'], camera_config['pose_estimation_path'],
-                            camera_config['pose_estimation_filename'])
+    filename = os.path.join(ncams_config['setup_path'], ncams_config['extrinsic_path'],
+                            ncams_config['extrinsic_filename'])
 
     # Load the file
     with open(filename, 'rb') as f:
-        _pose_estimation_config = pickle.load(f)
+        _extrinsic_config = pickle.load(f)
 
-    pose_estimation_config = deepcopy(_pose_estimation_config)
+    extrinsic_config = deepcopy(_extrinsic_config)
     # we want to keep whatever other info was stored just in case
-    pose_estimation_config['serials'] = []
-    pose_estimation_config['world_locations'] = []
-    pose_estimation_config['world_orientations'] = []
-    pose_estimation_config['camera_pe_dict'] = {}
+    extrinsic_config['serials'] = []
+    extrinsic_config['world_locations'] = []
+    extrinsic_config['world_orientations'] = []
+    extrinsic_config['dicts'] = {}
 
-    for serial in camera_config['serials']:
-        idx = _pose_estimation_config['serials'].index(serial)
+    for serial in ncams_config['serials']:
+        idx = _extrinsic_config['serials'].index(serial)
 
-        pose_estimation_config['serials'].append(
-            _pose_estimation_config['serials'][idx])
-        pose_estimation_config['world_locations'].append(
-            _pose_estimation_config['world_locations'][idx])
-        pose_estimation_config['world_orientations'].append(
-            _pose_estimation_config['world_orientations'][idx])
+        extrinsic_config['serials'].append(
+            _extrinsic_config['serials'][idx])
+        extrinsic_config['world_locations'].append(
+            _extrinsic_config['world_locations'][idx])
+        extrinsic_config['world_orientations'].append(
+            _extrinsic_config['world_orientations'][idx])
 
-        pose_estimation_config['camera_pe_dict'][serial] = {
-            'world_location': _pose_estimation_config['world_locations'][idx],
-            'world_orientation': _pose_estimation_config['world_orientations'][idx]
+        extrinsic_config['dicts'][serial] = {
+            'world_location': _extrinsic_config['world_locations'][idx],
+            'world_orientation': _extrinsic_config['world_orientations'][idx]
         }
 
-    return pose_estimation_config
+    return extrinsic_config
 
 
 ################### General I/O
-def load_camera_config(camera_config):
+def load_calibrations(ncams_config):
     '''Safely loads pose estimation and camera calibration from files.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             setup_path {string} -- directory where the camera setup is located.
-            calibration_path {string} -- directory where calibration information is stored.
-            calibration_filename {string} -- name of the pickle file to store the calibration
+            intrinsic_path {string} -- directory where calibration information is stored.
+            intrinsic_filename {string} -- name of the pickle file to store the calibration
                 config in/load from.
-            pose_estimation_path {string} -- relative path to where pose estimation information is
+            extrinsic_path {string} -- relative path to where pose estimation information is
                 stored from 'setup_path'.
-            pose_estimation_filename {string} -- name of the pickle file to store the pose
+            extrinsic_filename {string} -- name of the pickle file to store the pose
                 estimation config in/load from.
     Output:
-        calibration_config {dict} -- see help(ncams.camera_tools), None if not found
-        pose_estimation_config {dict} -- see help(ncams.camera_tools), None if not found
+        intrinsic_config {dict} -- see help(ncams.camera_tools), None if not found
+        extrinsics_config {dict} -- see help(ncams.camera_tools), None if not found
     '''
     try:
-        calibration_config = import_calibration(camera_config)
+        intrinsics_config = import_intrinsics(ncams_config)
         print('Camera calibration loaded.')
     except FileNotFoundError:
-        calibration_config = None
+        intrinsics_config = None
         print('No camera calibration file found.')
 
     try:
-        pose_estimation_config = import_pose_estimation(camera_config)
+        extrinsics_config = import_extrinsics(ncams_config)
         print('Pose estimation loaded.')
     except FileNotFoundError:
-        pose_estimation_config = None
+        extrinsic_config = None
         print('No pose estimation file found.')
 
-    return (calibration_config, pose_estimation_config)
+    return (intrinsics_config, extrinsics_config)
