@@ -20,7 +20,7 @@ import numpy as np
 from . import utils
 
 
-################### Camera config
+################### NCams config
 def config_to_yaml(ncams_config, setup_path=None, setup_filename=None):
     '''Export camera config into a YAML file.
 
@@ -99,7 +99,7 @@ def yaml_to_config(filename):
     return ncams_config
 
 
-################### Camera calibration
+################### Intrinsic calibration
 # Single camera:
 def intrinsic_to_yaml(filename, camera_calib_dict):
     '''Exports camera calibration info for a single camera into a YAML file.
@@ -242,7 +242,7 @@ def import_intrinsics(ncams_config):
     return intrinsic_config
 
 
-################### Pose estimation
+################### Extrinsic Calibration
 def export_extrinsics(extrinsic_config, path=None, filename=None):
     '''Exports relative position estimation info for all cameras in the setup into a pickle file.
 

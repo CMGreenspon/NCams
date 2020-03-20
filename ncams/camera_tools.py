@@ -182,10 +182,6 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
         if dictionary is None:
             output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
         else:
-            # if having problems with import of cv2.aruco, uninstall opencv-python and install
-            # opencv-contrib-python, e.g.
-            # pip uninstall opencv-python
-            # pip install opencv-contrib-python
             custom_dict = cv2.aruco.Dictionary_get(dictionary)
             output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
                                                            custom_dict)
@@ -280,6 +276,8 @@ def create_world_points(ncams_config):
     check_size = ncams_config['check_size']
 
     if board_type == 'checkerboard':
+        # The points are the intersections of the checks and so the number of points is the product
+        # of the number of checks in each dimensions-1 
         world_points = np.zeros(((board_dim[0]-1) * (board_dim[1]-1), 3), np.float32) # x,y,z points
         # z is always zero:
         world_points[:, :2] = np.mgrid[0:board_dim[0]-1, 0:board_dim[1]-1].T.reshape(-1, 2)

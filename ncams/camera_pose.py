@@ -746,9 +746,7 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
     extrinsics_info['pose_accuracy'] = {'bad_points': [], 'triangulation_error': '',
                                   'reprojection_error': ''}
     if np.sum(error_boolean) > 0:
-        print('\tSome markers have not triangulated well.\n' + 
-              '\tConsider inspecting marker detection and refining markers used for PnP.\n' +
-              '\tReprojections will only show bad points.')
+        print('\tSome markers have not triangulated well.\n')
         error_idx = np.where(error_boolean == True)[0]
         extrinsics_info['pose_accuracy']['bad_points'] = error_idx
         
