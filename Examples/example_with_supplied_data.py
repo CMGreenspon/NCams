@@ -11,6 +11,7 @@ FLIR cameras, Spinnaker, etc.
 
 The images are available here:
 https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea
+https://uchicago.app.box.com/s/glgee9o0katg9cvr7t5tjeygne3rs9on
 and BASE_DIR has to point at that data.
 
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).

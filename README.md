@@ -10,7 +10,7 @@ NCams is installed as a Python module with several submodules that include camer
 
 ## Getting Started
 
-This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example raw data is available on [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea).
+This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example raw data is available on [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea) and raw images on [Box](https://uchicago.app.box.com/s/glgee9o0katg9cvr7t5tjeygne3rs9on).
 
 ### Prerequisites
 
@@ -40,7 +40,7 @@ All examples have a corresponding 'run_' script to show examples of executing th
 
 [Example with capturing data](Examples/example_with_recording_data.py) contains example code for setting up multiple FLIR cameras, calibration of lenses, estimation of their poses, and creation of videos from captured images.
 
-[Example with supplied data](Examples/example_with_supplied_data.py) can help you calibrate the lenses on the cameras, estimate their poses, and create of videos. The data to run the code on is stored on [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea)
+[Example with supplied data](Examples/example_with_supplied_data.py) can help you calibrate the lenses on the cameras, estimate their poses, and create of videos. The data to run the code on is stored on [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea) and [Box](https://uchicago.app.box.com/s/glgee9o0katg9cvr7t5tjeygne3rs9on).
 
 ### Labeling and 3D marker reconstruction
 
