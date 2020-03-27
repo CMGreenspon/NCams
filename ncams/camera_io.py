@@ -364,7 +364,7 @@ def load_calibrations(ncams_config):
         extrinsics_config = import_extrinsics(ncams_config)
         print('Pose estimation loaded.')
     except FileNotFoundError:
-        extrinsic_config = None
+        extrinsics_config = None
         print('No pose estimation file found.')
 
     return (intrinsics_config, extrinsics_config)

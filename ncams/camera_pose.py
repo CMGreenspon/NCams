@@ -50,7 +50,11 @@ def charuco_board_detector(ncams_config):
     '''
     # Unpack the dict
     serials = ncams_config['serials']
-    names = [ncams_config['dicts'][serial]['name'] for serial in serials]
+    if 'dicts' in ncams_config.keys():
+        names = [ncams_config['dicts'][serial]['name'] for serial in serials]
+    else:
+        names = [str(serial) for serial in serials]
+        
     extrinsic_path = os.path.join(ncams_config['setup_path'],
                                         ncams_config['extrinsic_path'])
 
@@ -189,46 +193,6 @@ def multi_camera_pose_estimation(ncams_config, show_poses=True):
     if num_cameras == 1:
         raise Exception('Only one camera present, pose cannot be calculated with this function.')
         return []
-
-
-def get_optimal_pose_method(input_array, board_type, num_corners):
-    '''[Short description]
-
-    [Long description]
-
-    Arguments:
-        []
-    Keyword Arguments:
-        []
-    Output:
-        []
-    '''
-    raise NotImplementedError
-    if board_type == 'charuco':
-        num_images = len(input_array)
-        num_cameras = len(input_array[0])
-        shared_points_counter = np.zeros((len(input_array),1), dtype = int)
-        for image in range(num_images):
-            # Empty array with a spot for each corner and ID
-            point_logit = np.zeros((num_corners, num_cameras), dtype = bool)
-            for cam in range(num_cameras):
-                # Get the array specific to the camera and image
-                temp = input_array[image][cam]
-                if isinstance(temp, np.ndarray):
-                    for corner in temp:
-                      point_logit[int(corner),cam] = True
-
-    sum_point_logit = np.sum(point_logit.astype(int), 1)
-    common_points = sum_point_logit == num_cameras
-    shared_points_counter[image,0] = np.sum(common_points.astype(int))
-    num_common_points = np.sum(shared_points_counter)
-
-    if num_common_points >= 250:
-      optimal_method = 'common'
-    else:
-      optimal_method = 'sequential-stereo'
-
-    return optimal_method
 
 
 #################### Pose estimation methods
@@ -453,24 +417,22 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
 
     # Determine the reference camera
     ireference_cam = ncams_config['serials'].index(ncams_config['reference_camera_serial'])
-
-    h, w = ncams_config['image_size']
-
     cam_idx = np.arange(0, num_cameras)
-    secondary_cam = cam_idx[cam_idx != ireference_cam][0] # Get the indices of the non-primary cameras
+    secondary_cam = cam_idx[cam_idx != ireference_cam][0] # Get the indices of a secondary camera
     # Get the world points
     world_points = camera_tools.create_world_points(ncams_config)
     corner_idx = np.arange(0, len(world_points))
-
+    
     if ncams_config['board_type'] == 'charuco':
         # Get all the points shared across cameras
         filtered_object_points = []
         filtered_image_points = [[] for icam in range(num_cameras)]
+        common_point_counter = 0
         for cip, detl in zip(cam_image_points, detection_logit):
-            # Empty array with a spot for each corner and ID
+            # Empty array corresponding to each camera and point
             point_logit = np.zeros((len(world_points), num_cameras), dtype=bool)
             for icam in range(num_cameras):
-                temp = detl[icam]  # Get the array specific to the camera and im
+                temp = detl[icam]  # Get the array specific to the camera and image
                 if isinstance(temp, np.ndarray):
                     for corner in temp:  # For each detected corner
                         point_logit[int(corner), icam] = True
@@ -478,6 +440,7 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
 
             # Find which points are shared across all cameras
             common_points = sum_point_logit == num_cameras
+            common_point_counter += np.sum(common_points)
             if np.sum(common_points) >= 6:
                 # Append only those points
                 filtered_object_points.append(world_points[common_points, :].astype('float32'))
@@ -494,15 +457,17 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
 
     elif ncams_config['board_type'] == 'checkerboard':
         raise NotImplementedError
+    
+    if common_point_counter < 50:
+        print('Insufficent matching points for common pose estimation, consider sequential stereo.')
+        return []
 
     # Get the optimal matrices and undistorted points for the reference and secondary cam
     undistorted_points = []
     for icam in [ireference_cam, secondary_cam]:
-        temp_optim, _ = cv2.getOptimalNewCameraMatrix(
-            camera_matrices[icam], distortion_coefficients[icam], (w, h), 1, (w, h))
         undistorted_points.append(cv2.undistortPoints(
             np.vstack(filtered_image_points[icam]), camera_matrices[icam],
-            distortion_coefficients[icam], P=temp_optim))
+            distortion_coefficients[icam]))
 
     # Perform the initial stereo calibration
     stereo_calib_flags = 0
@@ -514,18 +479,19 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
         filtered_image_points[secondary_cam],
         camera_matrices[ireference_cam], distortion_coefficients[ireference_cam],
         camera_matrices[secondary_cam], distortion_coefficients[secondary_cam],
-        (w, h), None, None, None, criteria, stereo_calib_flags)
+        (ncams_config['image_size'][1], ncams_config['image_size'][0]),
+        None, None, None, criteria, stereo_calib_flags)
 
     if reprojection_error > 1:
         print('Poor initial stereo-calibration. Subsequent pose estimates may be innacurate.')
 
     # Make projection matrices
     # This keeps the reference frame to that of the primary camera
-    projection_matrix_primary = np.dot(
-        camera_matrices[ireference_cam], np.hstack((np.identity(3), np.zeros((3, 1)))))
-
-    # Make the secondary projection matrix from calculated rotation & translation matrix
-    projection_matrix_secondary = np.dot(camera_matrices[secondary_cam], np.hstack((R, T)))
+    projection_matrix_primary = camera_tools.make_projection_matrix(
+        camera_matrices[ireference_cam], np.identity(3), np.zeros((3, 1)))
+    # Make the secondary projection matrix from stereo-calibration
+    projection_matrix_secondary = camera_tools.make_projection_matrix(
+        camera_matrices[secondary_cam], R, T)
 
     # Triangulate those same points
     triangulated_points_norm = cv2.triangulatePoints(

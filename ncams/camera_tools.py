@@ -288,3 +288,30 @@ def create_world_points(ncams_config):
         world_points = charuco_board.chessboardCorners.reshape(nc, 1, 3)
 
     return world_points
+
+def test_charucoboard_detection(charuco_board, charuco_dict, image_path):
+    ''' 
+    A quick function for inspecting whether or not the charucoboard is being detected.
+    Inputs:
+        charuco_board {aruco_Charucobaord} -- the aruco board object.
+        charuco_dict {aruco_Dictionary} -- the aruco dictionary object.
+        image_path {str} -- full path to the image of interest
+    '''
+    img = cv2.imread(image_path)
+    im_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Detect the aruco markers and get IDs
+    corners, ids, _ = cv2.aruco.detectMarkers(img, charuco_dict)
+    if ids is not None:
+        # Find the corners and IDs
+        _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+            corners, ids, img, charuco_board)
+    else:
+        print('No markers detected')
+        return
+        
+    image_annotated = cv2.aruco.drawDetectedCornersCharuco(im_rgb, charuco_corners)
+    
+    ax = mpl_pp.subplots()[1]
+    ax.imshow(image_annotated)
+    ax.set_xticks([])
+    ax.set_yticks([])
