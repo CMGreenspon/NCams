@@ -224,7 +224,7 @@ def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points,
     return camera_location, cam_orientation, charuco_corners, charuco_ids
 
 
-def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_poses=False,
+def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_extrinsics=False,
                        inspect = False, ch_ids_to_ignore=None):
     '''Position estimation based on a single frame from each camera.
 
@@ -247,6 +247,10 @@ def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_p
                 'camera_calib_dict', see below.
     Keyword Arguments:
         export_full {bool} -- save the pose estimation to a dedicated file. (default: {True})
+        show_extrinsics {bool} -- whether or not to call the plot_extrinsics function. (default: False)
+        inspect {bool} -- call the inspect extrinsics function to estimate accuracy. (default: False)
+        ch_ids_to_ignore {array} -- list of markers that are poorly detected and should be ignored.
+            (default: None)
     Output:
         extrinsics_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
@@ -257,14 +261,11 @@ def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_p
             path {string} -- directory where pose estimation information is stored. Should be same
                 as information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
-            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
-                see below.
-
-                camera_pe_dict {dict} -- info on pose estimation of a single camera. 
-                    Sould have following keys:
-                    serial {number} -- UID of the camera.
-                    world_location {np.array} -- world location of the camera.
-                    world_orientation {np.array} -- world orientation of the camera.
+            dicts {dict} -- info on pose estimation of a single camera. 
+                Sould have following keys:
+                serial {number} -- UID of the camera.
+                world_location {np.array} -- world location of the camera.
+                world_orientation {np.array} -- world orientation of the camera.
                     
         image_info {dict} -- outputs of the intermediary steps, useful for inspection of results.
             Uses camera serials as keys:
@@ -349,13 +350,14 @@ def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_p
         'world_orientations': world_orientations,
         'path': extrinsic_path,
         'filename': ncams_config['extrinsic_filename'],
-        'dicts': dicts
+        'dicts': dicts,
+        'estimate_method': 'one-shot'
     }
 
     if export_full:
         camera_io.export_extrinsics(extrinsics_config)
 
-    if show_poses:
+    if show_extrinsics:
         plot_extrinsics(extrinsics_config, ncams_config)
         
     if inspect:
@@ -365,7 +367,7 @@ def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_p
 
 
 def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, detection_logit,
-                           export_full=True):
+                           export_full=True, show_extrinsics=False):
     '''Position estimation based on frames from multiple cameras simultaneously.
 
     If there are sufficient shared world points across all cameras then camera pose can
@@ -392,6 +394,7 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
         detection_logit {[type]} -- [description]
     Keyword Arguments:
         export_full {bool} -- save the pose estimation to a dedicated file. (default: {True})
+        show_extrinsics {bool} -- whether or not to call the plot_extrinsics function. (default: False)
     Output:
         extrinsics_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
@@ -402,14 +405,11 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
             path {string} -- directory where pose estimation information is stored. Should be same
                 as information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
-            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
-                see below.
-
-        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
-                keys:
-            serial {number} -- UID of the camera.
-            world_location {np.array} -- world location of the camera.
-            world_orientation {np.array} -- world orientation of the camera.
+            dicts {dict} -- pose estimation of a single camera. Sould have following
+                    keys:
+                serial {number} -- UID of the camera.
+                world_location {np.array} -- world location of the camera.
+                world_orientation {np.array} -- world orientation of the camera.
     '''
     num_cameras = len(ncams_config['serials'])
     camera_matrices = intrinsics_config['camera_matrices']
@@ -526,26 +526,46 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
         'world_orientations': world_orientations,
         'path': ncams_config['extrinsic_path'],
         'filename': ncams_config['extrinsic_filename'],
-        'dicts': dicts
+        'dicts': dicts,
+        'estimate_method': 'common'
     }
 
     if export_full:
         camera_io.export_extrinsics(extrinsics_config)
+        
+    if show_extrinsics:
+        plot_extrinsics(extrinsics_config, ncams_config)
 
     return extrinsics_config
 
 
-def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_camera,
-                               camera_matrices, distortion_coefficients):
-    '''If insufficient shared points then we can instead use the reference pair of cameras and
-    iteratively calibrate all other cameras.
+def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points, daisy_chain=True,
+                               max_links=3, matching_threshold=250, export_full=True,
+                               show_extrinsics=False):
+    ''' Build a network of stereo-calibrations by iteratively calibrating cameras whilst maintaining
+    world origin.
 
-    [Long description]
+    If not all cameras share a single view but at least have overlapping views then the relative 
+    translations and rotations can be daisy-chained. This function takes the reference camera as the
+    seed and attempts to calibrate all cameras with it. Attempts are then made to calibrate the 
+    remaining cameras with the newly calibrated ones. This occurs iteratively until all have been
+    added to the chain.
 
     Arguments:
         []
     Keyword Arguments:
-        []
+        daisy_chain {bool} -- whether or not to enable daisy chaining. If False then will only 
+            perform stereo-calibration with the reference camera and any cameras that cannot be
+            calibrated with it are ignored. (default: True)
+        max_links {int} -- how many edges can be between the reference camera and any other camera.
+            Equivalent to the number of iterations over which the graph will be built. May need to
+            be increased to the number of cameras if there is very little overlap. It is likely that
+            more edges produce cumulative error. (default: 3)
+        matching_threshold {int} -- the minim number of points to use when attempting to stereo-
+            calibrate. Lower thresholds may allow fewer edges to be used but may also result in lower
+            quality calibrations. (default: 250)
+        export_full {bool} -- save the pose estimation to a dedicated file. (default: True)
+        show_extrinsics {bool} -- whether or not to call the plot_extrinsics function. (default: False)
     Output:
         extrinsics_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. For more info, see
@@ -556,17 +576,209 @@ def sequential_pose_estimation(cam_board_logit, cam_image_points, reference_came
             path {string} -- directory where pose estimation information is stored. Should be same
                 as information in ncams_config.
             filename {string} -- name of the YAML file to store the config in/load from.
-            dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
-                see below.
+            dicts {dict} -- pose estimation of a single camera. Sould have following
+                    keys:
+                serial {number} -- UID of the camera.
+                world_location {np.array} -- world location of the camera.
+                world_orientation {np.array} -- world orientation of the camera.
 
-        camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following
-                keys:
-            serial {number} -- UID of the camera.
-            world_location {np.array} -- world location of the camera.
-            world_orientation {np.array} -- world orientation of the camera.
     '''
-    raise NotImplementedError
-
+    num_images = len(cam_image_points)
+    
+    num_cameras = len(ncams_config['serials'])
+    camera_matrices = intrinsics_config['camera_matrices']
+    distortion_coefficients = intrinsics_config['distortion_coefficients']
+    
+    # Get the world points
+    world_points = camera_tools.create_world_points(ncams_config)
+    corner_idx = np.arange(0, len(world_points))
+    
+    # Determine the reference camera
+    ireference_cam = ncams_config['serials'].index(ncams_config['reference_camera_serial'])
+    cam_idx = np.arange(0, num_cameras)
+    isecondary_cams = [i for i in cam_idx if i!=ireference_cam]
+    
+    # Prepare outputs
+    world_locations = [[] for _ in range(num_cameras)]
+    world_orientations = [[] for _ in range(num_cameras)]
+    
+    world_locations[ireference_cam] = np.zeros((3,1))
+    world_orientations[ireference_cam] = np.zeros((3,1))
+    
+    calibrated_cameras = np.zeros((len(cam_idx),1), dtype=bool)
+    calibrated_cameras[ireference_cam] = True
+    
+    # Iterate through images and cameras to make a large array of points that can be matched
+    point_detection_bool = np.zeros((len(corner_idx), num_images, num_cameras), dtype=bool)
+    for cam in range(num_cameras):
+        for image in range(num_images):
+            cids = cam_charuco_ids[image][cam]
+            ips = cam_image_points[image][cam]
+            for cid, ip in zip(cids, ips):
+                point_detection_bool[cid, image, cam] = True
+        
+    # Find overlapping points for each pair of cameras
+    n_matching_points = np.zeros((len(cam_idx), len(cam_idx)))
+    n_matching_points.fill(np.nan)
+    for i in cam_idx:
+        for j in cam_idx:
+            if i == j: # Can't use own points
+                continue
+            if np.isnan(n_matching_points[j,i]): # Only check if the inverse has not already been done
+                # Get point logits for each camera
+                itemp_points = point_detection_bool[:,:,i]
+                jtemp_points = point_detection_bool[:,:,j]
+                # Find maching
+                matching_points = np.logical_and(itemp_points, jtemp_points)
+                # Remove images with fewer than 6 points
+                matching_points_per_images = np.sum(matching_points, axis=0)
+                sufficient_points = np.where(matching_points_per_images >= 6)[0]
+                # Allocate sum to array
+                n_matching_points[i,j] = np.sum(np.sum(matching_points_per_images[sufficient_points]))
+            else:
+                n_matching_points[i,j] = n_matching_points[j,i]
+    
+    # First we try and stereo-calibrate every camera with the primary camera
+    icam1 = ireference_cam
+    print('Calibrating with reference camera: '+ str(icam1))
+    for icam2 in isecondary_cams:
+        if n_matching_points[icam1, icam2] < matching_threshold:
+            continue
+    
+        print('\tCamera '+ str(icam2))
+        
+        matching_points = np.squeeze(np.logical_and(
+            point_detection_bool[:,:,icam1], point_detection_bool[:,:,icam2]))
+        
+        # Collect the necessary world and image points
+        matching_world_points, matching_image_points1, matching_image_points2 = [],[],[]
+        for im in range(num_images):
+            matching_ids = np.where(matching_points[:,im])[0]
+            if len(matching_ids) < 6: # CV2 requires at least 6 points per image, not sure why
+                continue
+            # Allocate empty arrays
+            temp_ip1 = np.zeros((len(matching_ids),1,2))
+            temp_ip2 = np.zeros((len(matching_ids),1,2))
+            # Format points
+            for ic, ch_id in enumerate(matching_ids):
+                # Find the correct corner for the camera and allocate it
+                ip1_idx = np.where(cam_charuco_ids[im][icam1] == ch_id)[0][0]
+                temp_ip1[ic,:,:] = cam_image_points[im][icam1][ip1_idx]
+                ip2_idx = np.where(cam_charuco_ids[im][icam2] == ch_id)[0][0]
+                temp_ip2[ic,:,:] = cam_image_points[im][icam2][ip2_idx]
+            # Append and force float32 otherwise throws errors
+            matching_world_points.append(world_points[matching_ids,:].astype('float32'))
+            matching_image_points1.append(temp_ip1.astype('float32'))
+            matching_image_points2.append(temp_ip2.astype('float32'))
+        
+        stereo_calib_flags = 0
+        # We already know the intrinsics (hopefully) and this allows for fewer points to be used
+        stereo_calib_flags |= cv2.CALIB_FIX_INTRINSIC 
+        criteria = (cv2.TERM_CRITERIA_EPS, 30, 0.001)
+        # Perform stereo calibration with the reference camera
+        reprojection_error, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
+            matching_world_points, matching_image_points1, matching_image_points2,
+            camera_matrices[icam1], distortion_coefficients[icam1],
+            camera_matrices[icam2], distortion_coefficients[icam2],
+            (ncams_config['image_size'][1], ncams_config['image_size'][0]),
+            None, None, None, criteria, stereo_calib_flags)
+    
+        R = cv2.Rodrigues(R)[0] # Convert to vector form for consistency
+        # Allocate to outputs
+        world_locations[icam2] = T
+        world_orientations[icam2] = R
+        
+        calibrated_cameras[icam2] = True
+    
+    # Daisy chain any remaining cameras
+    for l in range(max_links):
+        print('Link '+ str(l + 1) + ':')
+        
+        linkable_matching_points = np.zeros((len(cam_idx), len(cam_idx)))
+        linkable_matching_points.fill(np.nan)
+        for (i,t) in enumerate(calibrated_cameras):
+            if t[0]:
+                linkable_matching_points[i,:] = n_matching_points[i,:]
+        
+        if any(~calibrated_cameras):
+            remaining_camera_idx = [i for (i,t) in enumerate(calibrated_cameras) if not t[0]]
+            for icam2 in remaining_camera_idx:
+                max_points = int(np.nanmax(linkable_matching_points[:,icam2]))
+                if max_points < matching_threshold:
+                    continue
+                
+                icam1 = np.where(linkable_matching_points[:,icam2] == max_points)[0][0]
+                print('\tCamera '+ str(icam1) + ':' + str(icam2))
+            
+                matching_points = np.squeeze(np.logical_and(
+                point_detection_bool[:,:,icam1], point_detection_bool[:,:,icam2]))
+            
+                # Collect the necessary world and image points
+                matching_world_points, matching_image_points1, matching_image_points2 = [],[],[]
+                for im in range(num_images):
+                    matching_ids = np.where(matching_points[:,im])[0]
+                    if len(matching_ids) < 6: # CV2 requires at least 6 points per image, not sure why
+                        continue
+                    # Allocate empty arrays
+                    temp_ip1 = np.zeros((len(matching_ids),1,2))
+                    temp_ip2 = np.zeros((len(matching_ids),1,2))
+                    # Format points
+                    for ic, ch_id in enumerate(matching_ids):
+                        # Find the correct corner for the camera and allocate it
+                        ip1_idx = np.where(cam_charuco_ids[im][icam1] == ch_id)[0][0]
+                        temp_ip1[ic,:,:] = cam_image_points[im][icam1][ip1_idx]
+                        ip2_idx = np.where(cam_charuco_ids[im][icam2] == ch_id)[0][0]
+                        temp_ip2[ic,:,:] = cam_image_points[im][icam2][ip2_idx]
+                    # Append and force float32 otherwise throws errors
+                    matching_world_points.append(world_points[matching_ids,:].astype('float32'))
+                    matching_image_points1.append(temp_ip1.astype('float32'))
+                    matching_image_points2.append(temp_ip2.astype('float32'))
+            
+                stereo_calib_flags = 0
+                # We already know the intrinsics (hopefully) and this allows for fewer points to be used
+                stereo_calib_flags |= cv2.CALIB_FIX_INTRINSIC 
+                criteria = (cv2.TERM_CRITERIA_EPS, 30, 0.001)
+                # Perform stereo calibration with the daisy-chain camera
+                reprojection_error, _, _, _, _, R, T, _, _ = cv2.stereoCalibrate(
+                    matching_world_points, matching_image_points1, matching_image_points2,
+                    camera_matrices[icam1], distortion_coefficients[icam1],
+                    camera_matrices[icam2], distortion_coefficients[icam2],
+                    (ncams_config['image_size'][1], ncams_config['image_size'][0]),
+                    None, None, None, criteria, stereo_calib_flags)
+                
+                R = cv2.Rodrigues(R)[0] # Must be in vector format for composeRT
+        
+                # Adjust the computed R&T relative to the daisy chained camera
+                relR, relT = cv2.composeRT(world_orientations[icam1], world_locations[icam1], R, T)[:2]
+                # Allocate relative values
+                world_locations[icam2] = relT
+                world_orientations[icam2] = relR
+                calibrated_cameras[icam2] = True
+            
+    dicts = {}
+    for icam, serial in enumerate(ncams_config['serials']):
+        dicts[serial] = {
+            'serial': serial,
+            'world_location': world_locations[icam],
+            'world_orientation': world_orientations[icam]
+        }
+    
+    extrinsics_config = {
+        'serials': ncams_config['serials'],
+        'world_locations': world_locations,
+        'world_orientations': world_orientations,
+        'path': ncams_config['extrinsic_path'],
+        'filename': ncams_config['extrinsic_filename'],
+        'dicts': dicts,
+        'estimate_method': 'stereo-sequential'
+    }
+    
+    
+    if show_extrinsics:
+        ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
+    
+    if export_full:
+        camera_io.export_extrinsics(extrinsics_config)
 
 def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
                               relative_rotations, relative_translations):
@@ -810,8 +1022,6 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
     serials = extrinsics_config['serials']
     num_cameras = len(serials)
     
-    world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
-    
     if scale_unit is None:
         if ncams_config['world_units'] == 'mm':
             scale_unit = 100
@@ -844,7 +1054,9 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
         ax.text(np.asscalar(cam_center[0]), np.asscalar(cam_center[1]), np.asscalar(cam_center[2]),
                 'Cam ' + str(serials[icam]))
         
-    ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
+    if extrinsics_config['estimate_method'] == 'one-shot':
+        world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
+        ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
 
     # mpl is weird about maintaining aspect ratios so this has to be done
     ax_min = np.min(np.hstack(cam_verts))
