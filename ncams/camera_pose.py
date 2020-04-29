@@ -11,8 +11,10 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 """
 
 import os
+import sys
 import tkinter
 from tkinter.filedialog import askopenfilename
+from tqdm import tqdm
 
 import numpy as np
 import cv2
@@ -85,7 +87,8 @@ def charuco_board_detector(ncams_config):
     cam_image_points = []
     cam_charuco_ids = []
     # Look at one synced image across cameras and find the points
-    for image in range(num_images):
+    print('Detecting charuco boards:')
+    for image in tqdm(range(num_images), file=sys.stdout, ncols=50):
         im_ids, image_points = [], []  # reset for each image
         for icam, name in enumerate(names):
             # Load the image
@@ -539,9 +542,9 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
     return extrinsics_config
 
 
-def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points, daisy_chain=True,
-                               max_links=3, matching_threshold=250, export_full=True,
-                               show_extrinsics=False):
+def sequential_stereo_estimation(ncams_config, intrinsics_config, cam_image_points, cam_charuco_ids,
+                                 daisy_chain=True, max_links=3, matching_threshold=250,
+                                 export_full=True, show_extrinsics=False):
     ''' Build a network of stereo-calibrations by iteratively calibrating cameras whilst maintaining
     world origin.
 
@@ -601,6 +604,9 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
     # Prepare outputs
     world_locations = [[] for _ in range(num_cameras)]
     world_orientations = [[] for _ in range(num_cameras)]
+    calibration_text = [[] for _ in range(num_cameras)]
+    calibration_pairs = []
+    calibration_text[ireference_cam] = ireference_cam
     
     world_locations[ireference_cam] = np.zeros((3,1))
     world_orientations[ireference_cam] = np.zeros((3,1))
@@ -640,12 +646,14 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
     
     # First we try and stereo-calibrate every camera with the primary camera
     icam1 = ireference_cam
-    print('Calibrating with reference camera: '+ str(icam1))
+    print('Calibrating with reference camera ('+ str(icam1) + '):')
     for icam2 in isecondary_cams:
         if n_matching_points[icam1, icam2] < matching_threshold:
             continue
     
-        print('\tCamera '+ str(icam2))
+        link_text = str(icam1) + ' - ' + str(icam2)
+        calibration_text[icam2] = link_text
+        print('\tCamera '+ link_text)
         
         matching_points = np.squeeze(np.logical_and(
             point_detection_bool[:,:,icam1], point_detection_bool[:,:,icam2]))
@@ -687,11 +695,20 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
         # Allocate to outputs
         world_locations[icam2] = T
         world_orientations[icam2] = R
+        calibration_pairs.append([icam1, icam2])
         
         calibrated_cameras[icam2] = True
     
     # Daisy chain any remaining cameras
+    link_success = True
     for l in range(max_links):
+        if not link_success:
+            print('\tNo more cameras could be linked.')
+            break
+        
+        link_success = False
+        if not any(~calibrated_cameras):
+            continue
         print('Link '+ str(l + 1) + ':')
         
         linkable_matching_points = np.zeros((len(cam_idx), len(cam_idx)))
@@ -708,8 +725,11 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
                     continue
                 
                 icam1 = np.where(linkable_matching_points[:,icam2] == max_points)[0][0]
-                print('\tCamera '+ str(icam1) + ':' + str(icam2))
-            
+                link_text = calibration_text[icam1] + ' - ' + str(icam2)
+                calibration_text[icam2] = link_text
+                print('\tCamera '+ link_text)
+                link_success = True
+                
                 matching_points = np.squeeze(np.logical_and(
                 point_detection_bool[:,:,icam1], point_detection_bool[:,:,icam2]))
             
@@ -754,6 +774,9 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
                 world_locations[icam2] = relT
                 world_orientations[icam2] = relR
                 calibrated_cameras[icam2] = True
+                calibration_pairs.append([icam1, icam2])
+                
+    print('{} of {} cameras calibrated.'.format(np.sum(calibrated_cameras), num_cameras))
             
     dicts = {}
     for icam, serial in enumerate(ncams_config['serials']):
@@ -770,15 +793,18 @@ def sequential_pose_estimation(ncams_config, intrinsics_config, cam_image_points
         'path': ncams_config['extrinsic_path'],
         'filename': ncams_config['extrinsic_filename'],
         'dicts': dicts,
-        'estimate_method': 'stereo-sequential'
+        'estimate_method': 'stereo-sequential',
+        'calibration_pairs': calibration_pairs,
+        'calibration_chain': calibration_text
     }
     
-    
     if show_extrinsics:
-        ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
+        plot_extrinsics(extrinsics_config, ncams_config)
     
     if export_full:
         camera_io.export_extrinsics(extrinsics_config)
+        
+    return extrinsics_config
 
 def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
                               relative_rotations, relative_translations):
@@ -1040,6 +1066,8 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
     # Keep the verts for setting the axes later
     cam_verts = [[] for _ in range(num_cameras)]
     for icam in range(num_cameras):
+        if world_orientations[icam] == [] or world_locations[icam] == []:
+            continue
         # Get the vertices to plot appropriate to the translation and rotation
         cam_verts[icam], cam_center = create_camera(
             scale_unit=scale_unit,
@@ -1051,16 +1079,22 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
             cam_verts[icam], facecolors='C'+str(icam), linewidths=1, edgecolors='k', alpha=1))
 
         # Give each camera a label
+        cam_serial = serials[icam]
+        if cam_serial == ncams_config['reference_camera_serial']:
+            text_color = 'b'
+        else:
+            text_color = 'k'
         ax.text(np.asscalar(cam_center[0]), np.asscalar(cam_center[1]), np.asscalar(cam_center[2]),
-                'Cam ' + str(serials[icam]))
+                'Cam ' + str(cam_serial), color=text_color)
         
     if extrinsics_config['estimate_method'] == 'one-shot':
         world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
         ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
 
     # mpl is weird about maintaining aspect ratios so this has to be done
-    ax_min = np.min(np.hstack(cam_verts))
-    ax_max = np.max(np.hstack(cam_verts))
+    temp_verts = [i for i in cam_verts if not i == []]
+    ax_min = np.min(np.hstack(temp_verts))
+    ax_max = np.max(np.hstack(temp_verts))
 
     # Set the axes and viewing angle
     # Note that this is reversed so that the cameras are looking towards us
