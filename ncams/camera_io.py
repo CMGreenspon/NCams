@@ -273,8 +273,11 @@ def export_extrinsics(extrinsic_config, path=None, filename=None):
     if not os.path.isdir(out_dict['path']):
         os.mkdir(out_dict['path'])
 
-    with open(os.path.join(out_dict['path'], out_dict['filename']), 'wb') as f:
+    fname = os.path.join(out_dict['path'], out_dict['filename'])
+    with open(fname, 'wb') as f:
         pickle.dump(out_dict, f)
+        
+    print('Extrinsics exported to: "' + fname + '"')
 
 
 def import_extrinsics(ncams_config):

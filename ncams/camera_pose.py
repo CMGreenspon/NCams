@@ -523,11 +523,13 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
             'world_orientation': world_orientations[icam]
         }
 
+    extrinsic_path = os.path.join(ncams_config['setup_path'], ncams_config['extrinsic_path'])
+    
     extrinsics_config = {
         'serials': ncams_config['serials'],
         'world_locations': world_locations,
         'world_orientations': world_orientations,
-        'path': ncams_config['extrinsic_path'],
+        'path': extrinsic_path,
         'filename': ncams_config['extrinsic_filename'],
         'dicts': dicts,
         'estimate_method': 'common'
@@ -786,14 +788,16 @@ def sequential_stereo_estimation(ncams_config, intrinsics_config, cam_image_poin
             'world_orientation': world_orientations[icam]
         }
     
+    extrinsic_path = os.path.join(ncams_config['setup_path'], ncams_config['extrinsic_path'])
+
     extrinsics_config = {
         'serials': ncams_config['serials'],
         'world_locations': world_locations,
         'world_orientations': world_orientations,
-        'path': ncams_config['extrinsic_path'],
+        'path':extrinsic_path,
         'filename': ncams_config['extrinsic_filename'],
         'dicts': dicts,
-        'estimate_method': 'stereo-sequential',
+        'estimate_method': 'sequential-stereo',
         'calibration_pairs': calibration_pairs,
         'calibration_chain': calibration_text
     }
@@ -1030,7 +1034,7 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
         axs[vert_ind, horz_ind].set_yticks([])
     
 
-def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
+def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None, show_links=True):
     '''Creates a plot showing the location and orientation of all cameras.
 
     Creates a plot showing the location and orientation of all cameras given based on translation
@@ -1048,6 +1052,9 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
     serials = extrinsics_config['serials']
     num_cameras = len(serials)
     
+    if extrinsics_config['estimate_method'] == 'sequential-stereo' and show_links:
+        calibration_pairs = np.vstack(extrinsics_config['calibration_pairs'])
+    
     if scale_unit is None:
         if ncams_config['world_units'] == 'mm':
             scale_unit = 100
@@ -1063,30 +1070,45 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None):
     fig.canvas.set_window_title('NCams: Camera Extrinsics')
     ax = fig.gca(projection='3d')
 
-    # Keep the verts for setting the axes later
+    # Get the verts and centers
     cam_verts = [[] for _ in range(num_cameras)]
+    cam_centers = [[] for _ in range(num_cameras)]
     for icam in range(num_cameras):
         if world_orientations[icam] == [] or world_locations[icam] == []:
             continue
-        # Get the vertices to plot appropriate to the translation and rotation
-        cam_verts[icam], cam_center = create_camera(
+        
+        cam_verts[icam], cam_centers[icam] = create_camera(
             scale_unit=scale_unit,
             rotation_vector=world_orientations[icam],
             translation_vector=world_locations[icam])
+    
+    # Plot them
+    for icam in range(num_cameras):
+        if cam_verts[icam] == [] or cam_centers[icam] == []:
+            continue
+        
+        cam_serial = serials[icam]
+        # Add edges/links to show how extrinsics were calculated if sequential-stereo
+        if extrinsics_config['estimate_method'] == 'sequential-stereo' and show_links:
+            if not cam_serial == ncams_config['reference_camera_serial']:
+                p_idx = np.where(calibration_pairs[:,1] == icam)[0][0]
+                xyz = np.vstack([cam_centers[calibration_pairs[p_idx,0]],
+                                 cam_centers[calibration_pairs[p_idx,1]]])
+                ax.plot(xyz[:,0], xyz[:,1], xyz[:,2], c='k')
 
-        # Plot it and change the color according to it's number
+        # Add the camera body
         ax.add_collection3d(Poly3DCollection(
             cam_verts[icam], facecolors='C'+str(icam), linewidths=1, edgecolors='k', alpha=1))
 
         # Give each camera a label
-        cam_serial = serials[icam]
         if cam_serial == ncams_config['reference_camera_serial']:
             text_color = 'b'
         else:
             text_color = 'k'
-        ax.text(np.asscalar(cam_center[0]), np.asscalar(cam_center[1]), np.asscalar(cam_center[2]),
-                'Cam ' + str(cam_serial), color=text_color)
-        
+        ax.text(np.asscalar(cam_centers[icam][0]), np.asscalar(cam_centers[icam][1]),
+                np.asscalar(cam_centers[icam][2]), 'Cam ' + str(cam_serial), color=text_color)
+    
+    # Add the charucoboard if one-shot was used
     if extrinsics_config['estimate_method'] == 'one-shot':
         world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
         ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
