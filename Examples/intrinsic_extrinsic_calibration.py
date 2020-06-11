@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb 12 15:57:53 2020
-
-@author: somlab
-"""
-
-
 """
 NCams Toolbox
 Copyright 2019 Charles M Greenspon, Anton Sobinov
@@ -17,8 +9,9 @@ The steps taken are as follows:
     1. Creating an ncams_config dictionary
     2. Creation of a charucoboard to use for calibration
     3. Camera intrinsic calibration and inspection
-    4a. Camera pose estimation and inspection (one-shot-multiPnP)
-    4b. Camera pose estimation and inspection (sequential-stereo)
+    4. Camera extrinsic estimation and inspection
+        4a. One-shot multi PnP
+        4b. Sequential-stereo
     5. Loading an existing setup
     
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
@@ -52,10 +45,11 @@ ncams_config = {
     'extrinsic_filename': 'extrinsic_calib.pickle',
 }
 
-ncams.camera_io.config_to_yaml(ncams_config)
+ncams.camera_io.config_to_yaml(ncams_config) # Export the config
 
 #%% 2. Create a board for calibration purposes
 ncams.camera_tools.create_board(ncams_config, output=True, output_format='jpg', plotting=True)
+# Note that this function will create a checkerboard or charucoboard depending on the ncams_config
 ''' The charucoboard may be printed on a piece of paper though the scaling for this is not 
 guaranteed to be accurate. If this is desired then set the output format to pdf. Otherwise,
 we recommend printing the image on metal with a matte coating (satin) to prevent glare. We do not
@@ -90,12 +84,12 @@ intrinsics_config = ncams.camera_calibration.multi_camera_intrinsic_calibration(
     ncams_config, override=False, inspect=False, export_full=True, verbose=True)
 # Equivalent of inspect=True
 ncams.camera_calibration.inspect_intrinsics(ncams_config, intrinsics_config)
-#%% 4a. Extrinsic calibration - one_shot_multi_PnP
 
+#%% 4a. Extrinsic calibration: one_shot_multi_PnP
 '''
 If all cameras have an overlapping view then it is possible to determine their relative locations
 from a single synchronized image. If this is not the case one must use 'sequential_stereo' extrinsic
-calibration instead. When this function is called it assumes that the extrinsic path has no sub-
+calibration instead (4b). When this function is called it assumes that the extrinsic path has no sub-
 directories and only has one image for each camera:
 Setup path
     extrinsic_path
@@ -105,15 +99,36 @@ Setup path
         camN_image
 '''
 
+ncams_config['extrinsic_path'] = 'pose_estimation_OS'
+
 extrinsics_config, extrinsics_info = ncams.camera_pose.one_shot_multi_PnP(
-    ncams_config, intrinsics_config, export_full=True, show_poses=False, inspect=False,
+    ncams_config, intrinsics_config, export_full=True, show_extrinsics=False, inspect=False,
     ch_ids_to_ignore=None)
-# Equivalent of inspect=True and show_poses=True
+# Equivalent of inspect=True and show_extrinsics=True
 ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
 ncams.camera_pose.inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config,
                                      extrinsics_info, error_threshold=0.1, world_points=None)
 
-#%% 4b. Extrinsic calibration - stereo-sequential
+#%% 4b. Extrinsic calibration: sequential-stereo
+'''
+When all cameras do not have a shared view of a planar board - for example they are facing each 
+other - their relative poses cannot be computed in a single step without a 3D calibration object.
+Instead, if multiple adjacent cameras have a shared view (each camera shares a view with 2 others) 
+then the relative positions between each pair of cameras can be combined. This, however, comes with
+the risk of accumulating errors in the relative position. Consequently, the fewer links needed to 
+determine the relative position between the reference camera and all other cameras the better.
+Therefor it is ideal to use a central camera as the reference camera.
+'''
+ncams_config['extrinsic_path'] = 'pose_estimation_stereo'
+ncams_config['reference_camera_serial'] = 19335177
+
+cam_image_points, cam_charuco_ids = ncams.camera_pose.charuco_board_detector(ncams_config)
+
+extrinsics_config = ncams.camera_pose.sequential_stereo_estimation(
+    ncams_config, intrinsics_config, cam_image_points, cam_charuco_ids, daisy_chain=True,
+    max_links=3, matching_threshold=1250, export_full=True, show_extrinsics=False)
+ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
+
 
 #%% 5. Loading an existing setup
 # Path of the ncams dictionary as described/created in (1)

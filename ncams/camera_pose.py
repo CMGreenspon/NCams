@@ -178,25 +178,6 @@ def checkerboard_detector(ncams_config):
     return cam_board_logit, cam_image_points
 
 
-#################### Automated calibration
-def multi_camera_pose_estimation(ncams_config, show_poses=True):
-    '''[Short description]
-
-    [Long description]
-
-    Arguments:
-        []
-    Keyword Arguments:
-        []
-    Output:
-        []
-    '''
-    raise NotImplementedError
-    num_cameras = len(ncams_config['camera_names'])
-    if num_cameras == 1:
-        raise Exception('Only one camera present, pose cannot be calculated with this function.')
-        return []
-
 
 #################### Pose estimation methods
 def get_world_pose(image, image_size, charuco_dict, charuco_board, world_points, camera_matrix,
@@ -370,7 +351,7 @@ def one_shot_multi_PnP(ncams_config, intrinsics_config, export_full=True, show_e
 
 
 def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, detection_logit,
-                           export_full=True, show_extrinsics=False):
+                           export_full=True, show_extrinsics=False, common_point_threshold=50):
     '''Position estimation based on frames from multiple cameras simultaneously.
 
     If there are sufficient shared world points across all cameras then camera pose can
@@ -417,6 +398,9 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
     num_cameras = len(ncams_config['serials'])
     camera_matrices = intrinsics_config['camera_matrices']
     distortion_coefficients = intrinsics_config['distortion_coefficients']
+    
+    if common_point_threshold < 30:
+        raise NotImplementedError('At least 30 points are required for estimation of extrinsics.')
 
     # Determine the reference camera
     ireference_cam = ncams_config['serials'].index(ncams_config['reference_camera_serial'])
@@ -461,8 +445,10 @@ def common_pose_estimation(ncams_config, intrinsics_config, cam_image_points, de
     elif ncams_config['board_type'] == 'checkerboard':
         raise NotImplementedError
     
-    if common_point_counter < 50:
-        print('Insufficent matching points for common pose estimation, consider sequential stereo.')
+    if common_point_counter < common_point_threshold:
+        print('Common points = ' + str(common_point_counter))
+        print('Insufficent matching points for common pose estimation, consider sequential-stereo' + 
+              ' or taking more images.')
         return []
 
     # Get the optimal matrices and undistorted points for the reference and secondary cam
@@ -906,9 +892,11 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
     distortion_coefficients = intrinsics_config['distortion_coefficients']
     world_locations = extrinsics_config['world_locations']
     world_orientations = extrinsics_config['world_orientations']
+    
     # Use world_points as ground truth
     if world_points is None: # Allows for user to pass arbitrary world points if desired
         world_points = camera_tools.create_world_points(ncams_config)
+        
     # Make projection matrices for triangulation
     projection_matrices = []
     optimal_matrices = []
@@ -1038,14 +1026,23 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None, show_links
     '''Creates a plot showing the location and orientation of all cameras.
 
     Creates a plot showing the location and orientation of all cameras given based on translation
-    and rotation vectors. If your cameras are very close together or far apart you can change the
-    scaling factor as necessary.
+    and rotation vectors. Useful for confirming if the extrinsic calibration was successful. If
+    cameras are very close together or far apart you can change the scaling factor as necessary.
 
     Arguments:
         extrinsics_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             serials {list of numbers} -- list of camera serials.
             world_locations {list of np.arrays} -- world locations of each camera.
             world_orientations {list of np.arrays} -- world orientation of each camera.
+        ncams_config {dict} -- must contain the following keys:
+            scale_unit {str} -- indicates what units to use - helpful for scaling the plot.
+            reference_camera_serial {int} -- for color coding the reference camera and drawing links.
+    
+    Keyword Arguments:
+        scale_unit {int} -- the scaling factor for the camera bodies. Inherited from ncams_config
+            but can be overridden if desired. (default: None). Default scaling is decimeters so a 
+            scale unit of 100 gives mm, 10 gives cm, 0.1 = m. Note that as this is only for sanity 
+            checking changing this will only alter relative sizes.
     '''
     world_locations = extrinsics_config['world_locations']
     world_orientations = extrinsics_config['world_orientations']
@@ -1108,7 +1105,7 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None, show_links
         ax.text(np.asscalar(cam_centers[icam][0]), np.asscalar(cam_centers[icam][1]),
                 np.asscalar(cam_centers[icam][2]), 'Cam ' + str(cam_serial), color=text_color)
     
-    # Add the charucoboard if one-shot was used
+    # Add the board if one-shot was used
     if extrinsics_config['estimate_method'] == 'one-shot':
         world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
         ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
@@ -1123,7 +1120,10 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None, show_links
     ax.set_xlim([ax_max, ax_min])
     ax.set_ylim([ax_min, ax_max])
     ax.set_zlim([ax_min, ax_max])
-    ax.view_init(elev=105, azim=-90)
+    if extrinsics_config['estimate_method'] == 'one-shot':
+        ax.view_init(elev=90, azim=-90)
+    else:
+        ax.view_init(elev=-90, azim=90)
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')
