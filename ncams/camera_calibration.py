@@ -304,7 +304,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
             # In some instances a 'NoneType' is produced - this causes issues
             if isinstance(charuco_corners, np.ndarray):
                 # If there are too few points this also won't work
-                if len(charuco_corners[:, 0, 0]) > 4:
+                if len(charuco_corners[:, 0, 0]) > 5:
                     # Append values
                     ch_ids.append(charuco_ids)
                     image_points.append(charuco_corners)
@@ -326,6 +326,8 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
      ) = cv2.aruco.calibrateCameraCharuco(
          image_points, ch_ids, charuco_board, (img_width, img_height), principal_point_init,
          None, flags=calib_flags)
+         
+    reprojection_error = np.round(reprojection_error,5)
 
     # Check output format - seems to be version dependent
     if isinstance(camera_matrix, cv2.UMat):
@@ -374,8 +376,8 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
     num_markers = (board_dim[0]-1) * (board_dim[1]-1)
     # Get layout of output array
     num_cameras = len(serials)
-    num_horz_plots = int(np.floor(np.sqrt(num_cameras)))
-    num_vert_plots = int(np.ceil(num_cameras/num_horz_plots))
+    num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
+    num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
 
     fig, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
     fig.canvas.set_window_title('NCams: Calibration inspection')
@@ -469,9 +471,10 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
         cat_image = np.concatenate((example_image_annotated, padding, undistorted_image_annotated),
                                    axis=1)
 
-        # Plot it
+        # Plot it        
         vert_ind = int(np.floor(icam / num_horz_plots))
         horz_ind = icam - num_horz_plots * vert_ind
+        
         axs[vert_ind, horz_ind].imshow(cat_image)
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
             cam_name, intrinsics_config['dicts'][serial]['reprojection_error']))
