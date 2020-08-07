@@ -1108,7 +1108,7 @@ def plot_extrinsics(extrinsics_config, ncams_config, scale_unit=None, show_links
     # Add the board if one-shot was used
     if extrinsics_config['estimate_method'] == 'one-shot':
         world_points = np.squeeze(camera_tools.create_world_points(ncams_config))
-        ax.scatter(world_points[:,0],world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
+        ax.scatter(-world_points[:,0],-world_points[:,1],world_points[:,2], c='k', marker='s', alpha=1)
 
     # mpl is weird about maintaining aspect ratios so this has to be done
     temp_verts = [i for i in cam_verts if not i == []]

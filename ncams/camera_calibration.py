@@ -24,7 +24,7 @@ from . import camera_tools
 
 
 def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=False, export_full=True,
-                             verbose=False):
+                             verbose=False, export_marked_images=False):
     '''Computes distortion coefficients from automatically selected images.
 
     This will go to the specified path and for each camera isolate the images necessary for
@@ -107,6 +107,8 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
     reprojection_errors = []  # Reprojection errors
     camera_matrices = []  # Intrinsic camera parameters
     distortion_coefficients = []  # Distortion coefficients
+    calibration_images = [] # File paths for each cameras images
+    detected_markers = [] # Number of detected points in each image
     dicts = {}
 
     # Preliminary stuff
@@ -185,16 +187,19 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
                     # Create the board - world points included
                     charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
                     # Run the calibration:
-                    (reprojection_error, camera_matrix,
-                     cam_distortion_coefficients) = charuco_calibration(
-                        cam_image_list, charuco_dict, charuco_board, verbose)
+                    (reprojection_error, camera_matrix, cam_distortion_coefficients,
+                     detected_points) = charuco_calibration(cam_image_list, charuco_dict,
+                                                            charuco_board, verbose,
+                                                            export_marked_images)
 
             # Export them to the camera folder in a readable format
             camera_calib_dict = {
                 'serial': serial,
                 'distortion_coefficients': cam_distortion_coefficients,
                 'camera_matrix': camera_matrix,
-                'reprojection_error': reprojection_error
+                'reprojection_error': reprojection_error,
+                'calibration_images': cam_image_list,
+                'detected_markers': detected_points,
             }
             camera_io.intrinsic_to_yaml(cam_calib_filename, camera_calib_dict)
 
@@ -203,15 +208,19 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
         distortion_coefficients.append(cam_distortion_coefficients)
         camera_matrices.append(camera_matrix)
         dicts[serial] = camera_calib_dict
+        calibration_images.append(cam_image_list)
+        detected_markers.append(detected_points)
 
     intrinsics_config = {
         'serials': serials,
         'distortion_coefficients': distortion_coefficients,
         'camera_matrices': camera_matrices,
-        'reprojection_errors': reprojection_errors,
+        'reprojection_errors': np.vstack(reprojection_errors),
         'path': calib_dir,
         'filename': ncams_config['intrinsic_filename'],
-        'dicts': dicts
+        'dicts': dicts,
+        'calibration_images': calibration_images,
+        'detected_markers': detected_markers
     }
 
     print('* Calibration complete.')
@@ -263,10 +272,13 @@ def checkerboard_calibration(cam_image_list, board_dim, world_points):
     # Calibrate
     reprojection_error, camera_matrix, distortion_coefficients, _, _ = cv2.calibrateCamera(
         object_points, image_points, (img_width, img_height), None, None)
+    reprojection_error = np.array([np.around(reprojection_error,5)])
+    
     return reprojection_error, camera_matrix, distortion_coefficients
 
 
-def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=False):
+def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
+                        export_marked_images=False, verbose=False):
     '''Calibrates cameras using a charuco board.
 
     Attempts to find the given charucoboard in each image and performs the basic calibration. It is
@@ -285,7 +297,15 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
     # Initalize
     ch_ids = []  # charuco ID list
     image_points = []  # x,y coordinates of charuco corners
+    detected_points = np.zeros((1, len(cam_image_list)), dtype = int)
     board_logit = np.zeros((1, len(cam_image_list)), dtype = bool)
+    
+    if export_marked_images:
+        header_path = os.path.split(cam_image_list[0])[0]
+        cam_path =  os.path.split(header_path)[1]
+        image_export_dir = os.path.join(header_path, cam_path + '_marked_images')
+        if not os.path.exists(image_export_dir):
+            os.mkdir(image_export_dir)
 
     calib_flags = 0
     calib_flags |= cv2.CALIB_USE_INTRINSIC_GUESS
@@ -295,7 +315,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
     for im, im_name in enumerate(cam_image_list):
         img = cv2.imread(im_name, 0) # Load as grayscale
         # Detect the aruco markers and get IDs
-        corners, ids, _ = cv2.aruco.detectMarkers(img, charuco_dict)
+        corners, ids, rej_points = cv2.aruco.detectMarkers(img, charuco_dict)
         if ids is not None:  # Only try to find corners if markers were detected
             board_logit[0, im] = True # Keep track of detections
             # Find the corners and IDs
@@ -303,6 +323,13 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
                 corners, ids, img, charuco_board)
             # In some instances a 'NoneType' is produced - this causes issues
             if isinstance(charuco_corners, np.ndarray):
+                detected_points[0,im] = len(charuco_corners)
+                if export_marked_images:
+                    example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
+                                    img, charuco_corners)
+                    image_fullpath = os.path.join(image_export_dir, os.path.split(im_name)[1])
+                    cv2.imwrite(image_fullpath,example_image_annotated)
+                    
                 # If there are too few points this also won't work
                 if len(charuco_corners[:, 0, 0]) > 5:
                     # Append values
@@ -327,7 +354,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
          image_points, ch_ids, charuco_board, (img_width, img_height), principal_point_init,
          None, flags=calib_flags)
          
-    reprojection_error = np.round(reprojection_error,5)
+    reprojection_error = np.array([np.around(reprojection_error,5)])
 
     # Check output format - seems to be version dependent
     if isinstance(camera_matrix, cv2.UMat):
@@ -337,13 +364,14 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board, verbose=Fal
 
     # Indicate to the user if a likely error ocurred during the calibration
     if np.sum(distortion_coefficients, 1) == 0:
-        print('-> No distortion detected. Calibration has likely failed.')
+        print('-> No distortion detected. Calibration may have failed.')
     elif np.abs(distortion_coefficients[0, 4]) > 0.5:
         print('-> There may be a fisheye effect. Inspect the calibration.')
-    elif reprojection_error > 1:
-        print('-> The reprojection error is high. Please inspect the calibration.')
+        
+    if reprojection_error > 1:
+        print('-> The reprojection error is high. Inspect the calibration.')
 
-    return reprojection_error, camera_matrix, distortion_coefficients
+    return reprojection_error, camera_matrix, distortion_coefficients, detected_points
 
 
 def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
@@ -376,8 +404,9 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
     num_markers = (board_dim[0]-1) * (board_dim[1]-1)
     # Get layout of output array
     num_cameras = len(serials)
-    num_vert_plots = int(np.floor(np.sqrt(num_cameras)))
+    num_vert_plots = int(np.ceil(np.sqrt(num_cameras)))
     num_horz_plots = int(np.ceil(num_cameras/num_vert_plots))
+    num_axes = num_vert_plots * num_horz_plots
 
     fig, axs = mpl_pp.subplots(num_vert_plots, num_horz_plots, squeeze=False)
     fig.canvas.set_window_title('NCams: Calibration inspection')
@@ -401,73 +430,67 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
         dist_coeffs = intrinsics_config['dicts'][serial]['distortion_coefficients']
 
         image_list = utils.get_image_list(path=cam_calib_dir)
-        num_markers_images = [-np.inf for _ in image_list]
+        num_markers_images = intrinsics_config['dicts'][serial]['detected_markers']
 
-        board_in_image = False
-        idx = 0
-        while not board_in_image:
-            if image_index is None:
-                image_ind = idx
-                if image_ind >= len(image_list):
-                    #print('Full board not found. Using the image with most markers.')
-                    image_index = num_markers_images.index(max(num_markers_images))
-                    image_ind = image_index
-                    idx = image_index
-            else:
-                image_ind = image_index  # user-selected image
-            example_image = matplotlib.image.imread(image_list[image_ind])
+        image_ind = 0
+        if image_index is None and board_type == 'charuco':
+            image_ind = np.where(num_markers_images == np.amax(num_markers_images))[1][0]
+        else:
+            image_ind = image_index  # user-selected image
+            
+        example_image = matplotlib.image.imread(image_list[image_ind])
 
-            if board_type == 'charuco':
-                # Detect the markers
-                charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
-                corners, ids, rejected_points = cv2.aruco.detectMarkers(example_image, charuco_dict)
-                if ids is not None:
-                    # Find the checkerboard corners
-                    _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
-                        corners, ids, example_image, charuco_board)
-                    if isinstance(example_corners, np.ndarray):
-                        # Lets only use images with all corners detected
-                        num_markers_images[idx] = len(example_corners)
-                        if len(example_corners) >= num_markers or image_index is not None:
-                            board_in_image = True
-                            # Annotate example image
-                            example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
-                                example_image, example_corners)
-                            # Undistort the corners and image
-                            undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
-                                                                      dist_coeffs, P=cam_mat)
-                            undistorted_image = image_tools.undistort_image(
-                                example_image, intrinsics_config['dicts'][serial])
-                            undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
-                                undistorted_image, undistorted_corners)
-                        elif image_index is not None:
-                            print(' - Board not detected in requested image')
-                            example_image_annotated = np.zeros(example_image.shape)
-                            undistorted_image_annotated = np.zeros(example_image.shape)
-                            board_in_image = True
+        if board_type == 'charuco':
+            # Detect the markers
+            charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
+            corners, ids, rejected_points = cv2.aruco.detectMarkers(example_image, charuco_dict)
+            if ids is not None:
+                # Find the checkerboard corners
+                _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
+                    corners, ids, example_image, charuco_board)
+                if isinstance(example_corners, np.ndarray):
+                    # Lets only use images with all corners detected
+                    if len(example_corners) >= num_markers or image_index is not None:
+                        # Annotate example image
+                        example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
+                            example_image, example_corners)
+                        # Undistort the corners and image
+                        undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
+                                                                  dist_coeffs, P=cam_mat)
+                        undistorted_image = image_tools.undistort_image(
+                            example_image, intrinsics_config['dicts'][serial])
+                        undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
+                            undistorted_image, undistorted_corners)
+                    elif image_index is not None:
+                        print(' - Board not detected in requested image')
+                        example_image_annotated = np.zeros(example_image.shape)
+                        undistorted_image_annotated = np.zeros(example_image.shape)
 
-            elif board_type == 'checkerboard':
-                # Analyze the images to get checkerboard corners
-                board_logit, corners = cv2.findChessboardCorners(
-                    example_image, (board_dim[0]-1, board_dim[1]-1), None)
-                # If a checkerboard was found then append the image points variable for calibration
-                if board_logit:
-                    board_in_image = True
-                    example_image_annotated = cv2.drawChessboardCorners(
-                        example_image, (board_dim[0]-1, board_dim[1]-1), corners, board_logit)
-                    undistorted_corners = cv2.undistortPoints(
-                        corners, cam_mat, dist_coeffs, P=cam_mat)
-                    undistorted_image = image_tools.undistort_image(
-                        example_image, intrinsics_config['dicts'][serial])
-                    undistorted_image_annotated = cv2.drawChessboardCorners(
-                        undistorted_image, (board_dim[0]-1, board_dim[1]-1), undistorted_corners,
-                        board_logit)
-            idx += 1
+        elif board_type == 'checkerboard':
+            # Analyze the images to get checkerboard corners
+            board_logit, corners = cv2.findChessboardCorners(
+                example_image, (board_dim[0]-1, board_dim[1]-1), None)
+            # If a checkerboard was found then append the image points variable for calibration
+            if board_logit:
+                example_image_annotated = cv2.drawChessboardCorners(
+                    example_image, (board_dim[0]-1, board_dim[1]-1), corners, board_logit)
+                undistorted_corners = cv2.undistortPoints(
+                    corners, cam_mat, dist_coeffs, P=cam_mat)
+                undistorted_image = image_tools.undistort_image(
+                    example_image, intrinsics_config['dicts'][serial])
+                undistorted_image_annotated = cv2.drawChessboardCorners(
+                    undistorted_image, (board_dim[0]-1, board_dim[1]-1), undistorted_corners,
+                    board_logit)
 
         # Make the combined image
-        padding = np.ones((example_image.shape[0],
-                           int(np.floor(example_image.shape[1])/10), example_image.shape[2]),
-                          dtype=np.int8) * 255
+        if len(example_image.shape) == 3:
+            padding = np.ones((example_image.shape[0],
+                               int(np.floor(example_image.shape[1])/10), example_image.shape[2]),
+                              dtype=np.int8) * 255
+        else:
+            padding = np.ones((example_image.shape[0],
+                               int(np.floor(example_image.shape[1])/10)),dtype=np.int8) * 255
+                
         cat_image = np.concatenate((example_image_annotated, padding, undistorted_image_annotated),
                                    axis=1)
 
@@ -477,6 +500,10 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
         
         axs[vert_ind, horz_ind].imshow(cat_image)
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
-            cam_name, intrinsics_config['dicts'][serial]['reprojection_error']))
+            cam_name, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
         axs[vert_ind, horz_ind].set_xticks([])
         axs[vert_ind, horz_ind].set_yticks([])
+        
+    if num_axes > num_cameras:
+        for i in range(num_axes - num_cameras):
+            axs.flat[-(i+1)].set_visible(False)

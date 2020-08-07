@@ -234,12 +234,18 @@ def import_intrinsics(ncams_config):
             _intrinsic_config['camera_matrices'][idx])
         intrinsic_config['reprojection_errors'].append(
             _intrinsic_config['reprojection_errors'][idx])
+        intrinsic_config['calibration_images'].append(
+            _intrinsic_config['calibration_images'][idx])
+        intrinsic_config['detected_markers'].append(
+            _intrinsic_config['detected_markers'][idx])
 
         intrinsic_config['dicts'][serial] = {
             'serial': serial,
             'distortion_coefficients': _intrinsic_config['distortion_coefficients'][idx],
             'camera_matrix': _intrinsic_config['camera_matrices'][idx],
-            'reprojection_error': _intrinsic_config['reprojection_errors'][idx]
+            'reprojection_error': _intrinsic_config['reprojection_errors'][idx],
+            'detected_markers': _intrinsic_config['detected_markers'][idx],
+            'calibration_images': _intrinsic_config['calibration_images'][idx]
         }
 
     return intrinsic_config

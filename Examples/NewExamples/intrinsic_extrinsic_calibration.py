@@ -13,6 +13,7 @@ The steps taken are as follows:
         4a. One-shot multi PnP
         4b. Sequential-stereo
     5. Loading an existing setup
+    6. Calibrating an individual camera
     
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
@@ -20,6 +21,8 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 import ncams
 import os
 import time
+import numpy as np
+import cv2
 
 # Replace this with your working directory
 #BASE_DIR = os.path.join('C:\\', 'GitHub', 'NCams', 'PublicExample') 
@@ -140,3 +143,26 @@ intrinsics_config, extrinsics_config = ncams.camera_io.load_calibrations(ncams_c
 # See if the imported calibrations are sensible
 ncams.camera_calibration.inspect_intrinsics(ncams_config, intrinsics_config)
 ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
+
+
+#%% 6. Calibrating an individual camera
+# Create a config for that camera
+config = {
+    'image_size': (1080, 1440),  # height x width 
+    # Board information
+    'board_type': 'charuco',  # charuco (preferred) or checkerboard
+    'board_dim': [6, 8],  # If this is incorrect it will cause analyses to freeze or huge errors
+    'check_size': 40, # Size of the checks in mm, essential for accurate 3D reconstructions
+    'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
+    'setup_path': BASE_DIR, # Where to store this configuration
+}
+# Create a board using the config info
+charuco_dict, charuco_board, _ = ncams.camera_tools.create_board(config)
+# Declare the path of the calibration images and get their paths
+calibration_image_path = r'C:\Users\somlab\Desktop\FLIRTesting\SR\Calibration\calibration_2020_08_05\intrinsic\cam19194009'
+cam_image_list = ncams.utils.get_image_list(calibration_image_path)
+# Calibrate with those images
+reprojection_error, camera_matrix, distortion_coefficients, detected_points = ncams.camera_calibration.charuco_calibration(
+    cam_image_list, charuco_dict, charuco_board)
+
+print(reprojection_error)
