@@ -368,8 +368,10 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
     elif np.abs(distortion_coefficients[0, 4]) > 0.5:
         print('-> There may be a fisheye effect. Inspect the calibration.')
         
-    if reprojection_error > 1:
+    if reprojection_error[0] > 1:
         print('-> The reprojection error is high. Inspect the calibration.')
+        # Optional view of imagepoints to see where lacking points might be
+        # INCOMPLETE
 
     return reprojection_error, camera_matrix, distortion_coefficients, detected_points
 
@@ -507,3 +509,27 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
     if num_axes > num_cameras:
         for i in range(num_axes - num_cameras):
             axs.flat[-(i+1)].set_visible(False)
+
+
+def show_image_point_heatmap(image_size, image_points, long_ax_bins=16): #INCOMPLETE
+    image_points = np.vstack(image_points)
+    image_points = np.reshape(image_points, (image_points.shape[0], 2))
+    
+    short_ax_bins = int(np.ceil((np.min(image_size) / np.max(image_size)) * long_ax_bins))
+    
+    if image_size[1] > image_size[0]:
+        x_edges = np.linspace(0,np.max(image_size), long_ax_bins)
+        y_edges = np.linspace(0,np.min(image_size), short_ax_bins)
+    else:
+        y_edges = np.linspace(0,np.max(image_size), long_ax_bins)
+        x_edges = np.linspace(0,np.min(image_size), short_ax_bins)
+    
+    h, x, y = np.histogram2d(image_points[:,0], image_points[:,1], bins=(x_edges, y_edges))
+    X,Y = np.meshgrid(x,y)
+    
+    fig,ax= mpl_pp.subplots(1,2)
+    ax[0].scatter(image_points[:,0], image_points[:,1])
+    ax[1].pcolormesh(X,Y,h.transpose())
+
+    
+    
