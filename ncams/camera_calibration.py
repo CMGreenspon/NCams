@@ -349,12 +349,12 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         [0, 0, 1]
         ])
 
-    (reprojection_error, camera_matrix, distortion_coefficients, _, _
-     ) = cv2.aruco.calibrateCameraCharuco(
+    (_, camera_matrix, distortion_coefficients, _, _, _, _, pve
+     ) = cv2.aruco.calibrateCameraCharucoExtended(
          image_points, ch_ids, charuco_board, (img_width, img_height), principal_point_init,
          None, flags=calib_flags)
          
-    reprojection_error = np.array([np.around(reprojection_error,5)])
+    reprojection_error = np.array([np.around(np.median(pve),5)])
 
     # Check output format - seems to be version dependent
     if isinstance(camera_matrix, cv2.UMat):
@@ -371,7 +371,10 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
     if reprojection_error[0] > 1:
         print('-> The reprojection error is high. Inspect the calibration.')
         # Optional view of imagepoints to see where lacking points might be
-        # INCOMPLETE
+        uinput_string = ('-> Would you like to view the image point heatmap? (yes/no)\n')
+        user_input = input(uinput_string).lower()
+        if user_input in ('yes', 'y'):
+            show_image_point_heatmap(img.shape, image_points)
 
     return reprojection_error, camera_matrix, distortion_coefficients, detected_points
 
@@ -528,8 +531,19 @@ def show_image_point_heatmap(image_size, image_points, long_ax_bins=16): #INCOMP
     X,Y = np.meshgrid(x,y)
     
     fig,ax= mpl_pp.subplots(1,2)
+    fig.canvas.set_window_title('NCams: Calibration marker point distribution')
     ax[0].scatter(image_points[:,0], image_points[:,1])
-    ax[1].pcolormesh(X,Y,h.transpose())
+    p = ax[1].pcolormesh(X,Y,h.transpose())
+    
+    ax1_pos = ax[1].get_position().bounds
+    cb_ax_pos = [ax1_pos[0] + ax1_pos[2]*1.05, ax1_pos[1], ax1_pos[2]*0.05, ax1_pos[3]]
+    cb_ax = fig.add_subplot(position=cb_ax_pos)
+    c = fig.colorbar(p, cax=cb_ax, label='num points')
+    
+    
+    for a in range(2):
+        ax[a].set_xticks([x_edges[0], x_edges[-1]])
+        ax[a].set_yticks([y_edges[0], y_edges[-1]])
 
     
     
