@@ -1,8 +1,16 @@
 # NCams
 
-NCams is a toolbox for recording videos from multiple cameras, analyzing them and extracting 3D marker trajectories.
+NCams is a toolbox to use multiple cameras to track and reconstruct the kinematics of primate limbs. NCams leverages state-of-the-art machine learning approaches for image tracking ([DeepLabCut](http://www.mousemotorlab.org/deeplabcut)) and musculoskeletal modeling ([OpenSIM](https://simtk-confluence.stanford.edu:8443/display/OpenSim/OpenSim+Documentation)) and includes integration and processing software specifically developed for primate limb tracking.
 
-NCams is installed as a Pythron module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras. The module can run on Windows or *nix.
+NCams is installed as a Pythron module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras. The module runs on Windows or *nix.
+
+![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif)
+
+![Dr. Greenspon writing](images/pen_cropped.gif)
+
+## Features
+1. Intrinsic camera calibration - any number of cameras can be quickly calibrated with support for checkerboard or charucoboards. 
+2. Extrinsic calibration/camera pose estimation - multiple methods for calculating the camera extrinsics are available (one-shot, stereo-sequential, and common-point)
 
 ## Getting Started
 
