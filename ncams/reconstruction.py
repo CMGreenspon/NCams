@@ -158,7 +158,6 @@ def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_conf
         output_csv {csv file} -- csv containing all triangulated points.
     '''
     cam_serials = ncams_config['serials']
-    cam_dicts = ncams_config['dicts']
 
     camera_matrices = intrinsics_config['camera_matrices']
     if not undistorted_data:
@@ -175,7 +174,7 @@ def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_conf
         else:
             sstr = '*_{}.csv'.format(iteration)
         list_of_csvs += glob(os.path.join(
-            labeled_csv_path, file_prefix+'*'+ cam_dicts[cam_serial]['name']+sstr))
+            labeled_csv_path, file_prefix+'*'+ str(cam_serial) + sstr))
     if not len(list_of_csvs) == len(cam_serials):
         if iteration is not None:
             raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
@@ -679,9 +678,9 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         skeleton = False
 
     # Check the number of frames vs number of rows in csv
-    if num_frames != np.shape(triangulated_points)[0]:
-        raise Warning('Number of frames in video and rows in CSV are not equal. Check that the paths'
-                      + ' given are correct.')
+#    if num_frames != np.shape(triangulated_points)[0]:
+#        raise Warning('Number of frames in video and rows in CSV are not equal. Check that the paths'
+#                      + ' given are correct.')
 
     # Initalize the plots
     cmap = matplotlib.cm.get_cmap('jet')
