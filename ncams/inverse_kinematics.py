@@ -196,6 +196,11 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 if repeat > 0:
                     data_copy[-1] += value_dict[bp]
 
+            # OpenSim4.0 cannot read the line properly when the last value is 
+            # empty and wants an additional tab:
+            if lo[-1] == '':
+                lo.append('')
+                
             wrr.writerow(lo)
 
             # print a runtime report
