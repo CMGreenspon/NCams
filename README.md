@@ -13,7 +13,7 @@ NCams is installed as a Pythron module with several submodules that include came
 1. Intrinsic camera calibration - any number of cameras can be quickly calibrated with support for checkerboard or charucoboards. 
 
 <p float="left">
-  <img src="images/images/IntrinsicCalibration.PNG" width="1000" />
+  <img src="images/IntrinsicCalibration.PNG" width="1000" />
 </p>
 
 2. Extrinsic calibration/camera pose estimation - multiple methods for calculating the camera extrinsics are available (one-shot, stereo-sequential, and common-point)
