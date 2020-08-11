@@ -14,6 +14,7 @@ from glob import glob
 from copy import deepcopy
 import yaml
 import csv
+import cv2
 
 import numpy as np
 
@@ -33,6 +34,9 @@ def get_file_list(file_extensions, path=None, sort=True):
     Output:
         strings {list of strings} -- list of all filenames with specified extension.
     '''
+    if isinstance(file_extensions, str):
+        file_extensions = [file_extensions]
+    
     if file_extensions is None or len(file_extensions) == 0:
         file_extensions = ('*', )
     else:
@@ -278,7 +282,7 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
     return bp_error, false_positives, false_negatives
 
 
-def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
+ def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
     '''Imports two columns from a CSV file as a dictionary.
 
     Arguments:
@@ -310,4 +314,4 @@ def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
         for l in fd:
             dic[key_cast(l[keyword])] = value_cast(l[value])
 
-    return dic
+    return dic 

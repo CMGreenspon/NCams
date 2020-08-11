@@ -13,6 +13,7 @@ import os
 import threading
 import logging
 import multiprocessing
+import time
 
 import numpy as np
 import matplotlib.pyplot as mpl_pp
@@ -244,8 +245,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
     if cam.IsStreaming():
         cam.EndAcquisition()
 
-    # To avoid overwriting when not called the default parameter is instead
-    # available which will overwrite everything
+    # The default parameter will overwrite everything
     if default:
         if any(param is not None for param in [
                frame_rate, exposure_time, gain, trigger_mode, acquisition_mode, pixel_format]):
@@ -253,7 +253,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
                   'Default parameters will be used.')
         frame_rate = 30
         exposure_time = 2500
-        gain = 10
+        gain = 1
         trigger_mode = False
         acquisition_mode = 0
         pixel_format = PySpin.PixelFormat_BayerRG8
@@ -301,7 +301,7 @@ def set_cam_settings(cam, default=False, frame_rate=None, exposure_time=None, ga
 
 
 # Synchronized capture
-def init_sync_settings(camera_config, frame_rate=30, num_images=None):
+def init_sync_settings(camera_config, frame_rate=30, num_images=None, wb_vals='auto'):
     '''Initializes all cameras for sequence capture.
 
     Arguments:
@@ -312,10 +312,33 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         frame_rate {number} -- fps to set the cameras to. (default: {30})
         num_images {number or None} -- number of images to set to capture. If None, captures
             indefinitely. (default: {None})
+        wb_vals {string or tuple} -- optional white balance settings. If 'auto', sets all cameras to 
+        auto white balance. If 'main', will auto white balance the main camera and then apply those
+        values to all other cameras. If a tuple, will apply the (red,blue) ratios to all cameras.
+            
+    This utilizes hardware triggering as described on the FLIR support page:
+        https://www.flir.com/support-center/iis/machine-vision/application-note/
+        configuring-synchronized-capture-with-multiple-cameras/
+        
     '''
     cam_dicts = camera_config['dicts']
     reference_serial = camera_config['reference_camera_serial']
-
+    
+    # Need to parse the white value option first
+    if wb_vals == 'main': # Take the balance ratios from the reference camera
+        if not cam_dicts[reference_serial]['obj'].IsInitialized():
+            cam_dicts[reference_serial]['obj'].Init()
+            
+        cam_dicts[reference_serial]['obj'].BalanceWhiteAuto.SetValue(1)
+        cam_dicts[reference_serial]['obj'].BeginAcquisition()
+        time.sleep(1)
+        cam_dicts[reference_serial]['obj'].EndAcquisition()
+        cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(0)
+        red_ratio = cam_dicts[reference_serial]['obj'].BalanceRatio.GetValue()
+        cam_dicts[reference_serial]['obj'].BalanceRatioSelector.SetValue(1)
+        blue_ratio = cam_dicts[reference_serial]['obj'].BalanceRatio.GetValue()
+        wb_vals = (red_ratio, blue_ratio)
+            
     # Settings for each camera
     nodemap = []
     for cam_dict in cam_dicts.values():
@@ -337,6 +360,16 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         elif isinstance(num_images, int):
             cam_dict['obj'].AcquisitionMode.SetValue(PySpin.AcquisitionMode_MultiFrame)
             cam_dict['obj'].AcquisitionFrameCount.SetValue(num_images)
+            
+        # White balance
+        if wb_vals == 'auto':
+            cam_dict['obj'].BalanceWhiteAuto.SetValue(2)
+        elif isinstance(wb_vals, tuple):
+            cam_dict['obj'].BalanceWhiteAuto.SetValue(0)
+            cam_dict['obj'].BalanceRatioSelector.SetValue(0)
+            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[0])
+            cam_dict['obj'].BalanceRatioSelector.SetValue(1)
+            cam_dict['obj'].BalanceRatio.SetValue(wb_vals[1])   
 
     # Primary cam settings
     # Triggering
@@ -356,9 +389,10 @@ def init_sync_settings(camera_config, frame_rate=30, num_images=None):
         cam_dict['obj'].TriggerSource.SetValue(PySpin.TriggerSource_Line3)
         cam_dict['obj'].TriggerOverlap.SetValue(PySpin.TriggerOverlap_ReadOut)
         cam_dict['obj'].TriggerMode.SetValue(PySpin.TriggerMode_On)
-        # As is being controlled by the trigger
+        # As is being controlled by the trigger - will cause errors if left as true
         cam_dict['obj'].AcquisitionFrameRateEnable.SetValue(False)
-        # This should only prime the cameras:
+        # Set the white balance values
+        # This should only prime the cameras and not actually begin taking images
         cam_dict['obj'].BeginAcquisition()
 
 
@@ -401,7 +435,7 @@ def synced_capture_sequence(camera_config, num_images, output_folder=None, separ
     thread_list = []
     cam_dicts[reference_serial]['obj'].TriggerMode.SetValue(PySpin.TriggerMode_Off)
     # We want to offload from images in order across cameras to reduce buffer load equally
-    for i_image in tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images), file=sys.stdout, ncols=50):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
             f_id = image.GetFrameID()
@@ -481,7 +515,7 @@ def synced_capture_sequence_p(camera_config, num_images, output_folder=None, sep
         PySpin.TriggerMode_Off)
     # We want to offload from images in order across cameras to reduce buffer
     # load equally
-    for _ in tqdm(range(num_images)):
+    for _ in tqdm(range(num_images), file=sys.stdout, ncols=50):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
 
@@ -598,7 +632,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
 
     # We want to offload from images in order across cameras to reduce buffer load equally
     print('Capturing...')
-    for i_image in tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images), file=sys.stdout, ncols=50):
         for cam_serial, cam_dict in cam_dicts.items():
             image = cam_dict['obj'].GetNextImage(500)
             image_dat = image.GetNDArray()
@@ -617,7 +651,7 @@ def synced_capture_sequence_ram(camera_config, num_images, output_folder=None,
             image.Release()
 
     print('Saving...')
-    for i_image in tqdm(range(num_images)):
+    for i_image in tqdm(range(num_images), file=sys.stdout, ncols=50):
         for cam_serial, cam_dict in cam_dicts.items():
             (image_dat, offsetX, offsetY, width, height, pixelFormat, f_id, time_stamp
              ) = image_lists[cam_serial][i_image]
@@ -811,7 +845,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     '''
     # Check input
     if isinstance(cam_obj, list):
-        raise ValueError('capture_sequence only accepts "CameraPtr" objects, not lists of them.')
+        raise ValueError('capture_sequence_gui only accepts "CameraPtr" objects, not lists of them.')
 
     if output_path is None:
         output_path = os.getcwd()
@@ -822,7 +856,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     if not cam_obj.IsInitialized():
         cam_obj.Init()
 
-    max_fr = cam_obj.AcquisitionFrameRate.GetValue()
+    max_fr = cam_obj.AcquisitionFrameRate.GetMax()
     set_cam_settings(cam_obj, acquisition_mode=0, frame_rate=max_fr)
 
     if isinstance(num_images, int):
@@ -838,7 +872,7 @@ def capture_sequence_gui(cam_obj, num_images=50, output_path=None, file_prefix='
     print('Please note that framerate control does not work in this mode.')
 
     # Get ready
-    mpl_pp.figure('Image viewer')
+    mpl_pp.figure('NCams: Live image capture')
     thread_list = []
     idx = 0
     # Set

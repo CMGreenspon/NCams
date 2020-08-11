@@ -8,7 +8,7 @@ https://github.com/CMGreenspon/NCams
 General camera functions and tools used for calibration, pose estimation, etc.
 
 Important structures:
-    camera_config {dict} -- information about camera configuration. Should have following keys:
+    ncams_config {dict} -- information about camera configuration. Should have following keys:
         datetime {string} -- formatted local date and time of the creation of the config.
         serials {list of numbers} -- list of camera serials. Wherever camera-specific
             information is not in a dictionary but is in a list, the order MUST adhere to the order
@@ -41,13 +41,13 @@ Important structures:
 
     calibration_config {dict} -- information on camera calibration and the results of said
             calibraion. Order of each list MUST adhere to calibration_config['serials'] AND
-            camera_config['serials']. Should have following keys:
+            ncams_config['serials']. Should have following keys:
         serials {list of numbers} -- list of camera serials.
         distortion_coefficients {list of np.arrays} -- distortion coefficients for each camera
         camera_matrices {list of np.arrays} -- the essential camera matrix for each camera.
         reprojection_errors {list of numbers} -- average error in pixels for each camera.
         path {string} -- directory where calibration information is stored. Should be same as
-            information in camera_config.
+            information in ncams_config.
         filename {string} -- name of the pickle file to store the config in/load from.
         dicts {dict of 'camera_calib_dict's} -- keys are serials, values are 'camera_calib_dict',
             see below.
@@ -60,13 +60,13 @@ Important structures:
 
     pose_estimation_config {dict} -- information on estimation of relative position of all cameras
             and the results of said pose estimation. Order of each list MUST adhere to
-            pose_estimation_config['serials'] and camera_config['serials']. Should
+            pose_estimation_config['serials'] and ncams_config['serials']. Should
             have following keys:
         serials {list of numbers} -- list of camera serials.
         world_locations {list of np.arrays} -- world locations of each camera.
         world_orientations {list of np.arrays} -- world orientation of each camera.
         path {string} -- directory where pose estimation information is stored. Should be same as
-            information in camera_config.
+            information in ncams_config.
         filename {string} -- name of the YAML file to store the config in/load from.
         dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
             see below.
@@ -111,20 +111,22 @@ def make_projection_matrix(camera_matrix, world_orientation, world_location):
     return projection_matrix
 
 
-def create_board(camera_config, output=False, plotting=False, dpi=300, output_format='pdf',
-                 padding=0, target_size=None, dictionary=None):
+def create_board(ncams_config, output=False, plotting=False, dpi=300, output_format='pdf',
+                 padding=None, target_size=None, dictionary=None):
     '''Creates a board image.
 
     Creates either a checkerboard or charucoboard that can be printed and used for camera
     calibration and pose estimation.
 
     Arguments:
-        camera_config {dict} -- see help(ncams.camera_tools). Should have following keys:
+        ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
             check_size {number} -- height and width of a single check mark, mm.
             setup_path {string} -- directory where the camera setup is located, including
                 config.yaml.
+            units {str} -- the desired unit of scale for the world. ('m' = meter, 'dm' = decimeter,
+                 'cm' = centimeter, 'mm' = millimeter)
 
     Keyword Arguments:
         output {bool} -- save the image to the drive. (default: {False})
@@ -141,11 +143,11 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         board_img {np.array} -- board image.
     '''
     # Unpack dict
-    board_type = camera_config['board_type']
-    board_dim = camera_config['board_dim']
-    check_size = camera_config['check_size']
+    board_type = ncams_config['board_type']
+    board_dim = ncams_config['board_dim']
+    check_size = ncams_config['check_size']
     if output:
-        output_path = camera_config['setup_path']
+        output_path = ncams_config['setup_path']
 
     dpmm = dpi / 25.4 # Convert inches to mm
 
@@ -180,20 +182,30 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         if dictionary is None:
             output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
         else:
-            # if having problems with import of cv2.aruco, uninstall opencv-python and install
-            # opencv-contrib-python, e.g.
-            # pip uninstall opencv-python
-            # pip install opencv-contrib-python
             custom_dict = cv2.aruco.Dictionary_get(dictionary)
             output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
                                                            custom_dict)
-
+        
+        if ncams_config['world_units'] == 'mm':
+            scale_unit = 1
+        elif ncams_config['world_units'] == 'cm':
+            scale_unit = 10
+        elif ncams_config['world_units'] == 'dm':
+            scale_unit = 100
+        elif ncams_config['world_units'] == 'm':
+            scale_unit = 1000
+        else:
+            raise Warning('Invalid scale unit given. Defaulting to centimeters')
+            scale_unit = 10
+        
         secondary_length = check_size * 0.6 # What portion of the check the aruco marker takes up
-        output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1], check_size/100,
-                                                     secondary_length/100, output_dict)
+        output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1],
+                                                     check_size/scale_unit,
+                                                     secondary_length/scale_unit,
+                                                     output_dict)
 
         # The board is compiled upside down so the top of the image is actually the bottom,
-        # to avoid confusion it's rotated below
+        # to avoid confusion it's rotated here
         board_img = np.rot90(output_board.draw((int(board_width * dpmm), int(board_height * dpmm)),
                                                board_img, 1, 1), 2)
     else:
@@ -245,13 +257,13 @@ def create_board(camera_config, output=False, plotting=False, dpi=300, output_fo
         return output_dict, output_board, board_img
 
 
-def create_world_points(camera_config):
+def create_world_points(ncams_config):
     '''Creates world points.
 
     [description]
 
     Arguments:
-        camera_config {dict} -- information about camera configuration. Should have following keys:
+        ncams_config {dict} -- information about camera configuration. Should have following keys:
             board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
             board_dim {list with 2 numbers} -- number of checks on the calibration board.
             check_size {number} -- height and width of a single check mark, mm.
@@ -259,18 +271,47 @@ def create_world_points(camera_config):
     Output:
         world_points {np.array} -- world points based on board.
     '''
-    board_type = camera_config['board_type']
-    board_dim = camera_config['board_dim']
-    check_size = camera_config['check_size']
+    board_type = ncams_config['board_type']
+    board_dim = ncams_config['board_dim']
+    check_size = ncams_config['check_size']
 
     if board_type == 'checkerboard':
+        # The points are the intersections of the checks and so the number of points is the product
+        # of the number of checks in each dimensions-1 
         world_points = np.zeros(((board_dim[0]-1) * (board_dim[1]-1), 3), np.float32) # x,y,z points
         # z is always zero:
         world_points[:, :2] = np.mgrid[0:board_dim[0]-1, 0:board_dim[1]-1].T.reshape(-1, 2)
         world_points = world_points * check_size
     elif board_type == 'charuco':
-        charuco_board = create_board(camera_config)[1]
+        charuco_board = create_board(ncams_config)[1]
         nc = charuco_board.chessboardCorners.shape[0]
         world_points = charuco_board.chessboardCorners.reshape(nc, 1, 3)
 
     return world_points
+
+def test_charucoboard_detection(charuco_board, charuco_dict, image_path):
+    ''' 
+    A quick function for inspecting whether or not the charucoboard is being detected.
+    Inputs:
+        charuco_board {aruco_Charucobaord} -- the aruco board object.
+        charuco_dict {aruco_Dictionary} -- the aruco dictionary object.
+        image_path {str} -- full path to the image of interest
+    '''
+    img = cv2.imread(image_path)
+    im_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # Detect the aruco markers and get IDs
+    corners, ids, _ = cv2.aruco.detectMarkers(img, charuco_dict)
+    if ids is not None:
+        # Find the corners and IDs
+        _, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(
+            corners, ids, img, charuco_board)
+    else:
+        print('No markers detected')
+        return
+        
+    image_annotated = cv2.aruco.drawDetectedCornersCharuco(im_rgb, charuco_corners)
+    
+    ax = mpl_pp.subplots()[1]
+    ax.imshow(image_annotated)
+    ax.set_xticks([])
+    ax.set_yticks([])

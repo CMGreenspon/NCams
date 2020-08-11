@@ -18,7 +18,7 @@ import cv2
 from tqdm import tqdm
 
 
-def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, output_filename=None):
+def undistort_video(video_filename, camera_calib_dict, output_filename=None):
     '''Undistorts every frame in a video based on camera calibration parameters.
 
     Iterates through every frame in a video and undistorts it as appropriate based on the given
@@ -30,8 +30,6 @@ def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, ou
             distortion_coefficients {np.array} -- distortion coefficients for the camera.
             camera_matrix {np.array} -- camera calibration matrifor the camera.
     Keyword Arguments:
-        crop_and_resize {boolean} -- if true the optimal undistorted region (from
-            getOptimalNewCameraMatrix) will be selected for the output. (default: {False})
         output_filename {string} -- output video filename. (default: {same folder as video_filename
             with '_undistorted' added})
     '''
@@ -52,8 +50,7 @@ def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, ou
     frame_exists, frame = video.read()
     while frame_exists:
         # Undistort and write
-        undistorted_frame = undistort_image(
-            frame, camera_calib_dict, crop_and_resize=crop_and_resize)
+        undistorted_frame = undistort_image(frame, camera_calib_dict)
         video_undistorted.write(undistorted_frame)
 
         frame_exists, frame = video.read() # Read the next frame if it exists
@@ -62,7 +59,7 @@ def undistort_video(video_filename, camera_calib_dict, crop_and_resize=False, ou
     video_undistorted.release()
 
 
-def undistort_image(image, camera_calib_dict, crop_and_resize=False):
+def undistort_image(image, camera_calib_dict):
     '''Undistorts an individual frame or image based on the camera calibration.
 
     Undistorts an individual frame or image based on the camera matrix and distortion coefficients.
@@ -72,24 +69,12 @@ def undistort_image(image, camera_calib_dict, crop_and_resize=False):
         camera_calib_dict {dict} -- see help(ncams.camera_tools). Sould have following keys:
             distortion_coefficients {np.array} -- distortion coefficients for the camera.
             camera_matrix {np.array} -- camera calibration matrifor the camera.
-    Keyword Arguments:
-        crop_and_resize {boolean} -- if true the optimal undistorted region (from
-            getOptimalNewCameraMatrix) will be selected for the output. (default: {False})
     Output:
         undistorted_image {np.array X Y Color} --  undistorted image array.
     '''
-    h, w = image.shape[:2]
-    new_cam_mat, roi = cv2.getOptimalNewCameraMatrix(
-        camera_calib_dict['camera_matrix'], camera_calib_dict['distortion_coefficients'],
-        (w, h), 1, (w, h))
     undistorted_image = cv2.undistort(
         image, camera_calib_dict['camera_matrix'], camera_calib_dict['distortion_coefficients'],
-        None, new_cam_mat)
-
-    if crop_and_resize:
-        x, y, w2, h2 = roi
-        undistorted_image = undistorted_image[y:y+h2, x:x+w2]
-        undistorted_image = cv2.resize(undistorted_image, (w, h))
+        None, camera_calib_dict['camera_matrix'])
 
     return undistorted_image
 

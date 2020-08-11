@@ -1,12 +1,17 @@
 # NCams
 
-NCams is a toolbox for intrinsic and extrinsic calibration for multiple cameras, extracting 3D marker trajectories and estimate skeletal kinematics. It also supports recording with FLIR cameras.
+NCams is a toolbox to use multiple cameras to track and reconstruct the kinematics of primate limbs. NCams leverages state-of-the-art machine learning approaches for image tracking ([DeepLabCut](http://www.mousemotorlab.org/deeplabcut)) and musculoskeletal modeling ([OpenSIM](https://simtk-confluence.stanford.edu:8443/display/OpenSim/OpenSim+Documentation)) and includes integration and processing software specifically developed for primate limb tracking.
 
-![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif)
+NCams is installed as a Pythron module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras. The module runs on Windows or *nix.
 
-![Dr. Greenspon writing](images/pen_cropped.gif)
+![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif) ![Dr. Greenspon writing](images/pen_cropped.gif)
 
-NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras, preparing inverse kinematics, filtering in 2D or 3D. The module can run on Windows or Unix/Linux.
+## Features
+1. Intrinsic camera calibration - any number of cameras can be quickly calibrated with support for checkerboard or charucoboards. 
+2. Extrinsic calibration/camera pose estimation - multiple methods for calculating the camera extrinsics are available (one-shot, stereo-sequential, and common-point)
+3. Quantification of both intrinsic and extrinsic calibrations.
+4. Multiple triangulation/3D reconstruction methods inculding processing/filtering.
+5. Inverse kinematics...
 
 ## Getting Started
 
@@ -15,6 +20,7 @@ This project's code is available on [GitHub](https://github.com/CMGreenspon/NCam
 ### Prerequisites
 
 Software:
+-[Python 3+/Anaconda](https://www.anaconda.com/products/individual)
 - [DeepLabCut](https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md) - if using it for labeling markers. See below for installation recommendations.
  - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
  - [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
@@ -31,10 +37,6 @@ There are no hardware prerequisites for the core functionality of the toolbox. I
 1. Download the [repository](https://github.com/CMGreenspon/NCams) or clone it using git: `git clone https://github.com/CMGreenspon/NCams.git`.
 2. Open Terminal, or Command Line or the desired Anaconda environment (e.g. the one with DeepLabCut installed) in the project folder.
 3. Run `python setup.py install`.
-
-## Examples of use
-
-All examples have a corresponding 'run_' script to show examples of executing the scripts in the command line, avoiding the IDE.
 
 ### Calibration and pose estimation
 
