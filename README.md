@@ -20,6 +20,7 @@ NCams is installed as a Pythron module with several submodules that include came
 
 <p float="left">
   <img src="images/ExtrinsicCalibration.PNG" width="450" />
+   <img src="images/ExtrinsicCalibration2.PNG" width="450" />
 </p>
 
 3. Multiple triangulation/3D reconstruction methods inculding processing/filtering.
