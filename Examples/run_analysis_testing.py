@@ -1,13 +1,19 @@
 """
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
+
+deeplabcut module is licensed under GNU Lesser General Public License v3.0
+see lgpl-3.0.md
+DeepLabCut2.0 Toolbox (deeplabcut.org)
+© A. & M. Mathis Labs
+https://github.com/AlexEMG/DeepLabCut
 """
 import os
 import datetime
 import ntpath
 
-import deeplabcut
+# import deeplabcut
 
 import ncams
 
@@ -111,15 +117,21 @@ def main():
             '' if len(file_prefix) == 0 else '_'+file_prefix))
 
     serial = 19335177
-    frame_range = (50*5, 50*(5+10))
+    frame_range = (260, 360)
     video_path = [i for i in training_videos
                   if ntpath.basename(i)[0] == file_prefix and str(serial) in i][0]
     output_path = os.path.join(triangulated_path2, 'pretty_{}_{}.mp4'.format(serial, file_prefix))
-    # ncams.make_triangulation_video(video_path, triangulated_csv_p, skeleton_config=config_path,
-    #                                frame_range=frame_range, output_path=output_path)
+    ik_video_path = os.path.join(proj_path, 'ik_videos', 'marshmallow.webm')
+    ncams.make_triangulation_video(
+        video_path, triangulated_csv_p, skeleton_config=config_path,
+        frame_range=frame_range, output_path=output_path,
+        thrd_video_path=ik_video_path, thrd_video_frame_offset=0,
+        third_video_crop_hw=[slice(50, -100), slice(350, -700)], figure_dpi=300,
+        ranges=((-0.33, 3), (-2, 2), (-1.33, 6.74)))
+    # ((-0.33, 8.84), (-1.28, 7.30), (-1.33, 6.74))
 
-    ncams.reconstruction.interactive_3d_plot(video_path, triangulated_csv_p,
-                                             skeleton_path=config_path)
+    # ncams.reconstruction.interactive_3d_plot(video_path, triangulated_csv_p,
+    #                                          skeleton_path=config_path)
 
 
 

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2019-2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
 Utilities for general use in multiple functions.
@@ -282,7 +282,36 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
     return bp_error, false_positives, false_negatives
 
 
-    
-    
-        
-    
+ def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
+    '''Imports two columns from a CSV file as a dictionary.
+
+    Arguments:
+        fname {str} -- CSV filename.
+        keyword {str} -- name of the column to use as a keyword of the dictionary. Should be unique
+            in the CSV. If not unique, the dictionary will return the last 'value' corresponding to
+            the repeating keyword.
+        value {str} -- name of the column to use as a value of the dictinary.
+
+    Keyword Arguments:
+        key_cast {function or class} -- a cast to apply to the element from the 'keyword' column to
+            create the key of the dictionary, for example 'key_cast=int'.
+            (default: lambda x: x.strip())
+        value_cast {function or class} -- a cast to apply to the element from the 'value' column to
+            create the value for the dictionary, for example 'value_cast=float'.
+            (default: lambda x: x.strip())
+
+    Returns:
+        dict -- returns the element from the 'value' column in response to the element
+    '''
+    if key_cast is None:
+        key_cast = lambda x: x.strip()
+    if value_cast is None:
+        value_cast = lambda x: x.strip()
+
+    dic = {}
+    with open(fname, 'r') as f:
+        fd = csv.DictReader(f)
+        for l in fd:
+            dic[key_cast(l[keyword])] = value_cast(l[value])
+
+    return dic 
