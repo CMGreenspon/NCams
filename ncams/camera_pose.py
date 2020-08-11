@@ -1015,7 +1015,7 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
                                         color='b')
         axs[vert_ind, horz_ind].scatter(extrinsics_info[serial]['charuco_corners'][:,0,0],
                                         extrinsics_info[serial]['charuco_corners'][:,0,1],
-                                        color='r')
+                                        color='darkorange', marker='x')
         # Clean up the graph
         axs[vert_ind, horz_ind].set_title(names[icam])
         axs[vert_ind, horz_ind].set_xticks([])

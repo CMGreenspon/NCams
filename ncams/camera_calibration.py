@@ -536,10 +536,10 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
         # Add markers
         axs[vert_ind, horz_ind].scatter(np.squeeze(example_corners[:,:,0]),
                                         np.squeeze(example_corners[:,:,1]),
-                                        marker='x')
+                                        marker='x', color='b')
         axs[vert_ind, horz_ind].scatter(np.squeeze(undistorted_corners[:,:,0])+x_offset,
                                 np.squeeze(undistorted_corners[:,:,1]),
-                                marker='x')
+                                marker='x', color='darkorange')
             
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
             cam_name, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
