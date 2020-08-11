@@ -156,12 +156,13 @@ config = {
     'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
     'setup_path': BASE_DIR, # Where to store this configuration
 }
+    
 # Create a board using the config info
-charuco_dict, charuco_board, _ = ncams.camera_tools.create_board(config)
+charuco_dict, charuco_board, _ = ncams.camera_tools.create_board(config,plotting=False)
 # Declare the path of the calibration images and get their paths
-calibration_image_path = r'C:\Users\somlab\Desktop\FLIRTesting\SR\Calibration\calibration_2020_08_05\intrinsic\cam19194008'
+calibration_image_path = r'C:\Users\somlab\Desktop\FLIRTesting\SR\Calibration\calibration_2020_08_05\intrinsic\cam19194009'
 cam_image_list = ncams.utils.get_image_list(calibration_image_path)
 # Calibrate with those images
 reprojection_error, camera_matrix, distortion_coefficients, detected_points = ncams.camera_calibration.charuco_calibration(
-    cam_image_list, charuco_dict, charuco_board, export_marked_images=True)
+    cam_image_list, charuco_dict, charuco_board, export_marked_images=False, verbose=True)
 

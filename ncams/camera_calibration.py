@@ -11,7 +11,6 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 """
 
 import os
-
 import cv2
 import numpy as np
 import matplotlib
@@ -189,8 +188,8 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
                     # Run the calibration:
                     (reprojection_error, camera_matrix, cam_distortion_coefficients,
                      detected_points) = charuco_calibration(cam_image_list, charuco_dict,
-                                                            charuco_board, verbose,
-                                                            export_marked_images)
+                                                            charuco_board, verbose=verbose,
+                                                            export_marked_images=export_marked_images)
 
             # Export them to the camera folder in a readable format
             camera_calib_dict = {
@@ -299,6 +298,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
     image_points = []  # x,y coordinates of charuco corners
     detected_points = np.zeros((1, len(cam_image_list)), dtype = int)
     board_logit = np.zeros((1, len(cam_image_list)), dtype = bool)
+    image_num = []
     
     if export_marked_images:
         header_path = os.path.split(cam_image_list[0])[0]
@@ -307,9 +307,6 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         if not os.path.exists(image_export_dir):
             os.mkdir(image_export_dir)
 
-    calib_flags = 0
-    calib_flags |= cv2.CALIB_USE_INTRINSIC_GUESS
-    calib_flags |= cv2.CALIB_ZERO_TANGENT_DIST
 
     # Iterate through each image and find corners & IDs
     for im, im_name in enumerate(cam_image_list):
@@ -335,9 +332,17 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
                     # Append values
                     ch_ids.append(charuco_ids)
                     image_points.append(charuco_corners)
+                    image_num.append(im)
             else:
                 if verbose:
                     print('-> Markers could not be identified in "' + im_name + '".')
+                    
+    # Check if enough images contained relevant points
+    if len(image_points) == 0:
+        raise Warning('-> Charucoboards were not detected in any images, calibration will exit.')
+        return [], [], [], []
+    elif len(image_points) < 10:
+        print('-> Less than 10 images contain identifiable boards. Consider taking new photos.')
 
     # Calibrate
     img_width, img_height = img.shape[1], img.shape[0]
@@ -348,14 +353,49 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         [0, f_length, img_height//2],
         [0, 0, 1]
         ])
+    # Calibration parameters
+    calib_flags = 0
+    calib_flags |= cv2.CALIB_USE_INTRINSIC_GUESS
+    calib_flags |= cv2.CALIB_ZERO_TANGENT_DIST
 
-    (_, camera_matrix, distortion_coefficients, _, _, _, _, pve
+    (reprojection_error, camera_matrix, distortion_coefficients, _, _, _, _, pve
      ) = cv2.aruco.calibrateCameraCharucoExtended(
          image_points, ch_ids, charuco_board, (img_width, img_height), principal_point_init,
          None, flags=calib_flags)
-         
-    reprojection_error = np.array([np.around(np.median(pve),5)])
-
+             
+    # Check if there are any bad frames causing issues and try to remove them
+    if reprojection_error > 10 and any(pve > 1e3):
+        if verbose:
+            print('-> Potential bad calibration images detected. Attempting to remove and recalibrate.')
+        good_frame_idx = pve < 10
+        filtered_image_points = []
+        filtered_ch_ids = []
+        for im in range(len(image_points)):
+            if good_frame_idx[im]:
+                filtered_image_points.append(image_points[im])
+                filtered_ch_ids.append(ch_ids[im])
+                
+        (reprojection_error2, camera_matrix2, distortion_coefficients2, _, _, _, _, pve
+         ) = cv2.aruco.calibrateCameraCharucoExtended(
+             filtered_image_points, filtered_ch_ids, charuco_board, (img_width, img_height),
+             principal_point_init, None, flags=calib_flags)
+             
+        if reprojection_error2 < 10:
+            if verbose:
+                # List removed images
+                print('-> Bad images sucessfuly identified, consider removing the following:')
+                bad_frame_idx = np.where(good_frame_idx == False)[0]
+                for im in bad_frame_idx:
+                    frame_num = image_num[im]
+                    im_name = os.path.split(cam_image_list[frame_num])[1]
+                    print('   ' + im_name)
+                
+            reprojection_error = reprojection_error2
+            camera_matrix = camera_matrix2
+            distortion_coefficients = distortion_coefficients2
+            
+    reprojection_error = np.array([np.around(reprojection_error,5)]) # Helps with yaml storage
+                    
     # Check output format - seems to be version dependent
     if isinstance(camera_matrix, cv2.UMat):
         camera_matrix = camera_matrix.get()
@@ -363,11 +403,11 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         distortion_coefficients = distortion_coefficients.get()
 
     # Indicate to the user if a likely error ocurred during the calibration
-    if np.sum(distortion_coefficients, 1) == 0:
+    if (distortion_coefficients == 0).all():
         print('-> No distortion detected. Calibration may have failed.')
     elif np.abs(distortion_coefficients[0, 4]) > 0.5:
         print('-> There may be a fisheye effect. Inspect the calibration.')
-        
+            
     if reprojection_error[0] > 1:
         print('-> The reprojection error is high. Inspect the calibration.')
         # Optional view of imagepoints to see where lacking points might be
@@ -375,6 +415,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         user_input = input(uinput_string).lower()
         if user_input in ('yes', 'y'):
             show_image_point_heatmap(img.shape, image_points)
+        
 
     return reprojection_error, camera_matrix, distortion_coefficients, detected_points
 
