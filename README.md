@@ -19,7 +19,7 @@ NCams is installed as a Pythron module with several submodules that include came
 2. Extrinsic calibration/camera pose estimation - multiple methods for calculating the camera extrinsics are available (one-shot, stereo-sequential, and common-point)
 
 <p float="left">
-  <img src="images/ExtrinsicCalibration3.PNG" width="450" />
+  <img src="images/ExtrinsicCalibration3.PNG" width="800" />
 </p>
 
 3. Multiple triangulation/3D reconstruction methods inculding processing/filtering.
