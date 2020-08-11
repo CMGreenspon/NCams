@@ -20,7 +20,7 @@ This project's code is available on [GitHub](https://github.com/CMGreenspon/NCam
 ### Prerequisites
 
 Software:
--[Python 3+/Anaconda](https://www.anaconda.com/products/individual)
+- [Python 3+/Anaconda](https://www.anaconda.com/products/individual)
 - [DeepLabCut](https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md) - if using it for labeling markers. See below for installation recommendations.
  - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
  - [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
