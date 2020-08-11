@@ -7,8 +7,8 @@ NCams is installed as a Pythron module with several submodules that include came
 ![Dr. Greenspon eating a marshmellow](images/marshmallow_cropped.gif) ![Dr. Greenspon writing](images/pen_cropped.gif)
 
 <p float="left">
-  <img src="images/marshmallow_cropped.gif" width="100" />
-  <img src="images/pen_cropped.gif" width="100" /> 
+  <img src="images/marshmallow_cropped.gif" width="300" />
+  <img src="images/pen_cropped.gif" width="300" /> 
 </p>
 
 ## Features
