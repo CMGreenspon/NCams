@@ -497,20 +497,13 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
                 if isinstance(example_corners, np.ndarray):
                     # Lets only use images with all corners detected
                     if len(example_corners) >= num_markers or image_index is not None:
-                        # Annotate example image
-                        example_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
-                            example_image, example_corners)
                         # Undistort the corners and image
                         undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
                                                                   dist_coeffs, P=cam_mat)
                         undistorted_image = image_tools.undistort_image(
                             example_image, intrinsics_config['dicts'][serial])
-                        undistorted_image_annotated = cv2.aruco.drawDetectedCornersCharuco(
-                            undistorted_image, undistorted_corners)
                     elif image_index is not None:
                         print(' - Board not detected in requested image')
-                        example_image_annotated = np.zeros(example_image.shape)
-                        undistorted_image_annotated = np.zeros(example_image.shape)
 
         elif board_type == 'checkerboard':
             # Analyze the images to get checkerboard corners
@@ -518,23 +511,18 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
                 example_image, (board_dim[0]-1, board_dim[1]-1), None)
             # If a checkerboard was found then append the image points variable for calibration
             if board_logit:
-                example_image_annotated = cv2.drawChessboardCorners(
-                    example_image, (board_dim[0]-1, board_dim[1]-1), corners, board_logit)
                 undistorted_corners = cv2.undistortPoints(
                     corners, cam_mat, dist_coeffs, P=cam_mat)
                 undistorted_image = image_tools.undistort_image(
                     example_image, intrinsics_config['dicts'][serial])
-                undistorted_image_annotated = cv2.drawChessboardCorners(
-                    undistorted_image, (board_dim[0]-1, board_dim[1]-1), undistorted_corners,
-                    board_logit)
 
         # Make the combined image
         padding_size = list(example_image.shape)
         padding_size[1] = int(padding_size[1]/10)
         padding = np.ones(tuple(padding_size), dtype=np.int8) * 255
+        x_offset = example_image.shape[1] + padding_size[1]
                 
-        cat_image = np.concatenate((example_image_annotated, padding, undistorted_image_annotated),
-                                   axis=1)
+        cat_image = np.concatenate((example_image, padding, undistorted_image), axis=1)
 
         # Plot it        
         vert_ind = int(np.floor(icam / num_horz_plots))
@@ -544,6 +532,14 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
             axs[vert_ind, horz_ind].imshow(cat_image)
         else:
             axs[vert_ind, horz_ind].imshow(cat_image, cmap='gray')
+            
+        # Add markers
+        axs[vert_ind, horz_ind].scatter(np.squeeze(example_corners[:,:,0]),
+                                        np.squeeze(example_corners[:,:,1]),
+                                        marker='x')
+        axs[vert_ind, horz_ind].scatter(np.squeeze(undistorted_corners[:,:,0])+x_offset,
+                                np.squeeze(undistorted_corners[:,:,1]),
+                                marker='x')
             
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
             cam_name, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
