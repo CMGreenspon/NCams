@@ -22,8 +22,8 @@ This project's code is available on [GitHub](https://github.com/CMGreenspon/NCam
 Software:
 - [Python 3+/Anaconda](https://www.anaconda.com/products/individual)
 - [DeepLabCut](https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md) - if using it for labeling markers. See below for installation recommendations.
- - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
- - [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
+    - [NVIDIA drivers](https://www.nvidia.com/download/index.aspx)
+    - [CUDA 10.0](https://developer.nvidia.com/cuda-downloads)
 - [Spinnaker Python module](https://flir.app.boxcn.net/v/SpinnakerSDK/folder/68522911814) if using FLIR cameras for capture.
 - [OpenSim 4.0](https://simtk.org/frs/index.php?group_id=91#package_id319) to calculate inverse kinematics.
 - Module dependencies are listed in the [setup](setup.py) file.
