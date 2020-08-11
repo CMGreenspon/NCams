@@ -5,8 +5,8 @@ NCams is a toolbox to use multiple cameras to track and reconstruct the kinemati
 NCams is installed as a Pythron module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras. The module runs on Windows or *nix.
 
 <p float="left">
-  <img src="images/marshmallow_cropped.gif" width="500" />
-  <img src="images/pen_cropped.gif" width="500" /> 
+  <img src="images/marshmallow_cropped.gif" width="450" />
+  <img src="images/pen_cropped.gif" width="450" /> 
 </p>
 
 ## Features
@@ -18,11 +18,12 @@ NCams is installed as a Pythron module with several submodules that include came
 
 2. Extrinsic calibration/camera pose estimation - multiple methods for calculating the camera extrinsics are available (one-shot, stereo-sequential, and common-point)
 
-![Extrinsic Example](images/ExtrinsicCalibration.PNG)
+<p float="left">
+  <img src="images/ExtrinsicCalibration.PNG" width="450" />
+</p>
 
-3. Quantification of both intrinsic and extrinsic calibrations.
-4. Multiple triangulation/3D reconstruction methods inculding processing/filtering.
-5. Inverse kinematics...
+3. Multiple triangulation/3D reconstruction methods inculding processing/filtering.
+4. Inverse kinematics...
 
 ## Getting Started
 
