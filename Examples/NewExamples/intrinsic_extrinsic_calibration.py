@@ -165,4 +165,4 @@ cam_image_list = ncams.utils.get_image_list(calibration_image_path)
 # Calibrate with those images
 reprojection_error, camera_matrix, distortion_coefficients, detected_points = ncams.camera_calibration.charuco_calibration(
     cam_image_list, charuco_dict, charuco_board, export_marked_images=False, verbose=True)
-
+# Inspect the calibration

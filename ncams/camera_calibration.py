@@ -383,7 +383,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         if reprojection_error2 < 10:
             if verbose:
                 # List removed images
-                print('-> Bad images sucessfuly identified, consider removing the following:')
+                print('-> Bad images sucessfuly identified, the following have been ignored:')
                 bad_frame_idx = np.where(good_frame_idx == False)[0]
                 for im in bad_frame_idx:
                     frame_num = image_num[im]
@@ -529,13 +529,9 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
                     board_logit)
 
         # Make the combined image
-        if len(example_image.shape) == 3:
-            padding = np.ones((example_image.shape[0],
-                               int(np.floor(example_image.shape[1])/10), example_image.shape[2]),
-                              dtype=np.int8) * 255
-        else:
-            padding = np.ones((example_image.shape[0],
-                               int(np.floor(example_image.shape[1])/10)),dtype=np.int8) * 255
+        padding_size = list(example_image.shape)
+        padding_size[1] = int(padding_size[1]/10)
+        padding = np.ones(tuple(padding_size), dtype=np.int8) * 255
                 
         cat_image = np.concatenate((example_image_annotated, padding, undistorted_image_annotated),
                                    axis=1)
@@ -544,7 +540,11 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
         vert_ind = int(np.floor(icam / num_horz_plots))
         horz_ind = icam - num_horz_plots * vert_ind
         
-        axs[vert_ind, horz_ind].imshow(cat_image)
+        if len(example_image.shape) == 3:
+            axs[vert_ind, horz_ind].imshow(cat_image)
+        else:
+            axs[vert_ind, horz_ind].imshow(cat_image, cmap='gray')
+            
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
             cam_name, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
         axs[vert_ind, horz_ind].set_xticks([])
@@ -555,7 +555,8 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
             axs.flat[-(i+1)].set_visible(False)
 
 
-def show_image_point_heatmap(image_size, image_points, long_ax_bins=16): #INCOMPLETE
+def show_image_point_heatmap(image_size, image_points, long_ax_bins=16): 
+    #TODO add documentation
     image_points = np.vstack(image_points)
     image_points = np.reshape(image_points, (image_points.shape[0], 2))
     
@@ -579,8 +580,7 @@ def show_image_point_heatmap(image_size, image_points, long_ax_bins=16): #INCOMP
     ax1_pos = ax[1].get_position().bounds
     cb_ax_pos = [ax1_pos[0] + ax1_pos[2]*1.05, ax1_pos[1], ax1_pos[2]*0.05, ax1_pos[3]]
     cb_ax = fig.add_subplot(position=cb_ax_pos)
-    c = fig.colorbar(p, cax=cb_ax, label='num points')
-    
+    fig.colorbar(p, cax=cb_ax, label='num points')
     
     for a in range(2):
         ax[a].set_xticks([x_edges[0], x_edges[-1]])
