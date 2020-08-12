@@ -42,23 +42,23 @@ Software:
 
 If you have problems with installations, check out our [installation tips](documentation/installation.md).
 
-There are no hardware prerequisites for the core functionality of the toolbox. If using DeepLabCut or the spinnaker_tools, however, then an NVIDIA videocard that supports CUDA or FLIR cameras are required resspectively.
+There are no hardware prerequisites for the core functionality of the toolbox. If using DeepLabCut or the spinnaker_tools, however, then an NVIDIA videocard that supports CUDA or FLIR cameras are required respectively.
 
 ## Installation
 
 1. Download the [repository](https://github.com/CMGreenspon/NCams) or clone it using git: `git clone https://github.com/CMGreenspon/NCams.git`.
-2. Open Terminal, or Command Line or the desired Anaconda environment (e.g. the one with DeepLabCut installed) in the project folder.
+2. Open Terminal, Command Line, or the desired Anaconda environment (e.g. the one with DeepLabCut installed) in the project folder.
 3. Run `python setup.py install`.
 
 ### Calibration and pose estimation
 
 [Example with capturing data](Examples/example_with_recording_data.py) contains example code for setting up multiple FLIR cameras, calibration of lenses, estimation of their poses, and creation of videos from captured images.
 
-[Example with supplied data](Examples/example_with_supplied_data.py) can help you calibrate the lenses on the cameras, estimate their poses, and create of videos. The data to run the code on is stored on [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea) and [Box](https://uchicago.app.box.com/s/glgee9o0katg9cvr7t5tjeygne3rs9on).
+[Example with supplied data](Examples/example_with_supplied_data.py) can help you calibrate the lenses on the cameras, estimate their poses, and create videos. The data to run the code on is stored in [Dropbox](https://www.dropbox.com/sh/lrc2sik1kxlujgi/AACBH2y36wfbjzUre85rEl4ea) and [Box](https://uchicago.app.box.com/s/glgee9o0katg9cvr7t5tjeygne3rs9on).
 
 ### Labeling and 3D marker reconstruction
 
-The [analysis](Examples/analysis.py) goes over marking images with DeepLabCut, training a network and triangulation of the marker data.
+The [analysis](Examples/analysis.py) goes over marking images with DeepLabCut, training a network, and triangulation of the marker data.
 
 [Analysis of multiple sessions](Examples/analysis_multiple_sessions.py) follows the analysis example, but is specifically designed to handle multiple sessions of recordings from the same cameras.
 
@@ -76,7 +76,7 @@ The [guide](Examples/inverse_kinematic_guide.py) describes the necessary tools a
 - [Examples](Examples) -- examples and guides on using NCams
 - [documentation](documentation) -- various documentation on NCams
 - [opensim_models](opensim_models) -- OpenSim skeletal models that we use for inverse kinematics
-- [dlc_markers](dlc_markers) -- images with location of markers relatively to bone segments and a DLC config with marker names and skeleton
+- [dlc_markers](dlc_markers) -- images with location of markers relative to bone segments and a DLC config with marker names and skeleton
 - [images](images) -- demonstrational images and gifs
 
 ## Authors
