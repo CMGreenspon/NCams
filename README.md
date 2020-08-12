@@ -4,7 +4,7 @@ NCams is a toolbox to use multiple cameras to track and reconstruct the kinemati
 
 NCams is installed as a Python module with several submodules that include camera calibration, estimation of relative camera positions, triangulation of the marker information from multiple cameras. The module runs on Windows or *nix.
 
-<p float="left">
+<p float="center">
   <img src="images/marshmallow_cropped.gif" width="450" />
   <img src="images/pen_cropped.gif" width="450" /> 
 </p>
