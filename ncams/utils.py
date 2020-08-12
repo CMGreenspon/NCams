@@ -36,7 +36,7 @@ def get_file_list(file_extensions, path=None, sort=True):
     '''
     if isinstance(file_extensions, str):
         file_extensions = [file_extensions]
-    
+
     if file_extensions is None or len(file_extensions) == 0:
         file_extensions = ('*', )
     else:
@@ -282,7 +282,7 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
     return bp_error, false_positives, false_negatives
 
 
- def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
+def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
     '''Imports two columns from a CSV file as a dictionary.
 
     Arguments:
@@ -314,4 +314,4 @@ def compare_labels(reference_csv_path, comparison_csv_path, row_skip=3, col_skip
         for l in fd:
             dic[key_cast(l[keyword])] = value_cast(l[value])
 
-    return dic 
+    return dic
