@@ -25,28 +25,27 @@ import numpy as np
 import cv2
 
 # Replace this with your working directory
-#BASE_DIR = os.path.join('C:\\', 'GitHub', 'NCams', 'PublicExample') 
-BASE_DIR = r'C:\Users\somlab\Desktop\FLIRTesting'
+#BASE_DIR = *\NCamsCalibrationExampleData
+BASE_DIR = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData'
 
 #%% 1. Create the ncams_config
 ncams_config = {
     # Camera information
-    'serials': [19194005,19194008,19194009,19194013,19335177,19340298,19340300,19340396],
-    'reference_camera_serial': 19194009,  # This is linked to how the cameras are hardwired
+    'serials': [19194005,19194008,19194009,19335177,19340298,19340300,19340396,20050811], #
+    'reference_camera_serial': 19335177,  # This is linked to how the cameras are hardwired
     'image_size': (1080, 1440),  # height x width 
     # Board information
     'board_type': 'charuco',  # charuco (preferred) or checkerboard
-    'board_dim': [7, 10],  # If this is incorrect it will cause analyses to freeze
-    'check_size': 30, # Size of the checks in mm, essential for accurate 3D reconstructions
+    'board_dim': [6, 8],  # If this is incorrect it will cause analyses to freeze
+    'check_size': 40, # Size of the checks in mm, essential for accurate 3D reconstructions
     'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
     # Path information
     'setup_path': BASE_DIR, # Where to store this configuration
     'setup_filename': 'ncams_config.yaml', # Desired filename for the configuration
-    'intrinsic_path': 'calibration', # Name of the subdirectory for the intrinsic calibration data
-    'intrinsic_filename': 'intrinsic_calib.pickle', # # Desired filename for the intrinsics
-    'extrinsic_path': 'pose_estimation', # Name of the subdirectory for the extrinsic calibration data
-    'extrinsic_filename': 'extrinsic_calib.pickle',
-}
+    'intrinsic_path': 'intrinsic', # Name of the subdirectory for the intrinsic calibration data
+    'intrinsic_filename': 'intrinsic_calib.pickle', # Desired filename for the intrinsics
+    'extrinsic_path': 'extrinsic', # Name of the subdirectory for the extrinsic calibration data
+    'extrinsic_filename': 'extrinsic_calib.pickle'}
 
 ncams.camera_io.config_to_yaml(ncams_config) # Export the config
 
@@ -102,7 +101,7 @@ Setup path
         camN_image
 '''
 
-ncams_config['extrinsic_path'] = 'pose_estimation_OS'
+ncams_config['extrinsic_path'] = 'Extrinsic_OS'
 
 extrinsics_config, extrinsics_info = ncams.camera_pose.one_shot_multi_PnP(
     ncams_config, intrinsics_config, export_full=True, show_extrinsics=False, inspect=False,
@@ -117,13 +116,41 @@ ncams.camera_pose.inspect_extrinsics(ncams_config, intrinsics_config, extrinsics
 When all cameras do not have a shared view of a planar board - for example they are facing each 
 other - their relative poses cannot be computed in a single step without a 3D calibration object.
 Instead, if multiple adjacent cameras have a shared view (each camera shares a view with 2 others) 
-then the relative positions between each pair of cameras can be combined. This, however, comes with
-the risk of accumulating errors in the relative position. Consequently, the fewer links needed to 
-determine the relative position between the reference camera and all other cameras the better.
-Therefor it is ideal to use a central camera as the reference camera.
+then the relative positions between each pair of cameras can be combined (daisy chained). This, 
+however, comes with the risk of accumulating errors in the relative position. Consequently, 
+the fewer links needed to  determine the relative position between the reference camera and all
+other cameras the better. Therefore it is ideal to use a central camera as the reference camera.
+If 'daisy_chain' is not enabled then instead every camera will be stereo-calibrated with the 
+reference camera.
+
+The format of the image directory must be either:
+Setup path
+    extrinsic_path
+        cam1_image1
+        cam1_image2
+        cam1_imageN
+        cam2_image1
+        ...
+        camN_imageN
+        
+OR
+Setup path
+    extrinsic_path
+        cam1
+            cam1_image1
+            cam1_image2
+            cam1_imageN
+        cam2
+            cam2_image1
+        ...
+        camN
+            camN_imageN
+            
+It is imperative that the image number for each camera reflects the time point that each image was 
+taken at. That is to say that cam1_image10 and cam3_image10 must have been taken at the same time.
 '''
-ncams_config['extrinsic_path'] = 'pose_estimation_stereo'
-ncams_config['reference_camera_serial'] = 19335177
+raise Warning('Currently images that are appropriate for this function have not been added to the example folder.')
+ncams_config['extrinsic_path'] = 'Extrinsic_SS'
 
 cam_image_points, cam_charuco_ids = ncams.camera_pose.charuco_board_detector(ncams_config)
 
@@ -134,6 +161,12 @@ ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
 
 
 #%% 5. Loading an existing setup
+'''
+Once calibration has been completed the values can be revisited for inspection/sanity checking.
+These are also the steps necessary for other examples (included there too) for triangulation,
+video creation, inverse kinematics, etc.
+'''
+
 # Path of the ncams dictionary as described/created in (1)
 path_to_ncams_config = os.path.join(BASE_DIR, 'ncams_config.yaml')
 # Load the dictionary which contains all necessary info for the system
@@ -146,23 +179,25 @@ ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
 
 
 #%% 6. Calibrating an individual camera
-# Create a config for that camera
-config = {
-    'image_size': (1080, 1440),  # height x width 
-    # Board information
-    'board_type': 'charuco',  # charuco (preferred) or checkerboard
-    'board_dim': [6, 8],  # If this is incorrect it will cause analyses to freeze or huge errors
-    'check_size': 40, # Size of the checks in mm, essential for accurate 3D reconstructions
-    'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
-    'setup_path': BASE_DIR, # Where to store this configuration
-}
-    
+'''
+If one wishes to merely calculate the camera_matrix and/or distortion_coefficients without 
+keeping values in an 'intrinsics_config' then the values can be calculated as shown below.
+
+Note: the 'inspect_intrinsics' function cannot be called here as no 'intrinsics_config' has been
+created. The reprojection error and the exported marked images are the appropriate way to determine
+if an individual camera has been calibrated properly.
+'''
+
+# Path of the ncams dictionary as described/created in (1)
+path_to_ncams_config = os.path.join(BASE_DIR, 'ncams_config.yaml')
+# Load the dictionary which contains all necessary info for the system
+ncams_config = ncams.camera_io.yaml_to_config(path_to_ncams_config)
 # Create a board using the config info
-charuco_dict, charuco_board, _ = ncams.camera_tools.create_board(config,plotting=False)
+charuco_dict, charuco_board, _ = ncams.camera_tools.create_board(ncams_config, plotting=False)
 # Declare the path of the calibration images and get their paths
-calibration_image_path = r'C:\Users\somlab\Desktop\FLIRTesting\SR\Calibration\calibration_2020_08_05\intrinsic\cam19194009'
+calibration_image_path = os.path.join(BASE_DIR, 'intrinsic','cam19194009')
 cam_image_list = ncams.utils.get_image_list(calibration_image_path)
 # Calibrate with those images
 reprojection_error, camera_matrix, distortion_coefficients, detected_points = ncams.camera_calibration.charuco_calibration(
     cam_image_list, charuco_dict, charuco_board, export_marked_images=False, verbose=True)
-# Inspect the calibration
+
