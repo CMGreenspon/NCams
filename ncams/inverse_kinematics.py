@@ -10,6 +10,7 @@ Functions related to setting up and analyzing inverse kinematics using OpenSim (
 import ntpath
 import csv
 import math
+from copy import deepcopy
 import xml.etree.ElementTree as ET
 
 import numpy
@@ -55,7 +56,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                         rate=50, repeat=0, zero_marker='scapula_anterior', frame_range=None,
                         runtime_data_check=None, rotation=None,
                         ik_file=None, ik_weight_type='nans',
-                        ik_xml_str=None, ik_out_mot_file='out_inv_kin_mot'):
+                        ik_xml_str=None, ik_out_mot_file='out_inv_kin_mot',
+                        static_triang_csv=None):
     '''Transforms triangulated data from NCams/DLC format into OpenSim trc.
 
     Arguments:
@@ -99,6 +101,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             ncams.inverse_kinematics.IK_XML_STR)
         ik_out_mot_file {str} --  filename of the output inverse kinematics file.
             {default: 'out_inv_kin_mot'}
+        static_triang_csv {str} -- additional triangulated data file, specifically for static
+            markers that don't move during experiment. {default: None}
     '''
     if data_unit_convert is None:
         data_unit_convert = lambda x: x*100  # dm to mm
@@ -114,6 +118,24 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             n_frames = len(f.readlines()) - 2 - frame_range[0]
     else:
         n_frames = frame_range[1] - frame_range[0] + 1
+
+    s_n_bodyparts = 0
+    s_bodyparts = []
+    s_vals = []
+    if static_triang_csv is not None:
+        with open(static_triang_csv, 'r') as sfin:
+            rdr = csv.reader(sfin)
+
+            li = next(rdr)
+            li2 = next(rdr)  # flavor text
+            li2 = next(rdr)
+            s_n_bodyparts = int((len(li)-1)/3)
+            s_vals = []
+            for i in range(s_n_bodyparts):
+                if li[1+i*3] in marker_name_dict.keys():
+                    s_bodyparts.append(marker_name_dict[li[1+i*3]])
+                    s_vals.append([li2[1+i*3], li2[1+i*3+1], li2[1+i*3+2]])
+            s_n_bodyparts = len(s_bodyparts)
 
     with open(triang_csv, 'r') as fin, open(trc_file, 'w', newline='') as fou:
         rdr = csv.reader(fin)
@@ -132,14 +154,16 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
         wrr.writerow(['PathFileType', '4', '(X/Y/Z)', ntpath.basename(trc_file)])
         wrr.writerow(['DataRate', 'CameraRate', 'NumFrames', 'NumMarkers', 'Units', 'OrigDataRate',
                       'OrigDataStartFrame', 'OrigNumFrames'])
-        wrr.writerow([rate, rate, n_frames*(repeat+1), n_bodyparts, 'mm', rate, 1, 1])
+        wrr.writerow([rate, rate, n_frames*(repeat+1), n_bodyparts+s_n_bodyparts, 'mm', rate, 1, 1])
         lo = ['Frame#', 'Time']
         for bp in bodyparts:
             lo += [marker_name_dict[bp], '', '']
+        for bp in s_bodyparts:
+            lo += [bp, '', '']
         wrr.writerow(lo)
 
         lo = ['', '']
-        for ibp in range(n_bodyparts):
+        for ibp in range(n_bodyparts+s_n_bodyparts):
             lo += ['X{}'.format(ibp+1), 'Y{}'.format(ibp+1), 'Z{}'.format(ibp+1)]
         wrr.writerow(lo)
         wrr.writerow([])
@@ -189,18 +213,22 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                     num_dats[bp] += 1
 
             lo = [i+1, i*period]
-            if repeat > 0:
-                data_copy.append([])
             for bp in bodyparts:
                 lo += value_dict[bp]
-                if repeat > 0:
-                    data_copy[-1] += value_dict[bp]
 
-            # OpenSim4.0 cannot read the line properly when the last value is 
+            for v in s_vals:
+                lo += rotation([[data_unit_convert(float(v[0])-zero_x),
+                                 data_unit_convert(float(v[1])-zero_y),
+                                 data_unit_convert(float(v[2])-zero_z)]])
+
+            if repeat > 0:
+                data_copy.append(deepcopy(lo[2:]))
+
+            # OpenSim4.0 cannot read the line properly when the last value is
             # empty and wants an additional tab:
             if lo[-1] == '':
                 lo.append('')
-                
+
             wrr.writerow(lo)
 
             # print a runtime report
@@ -296,6 +324,28 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             bpe.append(bpe_w)
 
             iktso.append(bpe)
+
+        for s_bp in s_bodyparts:
+            bpe = ET.Element('IKMarkerTask')
+            bpe.set('name', s_bp)
+            bpe.text = '\n' + ' '*20
+            bpe.tail = '\n' + ' '*16
+
+            # calculate the weight of the marker
+            bp_weight = 1
+            bp_apply = 'true'
+
+            bpe_a = ET.Element('apply')
+            bpe_a.text = bp_apply
+            bpe_a.tail = '\n' + ' '*20
+            bpe.append(bpe_a)
+            bpe_w = ET.Element('weight')
+            bpe_w.text = str(bp_weight)
+            bpe_w.tail = '\n' + ' '*16
+            bpe.append(bpe_w)
+
+            iktso.append(bpe)
+
 
         ikt_tr = ikt.find('time_range')
         if ikt_tr is None:
