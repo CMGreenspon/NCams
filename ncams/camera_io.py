@@ -95,6 +95,24 @@ def yaml_to_config(filename):
     '''
     with open(filename, 'r') as yaml_file:
         ncams_config = yaml.safe_load(yaml_file)
+        
+    current_config_path = os.path.join(ncams_config['setup_path'], ncams_config['setup_filename'])
+    
+    check_filename = False
+    if not os.path.exists(current_config_path):
+        check_filename = True
+        
+    if not check_filename and not os.path.samefile(current_config_path, filename):
+        check_filename = True
+    
+    if check_filename:
+        print('The setup path in the loaded ncams_config does not match its current location.')
+        user_input_str = 'Would you like to overwrite the setup path?\n'
+        user_input = input(user_input_str).lower()
+        if user_input in ('yes', 'y'):
+            (new_path, new_filename) = os.path.split(filename)
+            ncams_config['setup_path'] = new_path
+            ncams_config['setup_filename'] = new_filename
 
     return ncams_config
 
