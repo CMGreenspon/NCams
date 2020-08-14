@@ -26,7 +26,7 @@ import cv2
 
 # Replace this with your working directory
 #BASE_DIR = *\NCamsCalibrationExampleData
-BASE_DIR = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData2'
+BASE_DIR = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData'
 
 #%% 1. Create the ncams_config
 ncams_config = {

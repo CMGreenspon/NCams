@@ -113,6 +113,8 @@ def yaml_to_config(filename):
             (new_path, new_filename) = os.path.split(filename)
             ncams_config['setup_path'] = new_path
             ncams_config['setup_filename'] = new_filename
+            print('The workspace variable has been overwritten but the original file has not.',
+                  'Use the "config_to_yaml" function to overwrite the original file.')
 
     return ncams_config
 

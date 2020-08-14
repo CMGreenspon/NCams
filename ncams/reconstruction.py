@@ -40,8 +40,7 @@ FIGNUM = None
 AXS = None
 SLIDER = None
 
-def triangulate(image_coordinates, projection_matrices, mode='full_rank', confidence_values=None,
-                threshold=None):
+def triangulate(image_coordinates, projection_matrices):
     '''
     The base triangulation function for NCams. Takes image coordinates and projection matrices from
     2+ cameras and will produce a triangulated point with the desired approach.
@@ -57,7 +56,7 @@ def triangulate(image_coordinates, projection_matrices, mode='full_rank', confid
             full_rank - performs SVD to find the point with the least squares error between all
                 projection lines. If a threshold is given along with confidence values then only
                 points above the threshold will be used.
-            best_pair - uses the two cameras with the highest confidence values for the
+            best_n - uses the n number of cameras with the highest confidence values for the
                 triangulation. If a threshold is given then only points above the threshold will
                 be considered.
             cluster - [in development] performs all combinations of triangulations and checks for 
@@ -93,36 +92,21 @@ def triangulate(image_coordinates, projection_matrices, mode='full_rank', confid
     if num_cameras != len(projection_matrices):
         raise ValueError('Different number of coordinate pairs and projection matrices given.')
     
-    if mode == 'full_rank':
-        decomp_matrix = np.empty((num_cameras*2, 4))
-        for decomp_idx in range(num_cameras):
-            point_mat = image_coordinates[decomp_idx, :]
-            projection_mat = projection_matrices[decomp_idx]
-    
-            temp_decomp = np.vstack([
-                [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
-                [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
-    
-            decomp_matrix[decomp_idx*2:decomp_idx*2 + 2, :] = temp_decomp
-    
-        Q = decomp_matrix.T.dot(decomp_matrix)
-        u, _, _ = np.linalg.svd(Q)
-        u = u[:, -1, np.newaxis]
-        u_3d = np.transpose((u/u[-1, :])[0:-1, :])
-        
-    elif mode == 'best_pair':
-        # Check confidence values match other inputs
-        if isinstance(confidence_values, None):
-            raise ValueError('No confidence values given.')
-        if num_cameras != np.shape(confidence_values)[0]:
-            raise ValueError('Different number of coordinate pairs and confidence values given.')
-            
-    elif mode == 'cluster':
-        raise NotImplementedError()
-        
-        
-    else:
-        raise ValueError('No compatible mode given. Use "full_rank", "best_pair", or "cluster".')
+    decomp_matrix = np.empty((num_cameras*2, 4))
+    for decomp_idx in range(num_cameras):
+        point_mat = image_coordinates[decomp_idx]
+        projection_mat = projection_matrices[decomp_idx]
+
+        temp_decomp = np.vstack([
+            [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
+            [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
+
+        decomp_matrix[decomp_idx*2:decomp_idx*2 + 2, :] = temp_decomp
+
+    Q = decomp_matrix.T.dot(decomp_matrix)
+    u, _, _ = np.linalg.svd(Q)
+    u = u[:, -1, np.newaxis]
+    u_3d = np.transpose((u/u[-1, :])[0:-1, :])
     
     return u_3d
     
@@ -165,6 +149,10 @@ def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_conf
 
     world_locations = extrinsics_config['world_locations']
     world_orientations = extrinsics_config['world_orientations']
+    
+    if not method in ('full_rank', 'best_n', 'centroid'):
+        raise ValueError('{} is not an accepted method. '
+                         'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
 
     # Get data files
     list_of_csvs = []
@@ -289,7 +277,7 @@ def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_conf
             # Get points for each camera
             cam_image_points = np.empty((2, num_cameras))
             cam_image_points.fill(np.nan)
-            if method == 'full_rank' or (method == 'best_pair' and num_cameras <= best_n):
+            if method == 'full_rank':
                 for icam in range(num_cameras):
                     cam_image_points[:, icam] = output_coordinates_filtered[icam][iframe, :, bodypart]
             elif method == 'best_n':
@@ -307,24 +295,14 @@ def triangulate_csv(ncams_config, output_csv, intrinsics_config, extrinsics_conf
             cam_idx = np.where(cams_detecting)[0]
             if np.sum(cams_detecting) < 2:
                 continue
-
-            # Perform the triangulation
-            decomp_matrix = np.empty((np.sum(cams_detecting)*2, 4))
-            for decomp_idx, cam in enumerate(cam_idx):
-                point_mat = cam_image_points[:, cam]
-                projection_mat = projection_matrices[cam]
-
-                temp_decomp = np.vstack([
-                    [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
-                    [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
-
-                decomp_matrix[decomp_idx*2:decomp_idx*2 + 2, :] = temp_decomp
-
-            Q = decomp_matrix.T.dot(decomp_matrix)
-            u, _, _ = np.linalg.svd(Q)
-            u = u[:, -1, np.newaxis]
-            u_euclid = (u/u[-1, :])[0:-1, :]
-            triangulated_points[iframe, :, bodypart] = np.transpose(u_euclid)
+            
+            # Create the image point and projection matrices
+            tri_projection_mats, tri_image_points = [], []
+            for cam in cam_idx:
+                tri_image_points.append(cam_image_points[:, cam])
+                tri_projection_mats.append(projection_matrices[cam])
+                
+            triangulated_points[iframe, :, bodypart] = triangulate(tri_image_points, tri_projection_mats)
 
     with open(output_csv, 'w', newline='') as f:
         triagwriter = csv.writer(f)
@@ -838,3 +816,24 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     cid = FIG.canvas.mpl_connect('key_press_event', arrow_key_image_control)
 
     mpl_pp.show()
+
+
+'''
+The below is the core for triangulation procedures.
+decomp_matrix = np.empty((np.sum(cams_detecting)*2, 4))
+for decomp_idx, cam in enumerate(cam_idx):
+    point_mat = cam_image_points[:, cam]
+    projection_mat = projection_matrices[cam]
+
+    temp_decomp = np.vstack([
+        [point_mat[0] * projection_mat[2, :] - projection_mat[0, :]],
+        [point_mat[1] * projection_mat[2, :] - projection_mat[1, :]]])
+
+    decomp_matrix[decomp_idx*2:decomp_idx*2 + 2, :] = temp_decomp
+
+Q = decomp_matrix.T.dot(decomp_matrix)
+u, _, _ = np.linalg.svd(Q)
+u = u[:, -1, np.newaxis]
+u_euclid = (u/u[-1, :])[0:-1, :]
+triangulated_points[iframe, :, bodypart] = np.transpose(u_euclid)
+'''
