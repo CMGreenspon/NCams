@@ -203,7 +203,8 @@ def export_intrinsics(intrinsic_config, path=None, filename=None):
 def import_intrinsics(ncams_config):
     '''Imports camera calibration info for all cameras in the setup from a pickle file.
 
-    Reorders the loaded information to adhere to 'serials' in ncams_config.
+    Reorders the loaded information to adhere to 'serials' in ncams_config. Alternatively, if a path
+    is given then it will directly assume it is the path to the intrinsics config.
 
     Arguments:
         ncams_config {dict} -- information about camera configuration. Should have following keys:
@@ -228,8 +229,11 @@ def import_intrinsics(ncams_config):
             filename {string} -- name of the pickle file to store the config in/load from.
     '''
     # Get the path name
-    filename = os.path.join(ncams_config['setup_path'], ncams_config['intrinsic_path'],
-                            ncams_config['intrinsic_filename'])
+    if type(ncams_config) == dict:
+        filename = os.path.join(ncams_config['setup_path'], ncams_config['intrinsic_path'],
+                                ncams_config['intrinsic_filename'])
+    elif type(ncams_config) == str:
+        filename = ncams_config
 
     # Load the file
     with open(filename, 'rb') as f:
@@ -243,7 +247,7 @@ def import_intrinsics(ncams_config):
     intrinsic_config['reprojection_errors'] = []
     intrinsic_config['dicts'] = {}
 
-    for serial in ncams_config['serials']:
+    for serial in intrinsic_config['serials']:
         idx = _intrinsic_config['serials'].index(serial)
 
         intrinsic_config['serials'].append(
@@ -312,7 +316,8 @@ def export_extrinsics(extrinsic_config, path=None, filename=None):
 def import_extrinsics(ncams_config):
     '''Imports camera calibration info for all cameras in the setup from a pickle file.
 
-    Reorders the loaded information to adhere to 'serials' in ncams_config.
+    Reorders the loaded information to adhere to 'serials' in ncams_config. Alternatively, if a path
+    is given then it will directly assume it is the path to the intrinsics config.
 
     Arguments:
         ncams_config {dict} -- see help(ncams.camera_tools). Should have following keys:
@@ -334,8 +339,11 @@ def import_extrinsics(ncams_config):
             filename {string} -- name of the YAML file to store the config in/load from.
     '''
     # Get the path name
-    filename = os.path.join(ncams_config['setup_path'], ncams_config['extrinsic_path'],
+    if type(ncams_config) == dict:
+        filename = os.path.join(ncams_config['setup_path'], ncams_config['extrinsic_path'],
                             ncams_config['extrinsic_filename'])
+    elif type(ncams_config) == str:
+        filename = ncams_config
 
     # Load the file
     with open(filename, 'rb') as f:
@@ -348,7 +356,7 @@ def import_extrinsics(ncams_config):
     extrinsic_config['world_orientations'] = []
     extrinsic_config['dicts'] = {}
 
-    for serial in ncams_config['serials']:
+    for serial in extrinsic_config['serials']:
         idx = _extrinsic_config['serials'].index(serial)
 
         extrinsic_config['serials'].append(
