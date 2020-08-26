@@ -10,12 +10,13 @@ Functions for working with images and making videos.
 For more details on the camera data structures and dicts, see help(ncams.camera_tools).
 """
 import os
-
 import numpy
-import matplotlib.pyplot as mpl_pp
-from moviepy import editor # A very easy way of using FFMPEG
 import cv2
+
 from tqdm import tqdm
+from moviepy import editor # A very easy way of using FFMPEG
+
+import matplotlib.pyplot as mpl_pp
 
 
 def undistort_video(video_filename, camera_calib_dict, output_filename=None):

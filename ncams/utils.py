@@ -10,11 +10,12 @@ Utilities for general use in multiple functions.
 
 import os
 import re
-from glob import glob
-from copy import deepcopy
 import yaml
 import csv
 import cv2
+
+from glob import glob
+from copy import deepcopy
 
 import numpy as np
 
