@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Sep  8 13:32:30 2020
-
-@author: somlab
-"""
-
 """
 NCams Toolbox
 Copyright 2020 Charles M Greenspon, Anton Sobinov
@@ -23,6 +16,12 @@ import os
 import time
 import numpy as np
 import cv2
+
+import matplotlib
+import matplotlib.pyplot as mpl_pp
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # Replace this with your working directory
 #BASE_DIR = r'*\NCamsCalibrationExampleData'
@@ -49,12 +48,89 @@ for loop. The following example shows how to deal with an individual trial.'''
 # Declare the folder containing the CSVs for each camera and the desired name
 labeled_csv_path = os.path.join(BASE_DIR, 'trial10')
 
+output_csv_fname = os.path.join(labeled_csv_path, 'triangulated_raw.csv')
 ncams.reconstruction.triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config,
-                                     extrinsics_config, output_csv_fname=None, threshold=0.9,
-                                     method='full_rank', best_n=2, centroid_threshold=2.5,
-                                     iteration=None, undistorted_data=False, file_prefix='',
+                                     extrinsics_config, output_csv_fname=output_csv_fname,
                                      filter_2D=False, filter_3D=False)
 
+#%% 2. Smoothing and filtering in 2D/3D
+''' Due to the inherent noise in the keypoint estimation, both the 2D and 3D data can be erratic.
+On the assumption that the noise across cameras is uncorrelated, all cameras can be filtered/smoothed
+before triangulation occurs and then the subsequent data can again be filtered/smoothed. Both stages 
+are optional. Given that these are options in the "triangulate_csv" function, trying each of these out
+is trivial. To save time a quick comparison of the combinations of filtering is given below.'''
+
+# Choose a bodypart number, the camera to view and plot the results in 2D & 3D
+ibp = 13
+serial_oi = 19340300
+
+# Make a CSV for each possible combination of the triangulated output
+output_csv_fname = os.path.join(labeled_csv_path, 'triangulated_2D.csv')
+ncams.reconstruction.triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config,
+                                     extrinsics_config, output_csv_fname=output_csv_fname,
+                                     filter_2D=True, filter_3D=False)
+
+output_csv_fname = os.path.join(labeled_csv_path, 'triangulated_3D.csv')
+ncams.reconstruction.triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config,
+                                     extrinsics_config, output_csv_fname=output_csv_fname,
+                                     filter_2D=False, filter_3D=True)
+
+output_csv_fname = os.path.join(labeled_csv_path, 'triangulated_2D3D.csv')
+ncams.reconstruction.triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config,
+                                     extrinsics_config, output_csv_fname=output_csv_fname,
+                                     filter_2D=True, filter_3D=True)
+
+
+# Load the 2D CSV, get filtered & unfiltered points
+csv_list = ncams.utils.get_file_list('.csv', path=labeled_csv_path)
+csv_oi = [s for s in csv_list if str(serial_oi) in s][0]
+(formatted_2d_points,_) = ncams.reconstruction.process_points(csv_oi, '2D', filtering=False)
+unfiltered_2d_points = np.squeeze(formatted_2d_points[:,:,ibp])
+(formatted_2d_points,_) = ncams.reconstruction.process_points(csv_oi, '2D', filtering=True)
+filtered_2d_points = np.squeeze(formatted_2d_points[:,:,ibp])
+
+# Load the 3D CSVs
+csv_oi = [s for s in csv_list if 'triangulated' in s]
+legend_3d, points_to_plot = [],[]
+for fname in csv_oi: # Get the filenames for the legend
+    short_path = os.path.split(fname)[1]
+    legend_3d.append(short_path[13:-4])
+    
+    formatted_3d_points = ncams.reconstruction.process_points(fname, '3D', filtering=False)
+    points_to_plot.append(np.squeeze(formatted_3d_points[:,:,ibp]))
+
+
+# Plot it all    
+fig = mpl_pp.figure()
+
+ax1 = fig.add_subplot(121)
+ax1.plot(unfiltered_2d_points[:,0], unfiltered_2d_points[:,1])
+ax1.plot(filtered_2d_points[:,0], filtered_2d_points[:,1])
+ax1.set_xlim([0, ncams_config['image_size'][0]])
+ax1.set_ylim([0, ncams_config['image_size'][1]])
+ax1.legend(('Unfiltered', 'Filtered'))
+
+ax2 = fig.add_subplot(122, projection='3d')
+for p in range(len(points_to_plot)):
+    ax2.plot(points_to_plot[p][:,0], points_to_plot[p][:,1],points_to_plot[p][:,2])
+    
+ax2.legend(legend_3d)
+
+#%% 3. Interactive 3D plotting
+''' In order to make inspecting the outputs of the triangulation easy it is we found it best to 
+view it alongside a video. The interactive tool allows scrubbing of individual frames, ideal for
+cropping and rotating the projection, as well as inspecting the movement of individual markers.
+'''
+vid_name = r'trial10_cam19340300DLC_resnet50_SR_2020.08.07Aug7shuffle1_250000_labeled.mp4'
+vid_path = os.path.join(labeled_csv_path, vid_name)
+dlc_config_path = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData\DLC_config.yaml'
+
+ncams.reconstruction.interactive_3d_plot(vid_path, output_csv_fname, skeleton_path=dlc_config_path)
+
+
+#%% 4. Exporting triangulated videos
+
+    
 #%% 5. Triangulation of individual points
 ''' This example serves to demonstrate how a given point can be triangulated by itself if desired
 for whatever reason. This is not an efficient or particularly useful thing to do but through this

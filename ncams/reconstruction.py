@@ -441,7 +441,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         if not frame_count_match:
             csv_array = csv_array[:num_frames,:]
         # Reshape and threshold the data
-        ic_array, ic_confidence = process_points(csv_array, threshold=threshold, csv_type='2D',
+        ic_array, ic_confidence = process_points(csv_array, '2D', threshold=threshold,
                                    filtering=filter_2D)
         image_coordinates.append(ic_array)
         ic_confidences.append(ic_confidence)
@@ -540,11 +540,14 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                 triangulated_points[iframe, :, bodypart] = t_centroid
                 
     if filter_3D:
-        triangulated_points = process_points(triangulated_points, csv_type='3D')
+        triangulated_points = process_points(triangulated_points, '3D')
 
     if output_csv_fname is None:
         _, dir_name = os.path.split(labeled_csv_path)
         output_csv_fname = os.path.join(labeled_csv_path, dir_name + '_triangulated.csv')
+    else: # check if correct delimiter
+        if not os.path.split(output_csv_fname)[1][-4:] == '.csv':
+            output_csv_fname = output_csv_fname + '.csv'
         
     with open(output_csv_fname, 'w', newline='') as f:
         triagwriter = csv.writer(f)
@@ -564,7 +567,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     return output_csv_fname
 
 
-def process_points(path_or_array, filt_width=5, threshold=0.9, csv_type=None, filtering=True):
+def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filtering=True):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
        Arguments:
