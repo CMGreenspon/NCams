@@ -1,11 +1,11 @@
 """
 NCams Toolbox
-Copyright 2019 Charles M Greenspon, Anton Sobinov
+Copyright 2020 Charles M Greenspon, Anton Sobinov
 https://github.com/CMGreenspon/NCams
 
 Example script for setting up a system. Goes through file formatting and both intrinsic and
 extrinsic calibration. This also includes measuring how accurate the calibration steps are.
-The steps taken are as follows:
+The following examples are given:
     1. Creating an ncams_config dictionary
     2. Creation of a charucoboard to use for calibration
     3. Camera intrinsic calibration and inspection

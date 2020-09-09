@@ -543,7 +543,8 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         triangulated_points = process_points(triangulated_points, csv_type='3D')
 
     if output_csv_fname is None:
-        output_csv_fname = os.path.join()
+        _, dir_name = os.path.split(labeled_csv_path)
+        output_csv_fname = os.path.join(labeled_csv_path, dir_name + '_triangulated.csv')
         
     with open(output_csv_fname, 'w', newline='') as f:
         triagwriter = csv.writer(f)
@@ -559,6 +560,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                        triangulated_points[iframe, 1, ibp],
                        triangulated_points[iframe, 2, ibp]]
             triagwriter.writerow(rw)
+            
     return output_csv_fname
 
 
