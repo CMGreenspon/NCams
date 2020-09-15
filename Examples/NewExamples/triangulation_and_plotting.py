@@ -129,12 +129,18 @@ ncams.reconstruction.interactive_3d_plot(vid_path, output_csv_fname, skeleton_pa
 
 
 #%% 4. Exporting triangulated videos
+''' If one wishes to save the full or cropped version of the video with reconstruction the following
+function may be used. There are many options such as adding a third panel for skeletal reconstruction
+or an alternate view.
+'''
 
-    
+ncams.reconstruction.make_triangulation_video(vid_path, output_csv_fname,
+                                              skeleton_config=dlc_config_path, view=(90, 120))
 #%% 5. Triangulation of individual points
 ''' This example serves to demonstrate how a given point can be triangulated by itself if desired
 for whatever reason. This is not an efficient or particularly useful thing to do but through this
-several underlying functions are demonstrated.'''
+several underlying functions are demonstrated. From the below framework any variation on the supplied
+triangulation should be easy.'''
 
 # Create projection matrices for each camera
 projection_matrices = []

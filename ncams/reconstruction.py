@@ -146,6 +146,7 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
     Output:
         output_csv {csv file} -- csv containing all triangulated points.
     '''
+    
     cam_serials = ncams_config['serials']
 
     camera_matrices = intrinsics_config['camera_matrices']
@@ -715,6 +716,8 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
         output_csv {str} -- filename for the output smoothed csv. (default: {csv_path +
             _smoothed.csv})
     '''
+    print('Warning: This function has been depreciated. Use process_points instead.')
+    
     # Load in the CSV
     with open(csv_path, 'r') as f:
         triagreader = csv.reader(f)
@@ -778,7 +781,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
                              figure_dpi=150, marker_size=5, skeleton_thickness=1,
                              frame_count=False, frame_rate=None, thrd_video_path=None,
                              thrd_video_frame_offset=0, third_video_crop_hw=None, ranges=None,
-                             plot_markers=True, horizontal_subplots=True, timeseries=None):
+                             plot_markers=True, horizontal_subplots=True):
 
     '''Makes a video based on triangulated marker positions.
 
@@ -1025,51 +1028,6 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
     output_video.release()
 
     print('*  Video saved to:\n\t' + output_filename)
-
-
-def _make_triangulation_video():
-    '''Use for parallelization of make_triangulation_videos
-
-    Not Implemented - need to figure out what to do about dialogue.
-
-    [description]
-    '''
-    raise NotImplementedError
-    pass
-
-
-def make_image(args, ranges=None, output_path=None, bp_cmap=None):
-    iframe, image_path, triangulated_points = args
-    if output_path is None:
-        output_path = os.getcwd()
-
-    fig = mpl_pp.figure(figsize=(9, 5))
-    ax1 = fig.add_subplot(1, 2, 1)
-    # Create the figure
-    ax1.imshow(mpl_pp.imread(image_path))
-
-    ax2 = fig.add_subplot(1, 2, 2, projection='3d')
-    ax2.view_init(elev=90, azim=90)
-    if ranges is not None:
-        ax2.set_xlim(ranges[0])
-        ax2.set_ylim(ranges[1])
-        ax2.set_zlim(ranges[2])
-
-    if bp_cmap is None:
-        for ibp in range(np.size(triangulated_points, 1)):
-            ax2.scatter(triangulated_points[0, ibp],
-                        triangulated_points[1, ibp],
-                        triangulated_points[2, ibp])
-    else:
-        for ibp in range(np.size(triangulated_points, 1)):
-            ax2.scatter(triangulated_points[0, ibp],
-                        triangulated_points[1, ibp],
-                        triangulated_points[2, ibp],
-                        color=bp_cmap[ibp, :])
-
-    mpl_pp.savefig(os.path.join(output_path, 'frame' + str(iframe)))
-    mpl_pp.close(fig)
-
 
 def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, figure_size=(9, 5),
                         marker_size=5, skeleton_thickness=1):
