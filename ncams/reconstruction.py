@@ -49,13 +49,13 @@ def triangulate(image_coordinates, projection_matrices):
     '''
     The base triangulation function for NCams. Takes image coordinates and projection matrices from
     2+ cameras and will produce a triangulated point with the desired approach.
-   
+
     Arguments:
         image_coordinates {array or list of} -- the x,y coordinates of a given marker for multiple
             cameras. The points must be in the format (1,2) if in a list or (n,2) if an array.
         projection_matrices {list} -- the projection matrices for the cameras corresponding
         to each image points input.
-        
+
     Keyword Arguments:
         mode {str} -- the triangulation method to use:
             full_rank - performs SVD to find the point with the least squares error between all
@@ -64,39 +64,39 @@ def triangulate(image_coordinates, projection_matrices):
             best_n - uses the n number of cameras with the highest confidence values for the
                 triangulation. If a threshold is given then only points above the threshold will
                 be considered.
-            cluster - [in development] performs all combinations of triangulations and checks for 
+            cluster - [in development] performs all combinations of triangulations and checks for
                 outlying points suggesting erroneous image coordinates from one or more cameras.
                 After removing the camera(s) that produce out of cluser points it then performs the
-                full_rank triangulation.  
+                full_rank triangulation.
         confidence_values {list or array} -- the confidence values for the points given by the
             marking system (e.g. DeepLabCut)
         threshold {float} -- the minimum confidence value to accept for triangulation.
-    
+
     Output:
         u_3d {(1,3) np.array} -- the triangulated point produced.
-    
-    ''' 
+
+    '''
     u_3d = np.zeros((1,3))
     u_3d.fill(np.nan)
-    
+
     # Check if image coordinates are formatted properly
     if isinstance(image_coordinates, list):
         if len(image_coordinates) > 1:
             image_coordinates = np.vstack(image_coordinates)
         else:
             return u_3d
-    
+
     if not np.shape(image_coordinates)[1] == 2:
-        raise ValueError('ncams.reconstruction.triangulate only accepts numpy.ndarrays or lists of' + 
+        raise ValueError('ncams.reconstruction.triangulate only accepts numpy.ndarrays or lists of' +
                          'in the format (camera, [x,y])')
-    
+
     num_cameras = np.shape(image_coordinates)[0]
     if num_cameras < 2: # return NaNs if insufficient points to triangulate
         return u_3d
-    
+
     if num_cameras != len(projection_matrices):
         raise ValueError('Different number of coordinate pairs and projection matrices given.')
-    
+
     decomp_matrix = np.empty((num_cameras*2, 4))
     for decomp_idx in range(num_cameras):
         point_mat = image_coordinates[decomp_idx]
@@ -112,9 +112,9 @@ def triangulate(image_coordinates, projection_matrices):
     u, _, _ = np.linalg.svd(Q)
     u = u[:, -1, np.newaxis]
     u_3d = np.transpose((u/u[-1, :])[0:-1, :])
-    
+
     return u_3d
-    
+
 def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_config,
                 labeled_csv_path, threshold=0.5, method='full_rank',
                 best_n=2, num_frames_limit=None, iteration=None, undistorted_data=False,
@@ -146,7 +146,7 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
     Output:
         output_csv {csv file} -- csv containing all triangulated points.
     '''
-    
+
     cam_serials = ncams_config['serials']
 
     camera_matrices = intrinsics_config['camera_matrices']
@@ -155,7 +155,7 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
 
     world_locations = extrinsics_config['world_locations']
     world_orientations = extrinsics_config['world_orientations']
-    
+
     if not method in ('full_rank', 'best_n', 'centroid'):
         raise ValueError('{} is not an accepted method. '
                          'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
@@ -301,13 +301,13 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
             cam_idx = np.where(cams_detecting)[0]
             if np.sum(cams_detecting) < 2:
                 continue
-            
+
             # Create the image point and projection matrices
             tri_projection_mats, tri_image_points = [], []
             for cam in cam_idx:
                 tri_image_points.append(cam_image_points[:, cam])
                 tri_projection_mats.append(projection_matrices[cam])
-                
+
             triangulated_points[iframe, :, bodypart] = triangulate(tri_image_points, tri_projection_mats)
 
     with open(output_csv, 'w', newline='') as f:
@@ -331,7 +331,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                      output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
                      centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
                      filter_2D=False, filter_3D=False):
-    
+
     '''Triangulates points from multiple cameras and exports them into a csv.
 
     Arguments:
@@ -341,13 +341,15 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         output_csv {str} -- file to save the triangulated points into.
         intrinsics_config {dict} -- see help(ncams.camera_tools).
         extrinsics_config {dict} -- see help(ncams.camera_tools).
-        labeled_csv_path {str} -- locations of csv's with marked points.
+        labeled_csv_path {str} -- locations of csv's with marked points. TODO: accept a list of
+            files.
     Keyword Arguments:
         threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
             be used for triangulation. (default: 0.9)
         method {'full_rank' or 'best_pair'} -- method for triangulation.
             full_rank: uses all available cameras
             best_n: uses best n cameras to locate the point.
+            TODO: add centroid/cluster description
             (default: 'full_rank')
         best_n {number} -- how many cameras to use when best_n method is used. (default: 2)
         iteration {int} -- look for csv's with this iteration number. (default: {None})
@@ -365,7 +367,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
 
     world_locations = extrinsics_config['world_locations']
     world_orientations = extrinsics_config['world_orientations']
-    
+
     if not method in ('full_rank', 'best_n', 'centroid'):
         raise ValueError('{} is not an accepted method. '
                          'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
@@ -373,9 +375,9 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     # Check if the source CSV path exists
     if not os.path.exists(labeled_csv_path):
         raise ValueError('Provided path for CSVs does not exist.')
-        
+
     # Get data files
-    list_of_csvs = []        
+    list_of_csvs = []
     for cam_serial in cam_serials:
         if iteration is None:
             sstr = '*.csv'
@@ -383,7 +385,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
             sstr = '*_{}.csv'.format(iteration)
         list_of_csvs += glob(os.path.join(
             labeled_csv_path, file_prefix+'*'+ str(cam_serial) + sstr))
-        
+
     if len(list_of_csvs) == 0:
         raise ValueError('No CSVs found in provided path.')
     elif not len(list_of_csvs) == len(cam_serials):
@@ -414,9 +416,9 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
             reader_object = csv.reader(csvfile, delimiter=',')
             for row in reader_object:
                 csv_arrays[ifile].append(row)
-            
+
             frame_count.append(int(len(csv_arrays[ifile])-3))
-            
+
     # Check frame count
     frame_count_match = all(x==frame_count[0] for x in frame_count)
     if frame_count_match:
@@ -437,7 +439,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     num_bodyparts = len(bodyparts)
 
     image_coordinates, ic_confidences = [], []
-    for icam in range(num_cameras):        
+    for icam in range(num_cameras):
         csv_array = np.vstack(csv_arrays[icam][3:])[:,1:] # Remove header rows, and first column
         if not frame_count_match:
             csv_array = csv_array[:num_frames,:]
@@ -446,7 +448,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                                    filtering=filter_2D)
         image_coordinates.append(ic_array)
         ic_confidences.append(ic_confidence)
-        
+
     if not undistorted_data: # Undistort points
         undistorted_image_coordinates = []
         for icam in range(num_cameras):
@@ -459,9 +461,9 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                     cv2.undistortPoints(distorted_points, camera_matrices[icam],
                                         distortion_coefficients[icam], None, P=camera_matrices[icam]))
                 undistorted_csv_array[:,:,bp] = undistorted_points
-    
+
             undistorted_image_coordinates.append(undistorted_csv_array)
-            
+
     else:
         undistorted_image_coordinates = image_coordinates
 
@@ -480,7 +482,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         for bodypart in range(num_bodyparts):
             cam_image_points = np.empty((2, num_cameras))
             cam_image_points.fill(np.nan)
-        
+
             if method == 'full_rank' or method == 'centroid':
                 for icam in range(num_cameras):
                     cam_image_points[:, icam] = undistorted_image_coordinates[icam][iframe, :, bodypart]
@@ -493,22 +495,22 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                     key=lambda x: x[1], reverse=True)][:best_n]
                 for icam in [icam for icam in range(num_cameras) if icam in best_likelh]:
                     cam_image_points[:, icam] = undistorted_image_coordinates[icam][iframe, :, bodypart]
-    
+
             # Check how many cameras detected the bodypart in that frame
             cams_detecting = ~np.isnan(cam_image_points[0, :])
             cam_idx = np.where(cams_detecting)[0]
             if np.sum(cams_detecting) < 2:
                 continue
-            
+
             if method == 'full_rank' or method == 'best_n':
                 # Create the image point and projection matrices
                 tri_projection_mats, tri_image_points = [], []
                 for cam in cam_idx:
                     tri_image_points.append(cam_image_points[:, cam])
                     tri_projection_mats.append(projection_matrices[cam])
-                
+
                 triangulated_points[iframe, :, bodypart] = triangulate(tri_image_points, tri_projection_mats)
-            
+
             elif method == 'centroid':
                 cam_comb_list = list(combinations(cam_idx,2))
                 num_combs = len(cam_comb_list)
@@ -518,11 +520,11 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                     for cam in cam_comb_list[c]:
                         tri_image_points.append(cam_image_points[:, cam])
                         tri_projection_mats.append(projection_matrices[cam])
-                    
+
                     t_points[c, :] = triangulate(tri_image_points, tri_projection_mats)
                 # Take the centroid of the points
                 t_centroid = np.mean(t_points, axis=0)
-                
+
                 if num_combs > 3: # Check for outliers if there are sufficient points to do so
                     t_cent_dist = []
                     for c in range(num_combs):
@@ -532,14 +534,14 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                     euclid_sd = np.std(t_cent_dist)
                     euclid_threshold = euclid_sd * centroid_threshold
                     dist_bool = t_cent_dist < euclid_threshold
-                    
+
                     if np.sum(dist_bool) < num_combs: # Recalculate the centroid
                         cent_idx = np.where(dist_bool)[0]
                         t_points_filt = t_points[cent_idx, :]
                         t_centroid = np.mean(t_points_filt, axis=0)
-                        
+
                 triangulated_points[iframe, :, bodypart] = t_centroid
-                
+
     if filter_3D:
         triangulated_points = process_points(triangulated_points, '3D')
 
@@ -549,7 +551,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     else: # check if correct delimiter
         if not os.path.split(output_csv_fname)[1][-4:] == '.csv':
             output_csv_fname = output_csv_fname + '.csv'
-        
+
     with open(output_csv_fname, 'w', newline='') as f:
         triagwriter = csv.writer(f)
         bps_line = ['bodyparts']
@@ -564,7 +566,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                        triangulated_points[iframe, 1, ibp],
                        triangulated_points[iframe, 2, ibp]]
             triagwriter.writerow(rw)
-            
+
     return output_csv_fname
 
 
@@ -589,14 +591,14 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
             csv_row = next(csv_reader)
             if csv_type == '2D':
                 csv_row = next(csv_reader)
-                
+
             # Get the names of the bodyparts for storage
             bodyparts = []
             for i, bp in enumerate(csv_row):
                 if (i-1)%3 == 0:
                     bodyparts.append(bp)
             num_bodyparts = len(bodyparts)
-            
+
             next(csv_reader) # Skip the 'xyz/xyc title row'
             point_array = []
             for row in csv_reader:
@@ -605,9 +607,9 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
                     point_array[-1][0].append(float(row[1+ibp*3]))
                     point_array[-1][1].append(float(row[2+ibp*3]))
                     point_array[-1][2].append(float(row[3+ibp*3]))
-    
+
         point_array = np.array(point_array)
-        
+
         if csv_type == '2D': # Threshold filtering
             thresholded_point_array = np.empty((point_array.shape[0], 2, point_array.shape[2]))
             thresholded_point_array.fill(np.nan)
@@ -619,9 +621,9 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
                 ibp_vals = np.squeeze(point_array[:,:2,ibp])
                 thresholded_point_array[c_idx,:,ibp] = ibp_vals[c_idx,:]
                 formatted_confidence_values[c_idx,ibp] = c_vals[c_idx]
-            
+
             point_array = thresholded_point_array
-        
+
     elif type(path_or_array) == np.ndarray: # Assume it's ncam working array
         if len(path_or_array.shape) == 2: # Flat CSV format
             num_bodyparts = int(path_or_array.shape[1]/3)
@@ -634,14 +636,14 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
                     point_array[-1][0].append(float(row[ibp*3]))
                     point_array[-1][1].append(float(row[1+ibp*3]))
                     point_array[-1][2].append(float(row[2+ibp*3]))
-        
+
             point_array = np.array(point_array)
-            
+
         elif len(path_or_array.shape) == 3: # Already formatted
             point_array = path_or_array
             num_bodyparts = int(path_or_array.shape[2])
             n_frames = int(path_or_array.shape[0])
-        
+
         if csv_type == '2D': # Threshold filtering
             thresholded_point_array = np.empty((point_array.shape[0], 2, point_array.shape[2]))
             thresholded_point_array.fill(np.nan)
@@ -653,9 +655,9 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
                 ibp_vals = np.squeeze(point_array[:,:2,ibp])
                 thresholded_point_array[c_idx,:,ibp] = ibp_vals[c_idx,:]
                 formatted_confidence_values[c_idx,ibp] = c_vals[c_idx]
-            
+
             point_array = thresholded_point_array
-        
+
     else:
         raise ValueError('Incompatible type given to "path_or_array". Must be "str" or "ndarray".')
 
@@ -686,15 +688,15 @@ def _nanmedianfilt(input_vector, kernel_width):
     '''Median filter that ignores nan values'''
     if kernel_width % 2 == 0:
         kernel_width = kernel_width + 1
-        
+
     kernel_offset = int((kernel_width-1)/2)
-    
+
     output_vector = np.empty(input_vector.shape)
     output_vector.fill(np.nan)
-    
+
     init_idx = int(np.ceil(kernel_width/2))
     term_idx = int(len(input_vector) - np.ceil(kernel_width/2))
-    
+
     output_vector[:init_idx] = input_vector[:init_idx]
     output_vector[term_idx:] = input_vector[term_idx:]
     for idx in np.arange(init_idx, term_idx):
@@ -702,9 +704,9 @@ def _nanmedianfilt(input_vector, kernel_width):
         num_nans = sum(np.isnan(vals_to_filt))
         if num_nans < kernel_offset:
             output_vector[idx] = np.nanmedian(vals_to_filt)
-            
+
     return output_vector
-            
+
 def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
@@ -717,7 +719,7 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
             _smoothed.csv})
     '''
     print('Warning: This function has been depreciated. Use process_points instead.')
-    
+
     # Load in the CSV
     with open(csv_path, 'r') as f:
         triagreader = csv.reader(f)

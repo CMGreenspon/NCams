@@ -10,7 +10,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='ncams',
-    version='0.1.65',
+    version='0.1.66',
     description='Calibration, pose estimation, and triangulation using multiple cameras.',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
@@ -25,7 +25,7 @@ setup(
         'pyyaml',
         'easygui',
         'astropy'],
-    author='Charles M. Greenspon',
+    author='Charles M. Greenspon, Anton R Sobinov',
     author_email='charles.greenspon@gmail.com',
     license='MIT',
     packages=find_packages())
