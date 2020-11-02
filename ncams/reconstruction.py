@@ -543,7 +543,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                 triangulated_points[iframe, :, bodypart] = t_centroid
 
     if filter_3D:
-        triangulated_points = process_points(triangulated_points, '3D')
+        triangulated_points = process_points(triangulated_points, '3D', threshold=threshold)
 
     if output_csv_fname is None:
         _, dir_name = os.path.split(labeled_csv_path)
