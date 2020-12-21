@@ -432,6 +432,7 @@ def import_mot(fname):
         dof_names {list of str} -- names of DOFs.
         times {list of numbers} -- time series.
         dofs {list} -- each item corresponds to values for that DOF for each frame.
+            dofs[iDOF][iTime]
     '''
     with open(fname, 'r') as f:
         rdr = csv.reader(f, dialect='excel-tab')
@@ -480,7 +481,7 @@ def export_mot(fname, dof_names, times, dofs):
             wrr.writerow([time] + [dof_vals[itime] for dof_vals in dofs])
 
 
-def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None):
+def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None, filter_1d=None):
     '''Filters the motion from a file and saves it.
 
     Arguments:
@@ -493,6 +494,8 @@ def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None):
         ou_rate {number} -- output rate. If not equal to in_rate, the signal is going to be
             resampled before median filter. (default: {same as input rate measured from input motion
             file})
+        filter_1d {callable} -- custom filter to run on each DOF. Should be an executeable that
+            accepts two arguments: time series, dof values. (default: {None})
     '''
     # load
     dof_names, times, dofs = import_mot(in_fname)
@@ -512,6 +515,11 @@ def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None):
     # median filter
     for idof in range(len(dofs)):
         dofs[idof] = scipy.signal.medfilt(dofs[idof], kernel_size=median_kernel_size)
+
+    # custom filter
+    if filter_1d is not None:
+        for idof in range(len(dofs)):
+            dofs[idof] = filter_1d(times, dofs[idof])
 
     # output
     export_mot(ou_fname, dof_names, times, dofs)
