@@ -25,19 +25,18 @@ import numpy as np
 import cv2
 
 # Replace this with your working directory
-#BASE_DIR = *\NCamsCalibrationExampleData
-BASE_DIR = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData'
+BASE_DIR = r'*\NCamsCalibrationExampleData\IntrinsicExtrinsicExample'
 
 #%% 1. Create the ncams_config
 ncams_config = {
     # Camera information
-    'serials': [19194005,19194008,19194009,19335177,19340298,19340300,19340396,20050811], #
+    'serials': [19194005,19194008,19194009,19194013,19335177,19340298,19340300,19340396], #
     'reference_camera_serial': 19335177,  # This is linked to how the cameras are hardwired
     'image_size': (1080, 1440),  # height x width 
     # Board information
     'board_type': 'charuco',  # charuco (preferred) or checkerboard
-    'board_dim': [6, 8],  # If this is incorrect it will cause analyses to freeze
-    'check_size': 40, # Size of the checks in mm, essential for accurate 3D reconstructions
+    'board_dim': [7, 10],  # If this is incorrect it will cause analyses to freeze
+    'check_size': 30, # Size of the checks in mm, essential for accurate 3D reconstructions
     'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
     # Path information
     'setup_path': BASE_DIR, # Where to store this configuration
@@ -149,7 +148,6 @@ Setup path
 It is imperative that the image number for each camera reflects the time point that each image was 
 taken at. That is to say that cam1_image10 and cam3_image10 must have been taken at the same time.
 '''
-raise Warning('Currently images that are appropriate for this function have not been added to the example folder.')
 ncams_config['extrinsic_path'] = 'Extrinsic_SS'
 
 cam_image_points, cam_charuco_ids = ncams.camera_pose.charuco_board_detector(ncams_config)

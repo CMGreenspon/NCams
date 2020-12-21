@@ -133,6 +133,12 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
         else:
             # Go to the subdirectory of that camera
             cam_calib_dir = os.path.join(calib_dir, cam_name)
+            if not os.path.exists(cam_calib_dir):
+                cam_calib_dir_alt = os.path.join(calib_dir, str(serial))
+                if os.path.exists(cam_calib_dir_alt):
+                    cam_calib_dir = cam_calib_dir_alt
+                else:
+                    raise ValueError('No subdirectory found for camera ' + str(serial))
 
         # Check if there is already a calibration file
         cam_calib_filename = os.path.join(cam_calib_dir, cam_name + '_calib.yaml')
@@ -182,6 +188,7 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
                     (reprojection_error, camera_matrix,
                      cam_distortion_coefficients) = checkerboard_calibration(
                          cam_image_list, ncams_config['board_dim'], world_points)
+                    detected_points = []
                 elif ncams_config['board_type'] == 'charuco':
                     # Create the board - world points included
                     charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)

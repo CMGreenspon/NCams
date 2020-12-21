@@ -84,3 +84,7 @@ The [guide](Examples/inverse_kinematic_guide.py) describes the necessary tools a
 - [**Charles M. Greenspon**](https://github.com/CMGreenspon)
 - [**Anton Sobinov**](https://github.com/nishbo)
 - Developed in [Bensmaia Lab](http://bensmaialab.org/).
+
+
+##### Keywords
+multi-camera calibration, triangulation, inverse kinematics, 3d reconstruction

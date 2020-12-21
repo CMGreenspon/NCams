@@ -9,17 +9,15 @@ General camera functions and tools used for calibration, pose estimation, etc.
 
 Important structures:
     ncams_config {dict} -- information about camera configuration. Should have following keys:
-        datetime {string} -- formatted local date and time of the creation of the config.
         serials {list of numbers} -- list of camera serials. Wherever camera-specific
             information is not in a dictionary but is in a list, the order MUST adhere to the order
             in serials.
-        dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict', see
-            below.
         reference_camera_serial {number} -- serial number of the reference camera.
         image_size {(height, width)} -- size of the images captured by the cameras.
         board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
         board_dim {list with 2 numbers} -- number of checks on the calibration board.
-        check_size {number} -- height and width of a single check mark, mm.
+        check_size {number} -- height and width of a single check mark.
+        world_units {str} -- Units to use for all calibrations ('m', 'dm', 'cm', 'mm')
         setup_path {string} -- directory where the camera setup is located, including config.yaml.
         setup_filename {string} -- config has been loaded from os.path.join(
             setup_path, setup_filename) and/or will be saved into this directory.
@@ -33,7 +31,7 @@ Important structures:
             config in/load from.
         system {PySpin.System instance} -- needed for init/close of the FLIR cameras system.
 
-    camera_dict {dict} -- information about a single camera. Should have following keys:
+    camera_dictionary ('dicts') {dict} -- information about a single camera. Should have following keys:
         serial {number} -- serial number (ID) of the camera
         name {string} -- unique string that identifies the camera. Usually, 'cam_'+str(serial) or
             'top_left', 'top_right', etc.
@@ -71,7 +69,7 @@ Important structures:
         dicts {dict of 'camera_pe_dict's} -- keys are serials, values are 'camera_pe_dict',
             see below.
 
-    camera_pe_dict {dict} -- info on pose estimation of a single camera. Sould have following keys:
+    camera_dict {dict} -- info on pose estimation of a single camera. Sould have following keys:
         serial {number} -- UID of the camera.
         world_location {np.array} -- world location of the camera.
         world_orientation {np.array} -- world orientation of the camera.
@@ -260,7 +258,10 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
 def create_world_points(ncams_config):
     '''Creates world points.
 
-    [description]
+    For a given image of a board the relative position of the points is known and is the ground truth.
+    This takes the information from the NCams config to create the world points. If the actual position
+    of the board is known and it is not wished for the board to be used as the world origin then
+    translations and rotations are necessary.
 
     Arguments:
         ncams_config {dict} -- information about camera configuration. Should have following keys:
@@ -292,11 +293,12 @@ def create_world_points(ncams_config):
 def test_charucoboard_detection(charuco_board, charuco_dict, image_path):
     ''' 
     A quick function for inspecting whether or not the charucoboard is being detected.
-    Inputs:
+    Arguments:
         charuco_board {aruco_Charucobaord} -- the aruco board object.
         charuco_dict {aruco_Dictionary} -- the aruco dictionary object.
         image_path {str} -- full path to the image of interest
     '''
+    
     img = cv2.imread(image_path)
     im_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # Detect the aruco markers and get IDs

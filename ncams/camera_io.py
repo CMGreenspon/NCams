@@ -173,9 +173,6 @@ def export_intrinsics(intrinsic_config, path=None, filename=None):
 
     Arguments:
         intrinsic_config {dict} -- see help(ncams.camera_tools). Should have following keys:
-            path {string} -- directory where calibration information is stored. Should be same as
-                information in ncams_config.
-            filename {string} -- name of the YAML file to store the config in/load from.
     Keyword Arguments:
         path {string} -- overrides the 'path' key in the dictionary and saves in that location.
         filename {string} -- overrides the 'filename' key in the dictionary and saves in that
@@ -242,24 +239,10 @@ def import_intrinsics(ncams_config):
 
     intrinsic_config = deepcopy(_intrinsic_config)
     # we want to keep whatever other info was stored just in case
-
+    # Then add everything we usually use to a dictionary for easy lookup
     intrinsic_config['dicts'] = {}
-
     for serial in intrinsic_config['serials']:
         idx = _intrinsic_config['serials'].index(serial)
-
-        # intrinsic_config['serials'].append(
-        #     _intrinsic_config['serials'][idx])
-        # intrinsic_config['distortion_coefficients'].append(
-        #     _intrinsic_config['distortion_coefficients'][idx])
-        # intrinsic_config['camera_matrices'].append(
-        #     _intrinsic_config['camera_matrices'][idx])
-        # intrinsic_config['reprojection_errors'].append(
-        #     _intrinsic_config['reprojection_errors'][idx])
-        # intrinsic_config['calibration_images'].append(
-        #     _intrinsic_config['calibration_images'][idx])
-        # intrinsic_config['detected_markers'].append(
-        #     _intrinsic_config['detected_markers'][idx])
 
         intrinsic_config['dicts'][serial] = {
             'serial': serial,
@@ -283,9 +266,6 @@ def export_extrinsics(extrinsic_config, path=None, filename=None):
         extrinsic_config {dict} -- information on estimation of relative position of all
                 cameras and the results of said pose estimation. See help(ncams.camera_tools).
                 Should have following keys:
-            path {string} -- directory where pose estimation information is stored. Should be same
-                as information in ncams_config.
-            filename {string} -- name of the YAML file to store the config in/load from.
     Keyword Arguments:
         path {string} -- overrides the 'path' key in the dictionary and saves in that location.
         filename {string} -- overrides the 'filename' key in the dictionary and saves in that
@@ -349,20 +329,10 @@ def import_extrinsics(ncams_config):
 
     extrinsic_config = deepcopy(_extrinsic_config)
     # we want to keep whatever other info was stored just in case
-    # extrinsic_config['serials'] = []
-    # extrinsic_config['world_locations'] = []
-    # extrinsic_config['world_orientations'] = []
+    # Then add everything we usually use to a dictionary for easy lookup
     extrinsic_config['dicts'] = {}
-
     for serial in extrinsic_config['serials']:
         idx = _extrinsic_config['serials'].index(serial)
-
-        # extrinsic_config['serials'].append(
-        #     _extrinsic_config['serials'][idx])
-        # extrinsic_config['world_locations'].append(
-        #     _extrinsic_config['world_locations'][idx])
-        # extrinsic_config['world_orientations'].append(
-        #     _extrinsic_config['world_orientations'][idx])
 
         extrinsic_config['dicts'][serial] = {
             'world_location': _extrinsic_config['world_locations'][idx],

@@ -24,8 +24,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # Replace this with your working directory
-#BASE_DIR = r'*\NCamsCalibrationExampleData'
-BASE_DIR = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData'
+#BASE_DIR = r'*\NCamsCalibrationExampleData\TriangulationPlotting'
+BASE_DIR = r'C:\Users\somlab\Desktop\NCamsExampleDataExternal\TriangulationPlotting'
 # Load calibrations (see intrinsic_extrinsic_calibration.py, section 5)
 path_to_ncams_config = os.path.join(BASE_DIR, 'ncams_config.yaml')
 ncams_config = ncams.camera_io.yaml_to_config(path_to_ncams_config)
@@ -123,7 +123,7 @@ cropping and rotating the projection, as well as inspecting the movement of indi
 '''
 vid_name = r'trial10_cam19340300DLC_resnet50_SR_2020.08.07Aug7shuffle1_250000_labeled.mp4'
 vid_path = os.path.join(labeled_csv_path, vid_name)
-dlc_config_path = r'C:\Users\somlab\Desktop\NCamsCalibrationExampleData\DLC_config.yaml'
+dlc_config_path = os.path.join(BASE_DIR, 'DLC_config.yaml') # For the skeleton
 
 ncams.reconstruction.interactive_3d_plot(vid_path, output_csv_fname, skeleton_path=dlc_config_path)
 
@@ -137,6 +137,7 @@ or an alternate view.
 ncams.reconstruction.make_triangulation_video(vid_path, output_csv_fname,
                                               skeleton_config=dlc_config_path, view=(90, 120))
 #%% 5. Triangulation of individual points
+raise Warning('Not complete.')
 ''' This example serves to demonstrate how a given point can be triangulated by itself if desired
 for whatever reason. This is not an efficient or particularly useful thing to do but through this
 several underlying functions are demonstrated. From the below framework any variation on the supplied

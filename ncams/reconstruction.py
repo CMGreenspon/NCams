@@ -25,6 +25,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.signal import medfilt
 from scipy.spatial.distance import euclidean
+from scipy.stats import norm
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.utils.exceptions import AstropyWarning
 warnings.simplefilter('ignore', category=AstropyWarning)
@@ -569,15 +570,16 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
 
 
 def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filtering=True):
-    '''Uses median and gaussian filters to both smooth and interpolate points.
+    '''Formats and processes CSVs or numpy arrays as necessary for further usage.
+       Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
        Arguments:
-        csv_path {str} -- path of the triangulated csv.
+        path_or_array {str} -- path of the triangulated csv or a numpy array (2 or 3D).
+        csv_type {str} -- indicator of whether or not the array is '2D' or '3D'
     Keyword Arguments:
         filt_width {int} -- how wide the filters should be. (default: 5)
-        outlier_sd_threshold {int} -- documentation TODO(CMG)
-        output_csv {str} -- filename for the output smoothed csv. (default: {csv_path +
-            _smoothed.csv})
+        threshold {float} -- confidence threshold to filter 2D DLC data by (default: 0.9).
+        filtering {bool} -- whether or not to perform median and gaussian filters (default: True).
     '''
     formatted_confidence_values = []
     # Check if the input is an array or a path
@@ -704,6 +706,34 @@ def _nanmedianfilt(input_vector, kernel_width):
             output_vector[idx] = np.nanmedian(vals_to_filt)
             
     return output_vector
+
+def _nangaussianfilt(input_vector, kernel_width, recursive=False):
+    '''Gaussian filter that ignores nan values'''
+    if kernel_width % 2 == 0:
+        kernel_width = kernel_width + 1
+        
+    gauss_x = np.linspace(norm.ppf(0.01), norm.ppf(0.99), kernel_width)
+    gauss_pdf = norm.pdf(gauss_x)
+    
+    kernel_offset = int((kernel_width-1)/2)
+    
+    output_vector = np.empty(input_vector.shape)
+    output_vector.fill(np.nan)
+    
+    init_idx = int(np.ceil(kernel_width/2))
+    term_idx = int(len(input_vector) - np.ceil(kernel_width/2))
+    
+    output_vector[:init_idx] = input_vector[:init_idx]
+    output_vector[term_idx:] = input_vector[term_idx:]
+    for idx in np.arange(init_idx, term_idx):
+        vals_to_filt = input_vector[idx-kernel_offset:idx+kernel_offset+1]
+        num_nans = sum(np.isnan(vals_to_filt))
+        if num_nans < kernel_offset:
+            output_vector[idx] = np.nansum(np.multiply(vals_to_filt,gauss_pdf))
+            
+    if recursive:
+            
+    return output_vector
             
 def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
@@ -712,7 +742,8 @@ def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, ou
         csv_path {str} -- path of the triangulated csv.
     Keyword Arguments:
         filt_width {int} -- how wide the filters should be. (default: 5)
-        outlier_sd_threshold {int} -- documentation TODO(CMG)
+        outlier_sd_threshold {int} -- How many standard deviations before a point should be
+        considered an outlier. (default: 5)
         output_csv {str} -- filename for the output smoothed csv. (default: {csv_path +
             _smoothed.csv})
     '''
@@ -1178,3 +1209,13 @@ u = u[:, -1, np.newaxis]
 u_euclid = (u/u[-1, :])[0:-1, :]
 triangulated_points[iframe, :, bodypart] = np.transpose(u_euclid)
 '''
+
+def manual_augmentation(ncams_config, trial_folder_path, triangulated_csv_path, video_path=None,
+                        min_point_gap=5, max_point_gap=50):
+    '''  A function that searches for missing points in a triangulated CSV and provides an interface
+    for manually 
+    
+    '''
+    
+    if video_path is None:
+        video_path = trial_folder_path
