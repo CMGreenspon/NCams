@@ -25,7 +25,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 
 # Replace this with your working directory
 #BASE_DIR = r'*\NCamsCalibrationExampleData\TriangulationPlotting'
-BASE_DIR = r'C:\Users\somlab\Desktop\NCamsExampleDataExternal\TriangulationPlotting'
+BASE_DIR = r'C:\Repositories\NCamsExampleDataExternal\TriangulationPlotting'
 # Load calibrations (see intrinsic_extrinsic_calibration.py, section 5)
 path_to_ncams_config = os.path.join(BASE_DIR, 'ncams_config.yaml')
 ncams_config = ncams.camera_io.yaml_to_config(path_to_ncams_config)

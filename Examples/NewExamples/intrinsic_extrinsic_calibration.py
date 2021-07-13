@@ -25,7 +25,7 @@ import numpy as np
 import cv2
 
 # Replace this with your working directory
-BASE_DIR = r'*\NCamsCalibrationExampleData\IntrinsicExtrinsicExample'
+BASE_DIR = r'C:\Repositories\NCamsExampleDataExternal\IntrinsicExtrinsicCalibration'
 
 #%% 1. Create the ncams_config
 ncams_config = {
@@ -109,6 +109,8 @@ extrinsics_config, extrinsics_info = ncams.camera_pose.one_shot_multi_PnP(
 ncams.camera_pose.plot_extrinsics(extrinsics_config, ncams_config)
 ncams.camera_pose.inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config,
                                      extrinsics_info, error_threshold=0.1, world_points=None)
+
+ncams.camera_io.config_to_yaml(ncams_config) # Export the config with Extrinsic_OS as extrinsic_path
 
 #%% 4b. Extrinsic calibration: sequential-stereo
 '''
