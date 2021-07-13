@@ -69,7 +69,7 @@ def get_image_list(path=None, sort=True):
         strings {list of strings} -- list of all image filenames.
     '''
 
-    return get_file_list(('jpg', 'jpeg', 'png', 'bmp'), path=path, sort=sort)
+    return get_file_list(('jpg', 'jpeg', 'png', 'bmp', 'Bmp'), path=path, sort=sort)
 
 
 def iterative_filename(input_path):

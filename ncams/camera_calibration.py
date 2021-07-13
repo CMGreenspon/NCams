@@ -190,6 +190,7 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
                          cam_image_list, ncams_config['board_dim'], world_points)
                     detected_points = []
                 elif ncams_config['board_type'] == 'charuco':
+                    detected_points = []
                     # Create the board - world points included
                     charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
                     # Run the calibration:
