@@ -446,11 +446,16 @@ def inspect_intrinsics_single(ncams_config, cam_image_list, camera_matrix,
     distorted_image = matplotlib.image.imread(im_path)
     axs[0,0].imshow(distorted_image)
     corners, ids, rejected_points = cv2.aruco.detectMarkers(distorted_image, charuco_dict)
-    _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
-                    corners, ids, distorted_image, charuco_board)
-    axs[0, 0].scatter(np.squeeze(example_corners[:,:,0]),
-                      np.squeeze(example_corners[:,:,1]),
-                      marker='x', color='b')
+    if ids is not None:
+        _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
+                        corners, ids, distorted_image, charuco_board)
+        if isinstance(example_corners, np.ndarray):
+            axs[0, 0].scatter(np.squeeze(example_corners[:,:,0]),
+                              np.squeeze(example_corners[:,:,1]),
+                              marker='x', color='b')
+    else:
+        print('No detected markers found')
+        return
     
     # Undistorted image
     axs[0,1].set_title('Undistorted Image')
@@ -505,25 +510,11 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
     fig.canvas.set_window_title('NCams: Calibration inspection')
     # Get the images and plot for each camera
     for icam, serial in enumerate(serials):
-        # Folder navigation
-        # If there is more than one camera assume subdirectories are present
-        if 'dicts' in ncams_config.keys():
-            cam_calib_dir = os.path.join(intrinsic_path, ncams_config['dicts'][serial]['name'])
-            cam_name = ncams_config['dicts'][serial]['name']
-        else:
-            cam_name = 'cam' + str(serial)
-            cam_calib_dir = os.path.join(intrinsic_path, cam_name)
-        # Check if images are in current directory or in a subdirectory
-        if num_cameras == 1 and not os.path.exists(cam_calib_dir):
-            # camera pictures are not mixed
-            cam_calib_dir = intrinsic_path
-
-        # Get the appropriate camera matrices
+        # Get camera values
         cam_mat = intrinsics_config['dicts'][serial]['camera_matrix']
         dist_coeffs = intrinsics_config['dicts'][serial]['distortion_coefficients']
-
-        image_list = utils.get_image_list(path=cam_calib_dir)
         num_markers_images = intrinsics_config['dicts'][serial]['detected_markers']
+        image_list = intrinsics_config['dicts'][serial]['calibration_images']
 
         image_ind = 0
         if image_index is None and board_type == 'charuco':
@@ -542,15 +533,16 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
                 _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
                     corners, ids, example_image, charuco_board)
                 if isinstance(example_corners, np.ndarray):
-                    # Lets only use images with all corners detected
-                    if len(example_corners) >= num_markers or image_index is not None:
-                        # Undistort the corners and image
-                        undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
-                                                                  dist_coeffs, P=cam_mat)
-                        undistorted_image = image_tools.undistort_image(
-                            example_image, intrinsics_config['dicts'][serial])
-                    elif image_index is not None:
-                        print(' - Board not detected in requested image')
+                    # Undistort the corners and image
+                    undistorted_corners = cv2.undistortPoints(example_corners, cam_mat,
+                                                              dist_coeffs, P=cam_mat)
+                    undistorted_image = image_tools.undistort_image(
+                        example_image, intrinsics_config['dicts'][serial])
+            else:
+                if image_index is not None:
+                    print(' - Board not detected in requested image')
+                else:
+                    print(' - No images with markers detected')
 
         elif board_type == 'checkerboard':
             # Analyze the images to get checkerboard corners
@@ -589,7 +581,7 @@ def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
                                 marker='x', color='darkorange')
             
         axs[vert_ind, horz_ind].set_title('{}, error = {:.3f}'.format(
-            cam_name, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
+            serial, intrinsics_config['dicts'][serial]['reprojection_error'][0]))
         axs[vert_ind, horz_ind].set_xticks([])
         axs[vert_ind, horz_ind].set_yticks([])
         
