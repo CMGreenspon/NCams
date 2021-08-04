@@ -343,7 +343,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
                     image_num.append(im)
             else:
                 if verbose:
-                    print('-> Markers could not be identified in "' + im_name + '".')
+                    print('-> Markers could not be identified in "' + os.path.split(im_name)[1] + '".')
                     
     # Check if enough images contained relevant points
     if len(image_points) == 0:
@@ -426,6 +426,45 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         
 
     return reprojection_error, camera_matrix, distortion_coefficients, detected_points
+
+def inspect_intrinsics_single(ncams_config, cam_image_list, camera_matrix,
+                              distortion_coefficients, detected_points):
+    
+    board_type = ncams_config['board_type']
+    if board_type == 'charuco':
+        charuco_dict, charuco_board, _ = camera_tools.create_board(ncams_config)
+    
+    max_dp_idx = np.argmax(detected_points)
+    
+    # Get image with most detected points
+    fig, axs = mpl_pp.subplots(1, 2, squeeze=False)
+    fig.canvas.set_window_title('NCams: Calibration inspection')
+    
+    # Original image
+    axs[0,0].set_title('Original Distorted Image')
+    im_path = cam_image_list[max_dp_idx]
+    distorted_image = matplotlib.image.imread(im_path)
+    axs[0,0].imshow(distorted_image)
+    corners, ids, rejected_points = cv2.aruco.detectMarkers(distorted_image, charuco_dict)
+    _, example_corners, _ = cv2.aruco.interpolateCornersCharuco(
+                    corners, ids, distorted_image, charuco_board)
+    axs[0, 0].scatter(np.squeeze(example_corners[:,:,0]),
+                      np.squeeze(example_corners[:,:,1]),
+                      marker='x', color='b')
+    
+    # Undistorted image
+    axs[0,1].set_title('Undistorted Image')
+    undistorted_image = cv2.undistort(
+        distorted_image, camera_matrix, distortion_coefficients,
+        None, camera_matrix)
+    axs[0,1].imshow(undistorted_image)
+    undistorted_corners = cv2.undistortPoints(example_corners, camera_matrix,
+                                              distortion_coefficients,
+                                              P=camera_matrix)
+    axs[0, 1].scatter(np.squeeze(undistorted_corners[:,:,0]),
+                      np.squeeze(undistorted_corners[:,:,1]),
+                      marker='x', color='darkorange')
+    
 
 
 def inspect_intrinsics(ncams_config, intrinsics_config, image_index=None):
