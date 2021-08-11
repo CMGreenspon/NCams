@@ -404,10 +404,12 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         uinput_string = ('Provide iteration number to use: ')
         uinput = input(uinput_string)
         list_of_csvs = [i for i in list_of_csvs if re.fullmatch('.*_{}.csv'.format(uinput), i)]
-        if not len(list_of_csvs) == len(cam_serials):
-            raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
+        if len(list_of_csvs) > len(cam_serials):
+            raise ValueError('Detected {} CSVs in {} with iteration #{} while was provided with {}'
                   ' serials.'.format(
                 len(list_of_csvs), labeled_csv_path, uinput, len(cam_serials)))
+        elif len(list_of_csvs) < len(cam_serials):
+            raise ValueError('Fewer CSVs than cameras detected.')
 
     # Load them
     frame_count = []
