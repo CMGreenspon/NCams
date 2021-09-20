@@ -155,6 +155,8 @@ def multi_camera_intrinsic_calibration(ncams_config, override=False, inspect=Fal
                     camera_matrix = camera_calib_dict['camera_matrix']
                     cam_distortion_coefficients = camera_calib_dict['distortion_coefficients']
                     reprojection_error = camera_calib_dict['reprojection_error']
+                    cam_image_list = camera_calib_dict['calibration_images']
+                    detected_points = camera_calib_dict['detected_markers']
                     calibrate_camera = False
                     break
                 if user_input in ('yes', 'y'):
