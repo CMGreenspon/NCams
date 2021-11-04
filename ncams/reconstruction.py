@@ -1080,9 +1080,10 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
         skeleton = False
 
     # Check the number of frames vs number of rows in csv
-#    if num_frames != np.shape(triangulated_points)[0]:
-#        raise Warning('Number of frames in video and rows in CSV are not equal. Check that the paths'
-#                      + ' given are correct.')
+    if num_frames != np.shape(triangulated_points)[0]:
+        warnings.warn('Number of frames in video ({}) and rows in CSV ({}) are not equal.'
+                      ' Check that the paths given are correct.'.format(
+            num_frames, np.shape(triangulated_points)[0]))
 
     # Initalize the plots
     cmap = matplotlib.cm.get_cmap('jet')

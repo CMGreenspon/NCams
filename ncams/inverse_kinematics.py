@@ -405,21 +405,21 @@ def rdc_touchpad3d(frame_number, value_dict, dist_desired=(105, 79, 105, 79), wa
     fr = dist_f('tp_front_c', 'tp_right_c')
     rb = dist_f('tp_right_c', 'tp_back_c')
     bl = dist_f('tp_back_c', 'tp_left_c')
-    warnings = ''
+    warning_s = ''
     if abs(lf-lf_desired) > warn_threshold and abs(fr-fr_desired) > warn_threshold:
-        warnings += ' Recommend dropping {} marker from IK.'.format(
+        warning_s += ' Recommend dropping {} marker from IK.'.format(
             marker_name_dict['tp_front_c'])
     if abs(fr-fr_desired) > warn_threshold and abs(rb-rb_desired) > warn_threshold:
-        warnings += ' Recommend dropping {} marker from IK.'.format(
+        warning_s += ' Recommend dropping {} marker from IK.'.format(
             marker_name_dict['tp_right_c'])
     if abs(rb-rb_desired) > warn_threshold and abs(bl-bl_desired) > warn_threshold:
-        warnings += ' Recommend dropping {} marker from IK.'.format(
+        warning_s += ' Recommend dropping {} marker from IK.'.format(
             marker_name_dict['tp_back_c'])
     if abs(bl-bl_desired) > warn_threshold and abs(lf-lf_desired) > warn_threshold:
-        warnings += ' Recommend dropping {} marker from IK.'.format(
+        warning_s += ' Recommend dropping {} marker from IK.'.format(
             marker_name_dict['tp_left_c'])
     print('Frame {} distances: lf: {} mm, fr: {} mm, rb: {} mm, bl: {} mm.{}'.format(
-        frame_number, lf, fr, rb, bl, warnings))
+        frame_number, lf, fr, rb, bl, warning_s))
 
 
 def import_mot(fname):
