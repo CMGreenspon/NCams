@@ -14,7 +14,12 @@ import numpy
 import cv2
 
 from tqdm import tqdm
-from moviepy import editor # A very easy way of using FFMPEG
+import moviepy # A very easy way of using FFMPEG
+# current release version of moviepy (1.0.3) redirects all warnings to logging. fix:
+from packaging import version
+if version.parse(moviepy.__version__) <= version.parse("1.0.3"):
+    import logging
+    logging.captureWarnings(False)
 
 import matplotlib.pyplot as mpl_pp
 
@@ -99,7 +104,7 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
     output_name = os.path.join(output_folder, video_filename)
     output_filetype = os.path.splitext(output_name)[1]
 
-    clip = editor.ImageSequenceClip(image_filenames, fps=fps)
+    clip = moviepy.editor.ImageSequenceClip(image_filenames, fps=fps)
 
     if output_filetype == '.gif':
         clip.write_gif(output_name, fps=fps)
