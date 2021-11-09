@@ -11,6 +11,7 @@ For more details on the camera data structures and dicts, see help(ncams.camera_
 """
 
 import os
+import warnings
 import cv2
 import numpy as np
 import matplotlib
@@ -349,7 +350,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
                     
     # Check if enough images contained relevant points
     if len(image_points) == 0:
-        raise Warning('-> Charucoboards were not detected in any images, calibration will exit.')
+        warnings.warn('-> Charucoboards were not detected in any images, calibration will exit.')
         return [], [], [], []
     elif len(image_points) < 10:
         print('-> Less than 10 images contain identifiable boards. Consider taking new photos.')

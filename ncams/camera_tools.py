@@ -76,6 +76,7 @@ Important structures:
 """
 
 import os
+import warnings
 
 import cv2
 import numpy as np
@@ -193,7 +194,7 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
         elif ncams_config['world_units'] == 'm':
             scale_unit = 1000
         else:
-            raise Warning('Invalid scale unit given. Defaulting to centimeters')
+            warnings.warn('Invalid scale unit given. Defaulting to centimeters')
             scale_unit = 10
         
         secondary_length = check_size * 0.6 # What portion of the check the aruco marker takes up

@@ -85,11 +85,16 @@ def config_to_yaml(ncams_config, setup_path=None, setup_filename=None):
         yaml.dump(out_dict, yaml_file, default_flow_style=False)
 
 
-def yaml_to_config(filename):
+def yaml_to_config(filename, overwrite_setup_path=None):
     '''Imports camera config from a YAML file.
 
     Arguments:
         filename {string} -- filename of the YAML ncams_config file.
+
+    Keyword Arguments:
+        overwrite_setup_path {bool or None} -- if set to True, automatically overwrites the setup
+            path from the ncams_config with the actual path. If False, will not overwrite. If None,
+            will ask the user for keyboard input. (default: None)
 
     Output:
         ncams_config {dict} -- see help(ncams.camera_tools).
@@ -107,10 +112,17 @@ def yaml_to_config(filename):
         check_filename = True
     
     if check_filename:
-        print('The setup path in the loaded ncams_config does not match its current location.')
-        user_input_str = 'Would you like to overwrite the setup path?\n'
-        user_input = input(user_input_str).lower()
-        if user_input in ('yes', 'y'):
+        if overwrite_setup_path is None:
+            print('The setup path in the loaded ncams_config does not match its current location.')
+            user_input_str = 'Would you like to overwrite the setup path?\n'
+            user_input = input(user_input_str).lower()
+            if user_input in ('yes', 'y'):
+                do_overwrite = True
+            else:
+                do_overwrite = False
+        else:
+            do_overwrite = overwrite_setup_path
+        if do_overwrite:
             (new_path, new_filename) = os.path.split(filename)
             ncams_config['setup_path'] = new_path
             ncams_config['setup_filename'] = new_filename

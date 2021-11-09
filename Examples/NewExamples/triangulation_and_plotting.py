@@ -10,18 +10,19 @@ Example script for using the various triangulation/reconstruction functions.
     4. Exporting triangulated videos
     5. Triangulation of individual points (not streamlined)
 """
-
-import ncams
 import os
 import time
-import numpy as np
-import cv2
+import warnings
 
+import cv2
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as mpl_pp
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection, Line3DCollection
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+import ncams
 
 # Replace this with your working directory
 #BASE_DIR = r'*\NCamsCalibrationExampleData\TriangulationPlotting'
@@ -137,7 +138,7 @@ or an alternate view.
 ncams.reconstruction.make_triangulation_video(vid_path, output_csv_fname,
                                               skeleton_config=dlc_config_path, view=(90, 120))
 #%% 5. Triangulation of individual points
-raise Warning('Not complete.')
+warnings.warn('Not complete.')
 ''' This example serves to demonstrate how a given point can be triangulated by itself if desired
 for whatever reason. This is not an efficient or particularly useful thing to do but through this
 several underlying functions are demonstrated. From the below framework any variation on the supplied
