@@ -50,7 +50,7 @@ There are no hardware prerequisites for the core functionality of the toolbox. I
 2. Open Terminal, Command Line, or the desired Anaconda environment (e.g. the one with DeepLabCut installed) in the project folder.
 3. Run `python setup.py install`.
 
-### Calibration and pose estimation
+### Example calibration, pose estimation, and triangulation
 
 [Intrinsic and Extrinsic Calibration](Examples/NewExamples/intrinsic_extrinsic_calibration.py) contains example code for setting up creating an NCams_Config, creating a compatible Charucoboard, calibrating camera intrinsics individually or in bulk, and using either one-shot or stereo-sequential extrinsic calibration. Example data for calibration may be found at [Box](https://uchicago.box.com/s/t3m0y3dakai9bv56wcb63qckpgsrm74s).
 
