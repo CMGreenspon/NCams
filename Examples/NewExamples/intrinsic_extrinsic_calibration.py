@@ -34,8 +34,9 @@ ncams_config = {
     'reference_camera_serial': 19335177,  # This is linked to how the cameras are hardwired
     'image_size': (1080, 1440),  # height x width 
     # Board information
-    'board_type': 'charuco',  # charuco (preferred) or checkerboard
-    'board_dim': [7, 10],  # If this is incorrect it will cause analyses to freeze
+    'board_type': 'charuco',  # charuco (preferred) or checkerboard,
+    'board_dictionary': 'none', # Will use the default dictionary but a custom one may be specified
+    'board_dim': [5, 7],  # If this is incorrect it will cause analyses to freeze
     'check_size': 30, # Size of the checks in mm, essential for accurate 3D reconstructions
     'world_units': 'mm', # Determines how to scale the world ('m', 'dm', 'cm', 'mm')
     # Path information

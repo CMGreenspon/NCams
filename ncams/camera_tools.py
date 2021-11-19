@@ -15,6 +15,7 @@ Important structures:
         reference_camera_serial {number} -- serial number of the reference camera.
         image_size {(height, width)} -- size of the images captured by the cameras.
         board_type {'checkerboard' or 'charuco'} -- what type of board was used for calibration.
+        board_dictionary {'str'} -- the dictionary used for charucoboards (default: 'none')
         board_dim {list with 2 numbers} -- number of checks on the calibration board.
         check_size {number} -- height and width of a single check mark.
         world_units {str} -- Units to use for all calibrations ('m', 'dm', 'cm', 'mm')
@@ -111,7 +112,7 @@ def make_projection_matrix(camera_matrix, world_orientation, world_location):
 
 
 def create_board(ncams_config, output=False, plotting=False, dpi=300, output_format='pdf',
-                 padding=None, target_size=None, dictionary=None):
+                 padding=None, target_size=None):
     '''Creates a board image.
 
     Creates either a checkerboard or charucoboard that can be printed and used for camera
@@ -178,10 +179,10 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
 
             board_img = np.append(board_img, col, axis=0)
     elif board_type == 'charuco':
-        if dictionary is None:
+        if ncams_config['board_dictionary'] is None:
             output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
         else:
-            custom_dict = cv2.aruco.Dictionary_get(dictionary)
+            custom_dict = cv2.aruco.Dictionary_get(ncams_config['board_dictionary'])
             output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
                                                            custom_dict)
         
