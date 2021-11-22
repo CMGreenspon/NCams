@@ -179,12 +179,15 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
 
             board_img = np.append(board_img, col, axis=0)
     elif board_type == 'charuco':
-        if ncams_config['board_dictionary'] is None:
-            output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
+        if 'board_dictionary' in ncams_config:
+            if ncams_config['board_dictionary'] is None:
+                output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
+            else:
+                custom_dict = cv2.aruco.Dictionary_get(ncams_config['board_dictionary'])
+                output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
+                                                               custom_dict)
         else:
-            custom_dict = cv2.aruco.Dictionary_get(ncams_config['board_dictionary'])
-            output_dict = cv2.aruco.Dictionary_create_from(total_markers, custom_dict.markerSize,
-                                                           custom_dict)
+            output_dict = cv2.aruco.Dictionary_create(total_markers, 5)
         
         if ncams_config['world_units'] == 'mm':
             scale_unit = 1

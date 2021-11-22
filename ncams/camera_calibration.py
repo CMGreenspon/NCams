@@ -344,9 +344,14 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
                     ch_ids.append(charuco_ids)
                     image_points.append(charuco_corners)
                     image_num.append(im)
+                
+                # Extra verbosity
+                if verbose:
+                    print('--> {0} markers detected in image: {1}'.format(len(charuco_corners[:, 0, 0]), im_name))
+                    
             else:
                 if verbose:
-                    print('-> Markers could not be identified in "' + os.path.split(im_name)[1] + '".')
+                    print('--> Markers could not be identified in "' + os.path.split(im_name)[1] + '".')
                     
     # Check if enough images contained relevant points
     if len(image_points) == 0:
@@ -356,6 +361,9 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         print('-> Less than 10 images contain identifiable boards. Consider taking new photos.')
 
     # Calibrate
+    if verbose:
+        print('--> Beginning calibration')
+        
     img_width, img_height = img.shape[1], img.shape[0]
     f_length = max(img_width, img_height)
     # Make a guess at the inital state of the principal point based on size of image
@@ -368,7 +376,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
     calib_flags = 0
     calib_flags |= cv2.CALIB_USE_INTRINSIC_GUESS
     calib_flags |= cv2.CALIB_ZERO_TANGENT_DIST
-
+        
     (reprojection_error, camera_matrix, distortion_coefficients, _, _, _, _, pve
      ) = cv2.aruco.calibrateCameraCharucoExtended(
          image_points, ch_ids, charuco_board, (img_width, img_height), principal_point_init,
@@ -377,7 +385,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
     # Check if there are any bad frames causing issues and try to remove them
     if reprojection_error > 10 and any(pve > 1e3):
         if verbose:
-            print('-> Potential bad calibration images detected. Attempting to remove and recalibrate.')
+            print('--> Potential bad calibration images detected. Attempting to remove and recalibrate.')
         good_frame_idx = pve < 10
         filtered_image_points = []
         filtered_ch_ids = []
@@ -394,7 +402,7 @@ def charuco_calibration(cam_image_list, charuco_dict, charuco_board,
         if reprojection_error2 < 10:
             if verbose:
                 # List removed images
-                print('-> Bad images sucessfuly identified, the following have been ignored:')
+                print('--> Bad images sucessfuly identified, the following have been ignored:')
                 bad_frame_idx = np.where(good_frame_idx == False)[0]
                 for im in bad_frame_idx:
                     frame_num = image_num[im]

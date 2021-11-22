@@ -114,7 +114,7 @@ def yaml_to_config(filename, overwrite_setup_path=None):
     if check_filename:
         if overwrite_setup_path is None:
             print('The setup path in the loaded ncams_config does not match its current location.')
-            user_input_str = 'Would you like to overwrite the setup path?\n'
+            user_input_str = 'Would you like to overwrite the setup path? (yes/no)\n'
             user_input = input(user_input_str).lower()
             if user_input in ('yes', 'y'):
                 do_overwrite = True
