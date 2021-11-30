@@ -481,6 +481,110 @@ def export_mot(fname, dof_names, times, dofs):
             wrr.writerow([time] + [dof_vals[itime] for dof_vals in dofs])
 
 
+def import_trc(filename):
+    '''Import OpenSim trc file into a Python structure format.
+
+    Arguments:
+        filename {str} -- trc file name.
+    Output:
+        bodyparts {list of str} -- names of markers.
+        frame_numbers {list of ints} -- Frame # column.
+        times {list of floats} -- Time column
+        points {array NFrames X NBodyparts X 3} -- [iframe][ibodypart][0:x,1:y,2:z]
+        rate {float} -- DataRate.
+        units {str} - units of the data.
+    '''
+    with open(filename, 'r') as fin:
+        rdr = csv.reader(fin, delimiter='\t', dialect='excel-tab')
+
+        li = next(rdr)  # flavor text
+        li = next(rdr)  # flavor text
+
+        li = next(rdr)
+        if not li[0] == li[1] or not li[0] == li[5]:
+            warnings.warn('DataRate, CameraRate or OrigDataRate do not match. Using DataRate.')
+        rate = float(li[0])
+        units = li[4]
+
+        li = next(rdr)
+        bodyparts = li[slice(2, len(li), 3)]
+
+        li = next(rdr)
+        li = next(rdr)
+
+        frame_numbers = []
+        times = []
+        points = []
+        for li in rdr:
+            if len(li) == 0:
+                continue
+            frame_numbers.append(int(li[0]))
+            times.append(float(li[1]))
+            points.append([])
+            for ibp in range(len(bodyparts)):
+                points[-1].append([])
+                if li[2+ibp*3] == '':
+                    points[-1][-1].append(numpy.nan)
+                    points[-1][-1].append(numpy.nan)
+                    points[-1][-1].append(numpy.nan)
+                else:
+                    points[-1][-1].append(float(li[2+ibp*3]))
+                    points[-1][-1].append(float(li[2+ibp*3+1]))
+                    points[-1][-1].append(float(li[2+ibp*3+2]))
+    return bodyparts, frame_numbers, times, points, rate, units
+
+
+def export_trc(filename, bodyparts, frame_numbers, times, points, rate, units='mm'):
+    '''Exports marker data into OpenSim-compatible trc file.
+
+    Arguments:
+        filename {str} -- output file name.
+        bodyparts {list of str} -- names of markers.
+        frame_numbers {list of ints} -- Frame # column.
+        times {list of floats} -- Time column
+        points {array NFrames X NBodyparts X 3} -- [iframe][ibodypart][0:x,1:y,2:z]
+        rate {float} -- DataRate.
+    Keyword Arguments:
+        units {str} - units of the data. {default: 'mm'}
+    '''
+    n_bodyparts = len(bodyparts)
+    n_frames = len(frame_numbers)
+
+    with open(filename, 'w', newline='') as fou:
+        wrr = csv.writer(fou, delimiter='\t', dialect='excel-tab')
+
+        wrr.writerow(['PathFileType', '4', '(X/Y/Z)', ntpath.basename(filename)])
+        wrr.writerow(['DataRate', 'CameraRate', 'NumFrames', 'NumMarkers', 'Units', 'OrigDataRate',
+                      'OrigDataStartFrame', 'OrigNumFrames'])
+        wrr.writerow([rate, rate, n_frames, n_bodyparts, units, rate, 1, 1])
+        lo = ['Frame#', 'Time']
+        for bp in bodyparts:
+            lo += [bp, '', '']
+        wrr.writerow(lo)
+
+        lo = ['', '']
+        for ibp in range(n_bodyparts):
+            lo += ['X{}'.format(ibp+1), 'Y{}'.format(ibp+1), 'Z{}'.format(ibp+1)]
+        wrr.writerow(lo)
+        wrr.writerow([])
+
+        for frame_number, time, point in zip(frame_numbers, times, points):
+        # for i, li in enumerate(rdr):
+            lo = [frame_number, time]
+            for ibp in range(n_bodyparts):
+                if numpy.isnan(point[ibp][0]):
+                    lo += ['', '', '']
+                else:
+                    lo += point[ibp]
+
+            # OpenSim4.0 cannot read the line properly when the last value is
+            # empty and wants an additional tab:
+            if lo[-1] == '':
+                lo.append('')
+
+            wrr.writerow(lo)
+
+
 def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None, filter_1d=None):
     '''Filters the motion from a file and saves it.
 
