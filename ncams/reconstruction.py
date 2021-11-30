@@ -162,33 +162,8 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
                          'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
 
     # Get data files
-    list_of_csvs = []
-    for cam_serial in cam_serials:
-        if iteration is None:
-            sstr = '*.csv'
-        else:
-            sstr = '*_{}.csv'.format(iteration)
-        list_of_csvs += glob(os.path.join(
-            labeled_csv_path, file_prefix+'*'+ str(cam_serial) + sstr))
-    if not len(list_of_csvs) == len(cam_serials):
-        if iteration is not None:
-            raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
-                  ' serials.'.format(
-                len(list_of_csvs), labeled_csv_path, iteration, len(cam_serials)))
-        iterations = set()
-        for csv_f in list_of_csvs:
-            iterations.add(int(re.search('_[0-9]+.csv$', csv_f)[0][1:-4]))
-        print('Detected {} csvs in {} while was provided with {} serials.'
-              ' Found iterations: {}'.format(
-            len(list_of_csvs), labeled_csv_path, len(cam_serials), sorted(iterations)))
-
-        uinput_string = ('Provide iteration number to use: ')
-        uinput = input(uinput_string)
-        list_of_csvs = [i for i in list_of_csvs if re.fullmatch('.*_{}.csv'.format(uinput), i)]
-        if not len(list_of_csvs) == len(cam_serials):
-            raise ValueError('Detected {} csvs in {} with iteration #{} while was provided with {}'
-                  ' serials.'.format(
-                len(list_of_csvs), labeled_csv_path, uinput, len(cam_serials)))
+    list_of_csvs = get_list_labelled_csvs(ncams_config, labeled_csv_path,
+                                          file_prefix=file_prefix, iteration=iteration)
 
     # Load them
     csv_arrays = [[] for _ in list_of_csvs]
@@ -328,56 +303,21 @@ def triangulate_csv_OLD(ncams_config, output_csv, intrinsics_config, extrinsics_
     return output_csv
 
 
-def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsics_config,
-                     output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
-                     centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
-                     filter_2D=False, filter_3D=False):
-
-    '''Triangulates points from multiple cameras and exports them into a csv.
+def get_list_labelled_csvs(ncams_config, labeled_csv_path, file_prefix='', iteration=None):
+    '''Returns a list of ML-labelled CSV files from individual cameras in a directory.
 
     Arguments:
         ncams_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
-            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
-        output_csv {str} -- file to save the triangulated points into.
-        intrinsics_config {dict} -- see help(ncams.camera_tools).
-        extrinsics_config {dict} -- see help(ncams.camera_tools).
         labeled_csv_path {str} -- locations of csv's with marked points. TODO: accept a list of
             files.
-    Keyword Arguments:
-        threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
-            be used for triangulation. (default: 0.9)
-        method {'full_rank' or 'best_pair'} -- method for triangulation.
-            full_rank: uses all available cameras
-            best_n: uses best n cameras to locate the point.
-            TODO: add centroid/cluster description
-            (default: 'full_rank')
-        best_n {number} -- how many cameras to use when best_n method is used. (default: 2)
-        iteration {int} -- look for csv's with this iteration number. (default: {None})
-        undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
-            {False})
         file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
+        iteration {int} -- look for csv's with this iteration number. (default: {None})
     Output:
-        output_csv {csv file} -- csv containing all triangulated points.
+        list_of_csvs {list of str} -- list of filenames matching the structure of ML-labelled 2D
+            marker positions.
     '''
     cam_serials = ncams_config['serials']
-
-    camera_matrices = intrinsics_config['camera_matrices']
-    if not undistorted_data:
-        distortion_coefficients = intrinsics_config['distortion_coefficients']
-
-    world_locations = extrinsics_config['world_locations']
-    world_orientations = extrinsics_config['world_orientations']
-
-    if not method in ('full_rank', 'best_n', 'centroid'):
-        raise ValueError('{} is not an accepted method. '
-                         'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
-
-    # Check if the source CSV path exists
-    if not os.path.exists(labeled_csv_path):
-        raise ValueError('Provided path for CSVs does not exist.')
-
-    # Get data files
     list_of_csvs = []
     for cam_serial in cam_serials:
         if iteration is None:
@@ -410,8 +350,25 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
                 len(list_of_csvs), labeled_csv_path, uinput, len(cam_serials)))
         elif len(list_of_csvs) < len(cam_serials):
             raise ValueError('Fewer CSVs than cameras detected.')
+    return list_of_csvs
 
-    # Load them
+
+def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False):
+    '''Load the data from labelled 2D csvs.
+
+    Arguments:
+        list_of_csvs {list of str} -- list of filenames matching the structure of ML-labelled 2D
+            marker positions.
+    Keyword Arguments:
+        threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
+            be loaded. (default: 0.9)
+        filtering {bool} -- if true, will filter the imported data. (default: False)
+    Outputs a tuple consisting of:
+        bodyparts {list of str} -- names of all loaded markers.
+        num_frames {int} -- number of frames in each file. Truncated to smallest.
+        image_coordinates {list [num csvs]ndarray([num frame,num axes,num bodypart])}
+        ic_confidences {list [num csvs]ndarray([num frame,num bodypart])}
+    '''
     frame_count = []
     csv_arrays = [[] for _ in list_of_csvs]
     for ifile, csvfname in enumerate(list_of_csvs):
@@ -438,19 +395,82 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         bodyparts.append(temp_bodyparts[idx])
 
     # Format the data
-    num_cameras = len(csv_arrays)
-    num_bodyparts = len(bodyparts)
-
     image_coordinates, ic_confidences = [], []
-    for icam in range(num_cameras):
+    for icam in range(len(csv_arrays)):
         csv_array = np.vstack(csv_arrays[icam][3:])[:,1:] # Remove header rows, and first column
         if not frame_count_match:
             csv_array = csv_array[:num_frames,:]
         # Reshape and threshold the data
         ic_array, ic_confidence = process_points(csv_array, '2D', threshold=threshold,
-                                   filtering=filter_2D)
+                                   filtering=filtering)
         image_coordinates.append(ic_array)
         ic_confidences.append(ic_confidence)
+
+    return bodyparts, num_frames, image_coordinates, ic_confidences
+
+
+def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsics_config,
+                     output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
+                     centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
+                     filter_2D=False, filter_3D=False):
+
+    '''Triangulates points from multiple cameras and exports them into a csv.
+
+    Arguments:
+        ncams_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+        output_csv {str} -- file to save the triangulated points into.
+        intrinsics_config {dict} -- see help(ncams.camera_tools).
+        extrinsics_config {dict} -- see help(ncams.camera_tools).
+        labeled_csv_path {str} -- locations of csv's with marked points. TODO: accept a list of
+            files.
+    Keyword Arguments:
+        threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
+            be used for triangulation. (default: 0.9)
+        method {'full_rank' or 'best_pair'} -- method for triangulation.
+            full_rank: uses all available cameras
+            best_n: uses best n cameras to locate the point.
+            TODO: add centroid/cluster description
+            (default: 'full_rank')
+        best_n {number} -- how many cameras to use when best_n method is used. (default: 2)
+        iteration {int} -- look for csv's with this iteration number. (default: {None})
+        undistorted_data {bool} -- if the marker data was made on undistorted videos. (default:
+            {False})
+        file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
+        filter_2D {bool} -- filter the imported 2D data. (default: False)
+        filter_3D {bool} -- filter the produced 3D data. (default: False)
+    Output:
+        output_csv {csv file} -- csv containing all triangulated points.
+        output_csv_fname {string} -- returns the filename of the produced file.
+    '''
+    cam_serials = ncams_config['serials']
+
+    camera_matrices = intrinsics_config['camera_matrices']
+    if not undistorted_data:
+        distortion_coefficients = intrinsics_config['distortion_coefficients']
+
+    world_locations = extrinsics_config['world_locations']
+    world_orientations = extrinsics_config['world_orientations']
+
+    if not method in ('full_rank', 'best_n', 'centroid'):
+        raise ValueError('{} is not an accepted method. '
+                         'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
+
+    # Check if the source CSV path exists
+    if not os.path.exists(labeled_csv_path):
+        raise ValueError('Provided path for CSVs does not exist.')
+
+    # Get data files
+    list_of_csvs = get_list_labelled_csvs(ncams_config, labeled_csv_path,
+                                          file_prefix=file_prefix, iteration=iteration)
+
+    # Load them
+    bodyparts, num_frames, image_coordinates, ic_confidences = load_labelled_csvs(
+        list_of_csvs, threshold=threshold, filtering=filter_2D)
+
+    num_cameras = len(list_of_csvs)
+    num_bodyparts = len(bodyparts)
 
     if not undistorted_data: # Undistort points
         undistorted_image_coordinates = []
@@ -577,15 +597,20 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
     '''Formats and processes CSVs or numpy arrays as necessary for further usage.
        Uses median and gaussian filters to both smooth and interpolate points.
        Will only interpolate when fewer missing values are present than the gaussian width.
-       Arguments:
+
+    Arguments:
         path_or_array {str} -- path of the triangulated csv or a numpy array (2 or 3D).
         csv_type {str} -- indicator of whether or not the array is '2D' or '3D'
     Keyword Arguments:
         filt_width {int} -- how wide the filters should be. (default: 5)
         threshold {float} -- confidence threshold to filter 2D DLC data by (default: 0.9).
         filtering {bool} -- whether or not to perform median and gaussian filters (default: True).
+    Outputs if csv_type == '2D' is a tuple:
+        processed_point_array {ndarray([num frame,num axes,num bodypart])}
+        formatted_confidence_values {ndarray([num frame,num bodypart])}
+    Outputs if csv_type == '3D':
+        processed_point_array {ndarray([num frame,num axes,num bodypart])}
     '''
-    formatted_confidence_values = []
     # Check if the input is an array or a path
     if type(path_or_array) == str: # Assume it's DLC output or CSV output from triangulation
         # Load in the CSV
@@ -614,20 +639,6 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
 
         point_array = np.array(point_array)
 
-        if csv_type == '2D': # Threshold filtering
-            thresholded_point_array = np.empty((point_array.shape[0], 2, point_array.shape[2]))
-            thresholded_point_array.fill(np.nan)
-            formatted_confidence_values = np.empty((point_array.shape[0], point_array.shape[2]))
-            formatted_confidence_values.fill(np.nan)
-            for ibp in range(num_bodyparts):
-                c_vals = np.squeeze(point_array[:,2,ibp])
-                c_idx = np.where(c_vals > threshold)[0]
-                ibp_vals = np.squeeze(point_array[:,:2,ibp])
-                thresholded_point_array[c_idx,:,ibp] = ibp_vals[c_idx,:]
-                formatted_confidence_values[c_idx,ibp] = c_vals[c_idx]
-
-            point_array = thresholded_point_array
-
     elif type(path_or_array) == np.ndarray: # Assume it's ncam working array
         if len(path_or_array.shape) == 2: # Flat CSV format
             num_bodyparts = int(path_or_array.shape[1]/3)
@@ -648,23 +659,25 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
             num_bodyparts = int(path_or_array.shape[2])
             n_frames = int(path_or_array.shape[0])
 
-        if csv_type == '2D': # Threshold filtering
-            thresholded_point_array = np.empty((point_array.shape[0], 2, point_array.shape[2]))
-            thresholded_point_array.fill(np.nan)
-            formatted_confidence_values = np.empty((point_array.shape[0], point_array.shape[2]))
-            formatted_confidence_values.fill(np.nan)
-            for ibp in range(num_bodyparts):
-                c_vals = np.squeeze(point_array[:,2,ibp])
-                c_idx = np.where(c_vals > threshold)[0]
-                ibp_vals = np.squeeze(point_array[:,:2,ibp])
-                thresholded_point_array[c_idx,:,ibp] = ibp_vals[c_idx,:]
-                formatted_confidence_values[c_idx,ibp] = c_vals[c_idx]
-
-            point_array = thresholded_point_array
-
     else:
         raise ValueError('Incompatible type given to "path_or_array". Must be "str" or "ndarray".')
 
+    # Threshold filtering
+    if csv_type == '2D':
+        thresholded_point_array = np.empty((point_array.shape[0], 2, point_array.shape[2]))
+        thresholded_point_array.fill(np.nan)
+        formatted_confidence_values = np.empty((point_array.shape[0], point_array.shape[2]))
+        formatted_confidence_values.fill(np.nan)
+        for ibp in range(num_bodyparts):
+            c_vals = np.squeeze(point_array[:,2,ibp])
+            c_idx = np.where(c_vals > threshold)[0]
+            ibp_vals = np.squeeze(point_array[:,:2,ibp])
+            thresholded_point_array[c_idx,:,ibp] = ibp_vals[c_idx,:]
+            formatted_confidence_values[c_idx,ibp] = c_vals[c_idx]
+
+        point_array = thresholded_point_array
+
+    # gaussian and median filtering
     if filtering:
         num_axes = point_array.shape[1]
         # Smooth each bodypart along each axis
@@ -682,6 +695,7 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
     else:
         processed_point_array = point_array
 
+    # return
     if csv_type == '2D':
         return processed_point_array, formatted_confidence_values
     else:
@@ -1067,6 +1081,8 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     triangulated_points = np.array(triangulated_points)
 
     # Get the video
+    if not os.path.exists(vid_path):
+        raise ValueError('Provided video file does not exist.')
     video = cv2.VideoCapture(vid_path)
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
 
