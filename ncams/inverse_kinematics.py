@@ -12,6 +12,7 @@ import csv
 import math
 from copy import deepcopy
 import xml.etree.ElementTree as ET
+import warnings
 
 import numpy
 import scipy.signal
@@ -367,6 +368,26 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
 
         tree = ET.ElementTree(element=root)
         tree.write(ik_file, encoding='UTF-8', xml_declaration=True)
+
+
+def remove_empty_markers_from_trc(trc_filename):
+    '''Removes markers from a trc file that do not have any data points.
+
+    Arguments:
+        trc_filename {str} -- filename to process.
+    '''
+    bodyparts, frame_numbers, times, points, rate, units = import_trc(trc_filename)
+
+    for ibp in reversed(range(len(bodyparts))):
+        if all([numpy.isnan(points[iframe][ibp][0]) for iframe in range(len(points))]):
+            print('Removing bodypart {} from trc file {}.'.format(bodyparts[ibp], trc_filename))
+            del bodyparts[ibp]
+            for iframe in range(len(points)):
+                del points[iframe][ibp]
+
+    print('{} bodyparts left: {}.'.format(len(bodyparts), ', '.join(bodyparts)))
+
+    export_trc(trc_filename, bodyparts, frame_numbers, times, points, rate, units)
 
 
 def rdc_touchpad3d(frame_number, value_dict, dist_desired=(105, 79, 105, 79), warn_threshold=5,
