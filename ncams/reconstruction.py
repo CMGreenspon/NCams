@@ -13,6 +13,7 @@ import os
 import re
 import csv
 import shutil
+import math
 import multiprocessing
 import functools
 import ntpath
@@ -353,7 +354,8 @@ def get_list_labelled_csvs(ncams_config, labeled_csv_path, file_prefix='', itera
     return list_of_csvs
 
 
-def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False):
+def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False, only_bodyparts=None,
+                       skip_bodyparts=[]):
     '''Load the data from labelled 2D csvs.
 
     Arguments:
@@ -363,6 +365,10 @@ def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False):
         threshold {number 0-1} -- only points with confidence (likelihood) above the threshold will
             be loaded. (default: 0.9)
         filtering {bool} -- if true, will filter the imported data. (default: False)
+        only_bodyparts {list} -- TODO(might need changes to process_points and architecture change) only displays information about these bodyparts. If None, display
+            all. (default: {None})
+        skip_bodyparts {list} -- TODO(might need changes to process_points and architecture change) ignores these bodyparts. Runs after the bodyparts from
+            only_bodyparts list are selected. (default: {[]})
     Outputs a tuple consisting of:
         bodyparts {list of str} -- names of all loaded markers.
         num_frames {int} -- number of frames in each file. Truncated to smallest.
@@ -393,6 +399,8 @@ def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False):
     bodyparts = []
     for idx in bodypart_idx:
         bodyparts.append(temp_bodyparts[idx])
+
+    # trim the csv_arrays
 
     # Format the data
     image_coordinates, ic_confidences = [], []
@@ -608,7 +616,7 @@ def process_points(path_or_array, csv_type, filt_width=5, threshold=0.9, filteri
     Outputs if csv_type == '2D' is a tuple:
         processed_point_array {ndarray([num frame,num axes,num bodypart])}
         formatted_confidence_values {ndarray([num frame,num bodypart])}
-    Outputs if csv_type == '3D':
+    Output if csv_type == '3D':
         processed_point_array {ndarray([num frame,num axes,num bodypart])}
     '''
     # Check if the input is an array or a path
@@ -724,6 +732,7 @@ def _nanmedianfilt(input_vector, kernel_width):
             output_vector[idx] = np.nanmedian(vals_to_filt)
 
     return output_vector
+
 
 def process_triangulated_data(csv_path, filt_width=5, outlier_sd_threshold=5, output_csv=None):
     '''Uses median and gaussian filters to both smooth and interpolate points.
@@ -1050,6 +1059,7 @@ def make_triangulation_video(video_path, triangulated_csv_path, skeleton_config=
 
     print('*  Video saved to:\n\t' + output_filename)
 
+
 def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, figure_size=(9, 5),
                         marker_size=5, skeleton_thickness=1):
     """Makes an interactive 3D plot with video and a slider to control the frame number.
@@ -1181,6 +1191,154 @@ def interactive_3d_plot(vid_path, triangulated_csv_path, skeleton_path=None, fig
     cid = FIG.canvas.mpl_connect('key_press_event', arrow_key_image_control)
 
     mpl_pp.show()
+
+
+def display_confidence_statistics(ncams_config, labeled_csv_paths, iteration=None, file_prefix='',
+                                  num_bins=100, title='', per_camera=True, pooled=True,
+                                  only_bodyparts=None, skip_bodyparts=[], threshold=0,
+                                  pool_across_trials=False):
+    '''Triangulates points from multiple cameras and exports them into a csv.
+
+    Call matplotlib.pyplot.show() or pylab.show() to display the figures after the function runs.
+
+    Arguments:
+        ncams_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
+            serials {list of numbers} -- list of camera serials.
+            dicts {dict of 'camera_dict's} -- keys are serials, values are 'camera_dict'.
+        labeled_csv_paths {list of str} -- locations of csv's with marked points.
+    Keyword Arguments:
+        iteration {int} -- look for csv's with this iteration number. (default: {None})
+        file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
+        num_bins {int} -- number of bins in each histogram. (default: {100})
+        title {str or list of str} -- a string to append to the figure title. (default: {''}).
+        per_camera {bool} -- make per_camera plots. (default: {True})
+        pooled {bool} -- make pooled plots. (default: {True})
+        only_bodyparts {list} -- only displays information about these bodyparts. If None, display
+            all. (default: {None})
+        skip_bodyparts {list} -- ignores these bodyparts. Runs after the bodyparts from
+            only_bodyparts list are selected. (default: {[]})
+        threshold {float} -- threshold for confidence for which the stats to display. If 0, no
+            relevant stats are calcualted. (default: {0})
+        pool_across_trials {bool} -- data from individual trials will be concatenated.
+            (default: {False})
+    '''
+    cam_serials = ncams_config['serials']
+
+    # assuming bodyparts are the same
+    ic_confidencess = []
+    bodyparts_old = None
+    for labeled_csv_path in labeled_csv_paths:
+        # Check if the source CSV path exists
+        if not os.path.exists(labeled_csv_path):
+            raise ValueError('Provided path for CSVs does not exist.')
+
+        # Get data files
+        list_of_csvs = get_list_labelled_csvs(ncams_config, labeled_csv_path,
+                                              file_prefix=file_prefix, iteration=iteration)
+        list_of_csvs.sort()
+
+        # Load them
+        bodyparts, _, _, ic_confidences = load_labelled_csvs(
+            list_of_csvs, threshold=0, filtering=False)
+        num_cameras = len(list_of_csvs)
+
+        # Remove unneeded bodyparts
+        for ibp in reversed(range(len(bodyparts))):
+            if ((only_bodyparts is not None and bodyparts[ibp] not in only_bodyparts) or
+                    bodyparts[ibp] in skip_bodyparts):
+                del bodyparts[ibp]
+                for icam in range(num_cameras):
+                    ic_confidences[icam] = np.delete(ic_confidences[icam], ibp, axis=1)
+
+        if bodyparts_old is None:
+            bodyparts_old = bodyparts
+        elif not all([bpo == bp for bpo, bp in zip(bodyparts_old, bodyparts)]):
+            raise ValueError('Loaded files have different bodyparts.')
+
+        num_bodyparts = len(bodyparts)
+        if pool_across_trials:
+            if len(ic_confidencess) == 0:
+                ic_confidencess.append(ic_confidences)
+            else:
+                # append to the end
+                for icam in range(num_cameras):
+                    ic_confidencess[0][icam] = np.concatenate(
+                        (ic_confidencess[0][icam], ic_confidences[icam]), axis=0)
+        else:
+            ic_confidencess.append(ic_confidences)
+
+    bins = np.linspace(0, 1, num_bins)
+    xn_sbps = int(math.ceil(math.sqrt(num_bodyparts)))
+    yn_sbps = int(math.ceil(num_bodyparts/xn_sbps))
+
+    if per_camera:
+        for itrial, ic_confidences in enumerate(ic_confidencess):
+            mpl_pp.figure()
+            if isinstance(title, str):
+                mpl_pp.suptitle('Per camera colorcoded. ' + title)
+            else:
+                mpl_pp.suptitle('Per camera colorcoded. ' + title[itrial])
+            for ibp in range(num_bodyparts):
+                if ibp == 0:
+                    ax1 = mpl_pp.subplot(xn_sbps, yn_sbps, ibp+1)
+                else:
+                    mpl_pp.subplot(xn_sbps, yn_sbps, ibp+1, sharey=ax1)
+                for icam in range(num_cameras):
+                    mpl_pp.hist(ic_confidences[icam][:,ibp], bins=bins, alpha=0.4, color='k')
+                mpl_pp.xlim([0, 1])
+                mpl_pp.yscale('log')
+                mpl_pp.title(bodyparts[ibp])
+                if ibp % yn_sbps == 0:
+                    mpl_pp.ylabel('Number of time points.')
+                if math.floor(ibp / yn_sbps) == xn_sbps - 1:
+                    mpl_pp.xlabel('Estimated confidence, nu')
+                else:
+                    mpl_pp.xticks([])
+
+    if pooled:
+        if threshold > 0:  # doing stats
+            above_theshold = [0]*num_bodyparts
+            num_points = [0]*num_bodyparts
+        mpl_pp.figure()
+        mpl_pp.suptitle('Pooled from all cameras. {}'.format(title))
+        # make subplots axes
+        axs = []
+        for ibp in range(num_bodyparts):
+            if ibp == 0:
+                axs.append(mpl_pp.subplot(xn_sbps, yn_sbps, ibp+1))
+            else:
+                axs.append(mpl_pp.subplot(xn_sbps, yn_sbps, ibp+1, sharey=axs[0]))
+        # plot
+        for itrial, ic_confidences in enumerate(ic_confidencess):
+            for ibp in range(num_bodyparts):
+                y = []
+                for icam in range(num_cameras):
+                    y += np.squeeze(ic_confidences[icam][:,ibp]).tolist()
+                if len(ic_confidencess) == 1:
+                    axs[ibp].hist(y, bins=bins, color='k')
+                else:
+                    axs[ibp].hist(y, bins=bins, alpha=0.4)
+                axs[ibp].set_xlim([0, 1])
+                axs[ibp].set_yscale('log')
+                axs[ibp].set_title(bodyparts[ibp])
+                if ibp % yn_sbps == 0:
+                    axs[ibp].set_ylabel('Number of time points.')
+                if math.floor(ibp / yn_sbps) == xn_sbps - 1:
+                    axs[ibp].set_xlabel('Estimated confidence, nu')
+                else:
+                    axs[ibp].set_xticks([])
+
+                if threshold > 0:
+                    above_theshold[ibp] += sum([int(v > threshold) for v in y])
+                    num_points[ibp] += len(y)
+        if threshold > 0:
+            ylims = axs[0].get_ylim()
+            for ibp in range(num_bodyparts):
+                axs[ibp].vlines(threshold, ylims[0], ylims[1], colors='r', linestyles='dashed')
+                axs[ibp].annotate(
+                    '{:.2f}% above threshold'.format(above_theshold[ibp]/num_points[ibp]*100),
+                    (threshold, 0.85),  xycoords='axes fraction')
+            axs[0].set_ylim(ylims)
 
 
 '''
