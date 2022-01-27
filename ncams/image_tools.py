@@ -15,6 +15,7 @@ import cv2
 
 from tqdm import tqdm
 import moviepy # A very easy way of using FFMPEG
+import moviepy.editor
 # current release version of moviepy (1.0.3) redirects all warnings to logging. fix:
 from packaging import version
 if version.parse(moviepy.__version__) <= version.parse("1.0.3"):
