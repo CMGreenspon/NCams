@@ -316,3 +316,57 @@ def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
             dic[key_cast(l[keyword])] = value_cast(l[value])
 
     return dic
+
+
+def import_csv(filename):
+    '''Imports csv into a simple structure.
+
+    Arguments:
+        filename {str} -- filename to import.
+    Returns a tuple of:
+        column_names {list of M str} -- list of all column names.
+        values {list [M][N] of float if possible, str otherwise} -- list of all column values. First
+            index corresponds to column number.
+    '''
+    with open(filename, 'r') as f:
+        rdr = csv.reader(f)
+
+        line = next(rdr)
+        column_names = [i.strip() for i in line]
+
+        values = [[] for _ in column_names]
+
+        for li in rdr:
+            for idof, vdof in enumerate(li):
+                try:
+                    v = float(vdof)
+                except ValueError:
+                    v = vdof
+                values[idof].append(v)
+
+    # clear empty
+    for idof in reversed(range(len(column_names))):
+        if (len(column_names[idof]) == 0 and
+                all(isinstance(v, str) and len(v) == 0 for v in values[idof])):
+            del column_names[idof]
+            del values[idof]
+    return column_names, values
+
+
+def export_csv(filename, column_names, values):
+    '''Exports from a structure into a csv file.
+
+    Arguments:
+        filename {str} -- filename to write.
+        column_names {list of M str} -- list of all column names.
+        values {list [M][N]} -- list of all column values. First index corresponds to
+            column number.
+    '''
+    with open(filename, 'w', newline='') as f:
+        wrr = csv.writer(f)
+
+        wrr.writerow(column_names)
+
+        for itrial in range(len(values[0])):
+            lo = [values[k][itrial] for k in range(len(column_names))]
+            wrr.writerow(lo)
