@@ -86,7 +86,7 @@ def undistort_image(image, camera_calib_dict):
     return undistorted_image
 
 
-def images_to_video(image_filenames, video_filename, fps=30, output_folder=None):
+def images_to_video(image_filenames, video_filename, fps=30, output_folder=None, logger='bar'):
     '''Combines a list of images into a video.
 
     Arguments:
@@ -98,6 +98,8 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
         fps {integer} -- frame rate. (default: 30)
         output_folder {string} -- where to save the video. (default: {export to the current working
             directory})
+        logger {logger} -- either "bar" for progress bar or None or any Proglog logger. (default:
+            {'bar', same as moviepy.video.VideoClip.write_videofile default})
     '''
     if output_folder is None:
         output_folder = os.path.split(image_filenames[0])[0]
@@ -108,9 +110,9 @@ def images_to_video(image_filenames, video_filename, fps=30, output_folder=None)
     clip = moviepy.editor.ImageSequenceClip(image_filenames, fps=fps)
 
     if output_filetype == '.gif':
-        clip.write_gif(output_name, fps=fps)
+        clip.write_gif(output_name, fps=fps, logger=logger)
     else:
-        clip.write_videofile(output_name, fps=fps)
+        clip.write_videofile(output_name, fps=fps, logger=logger)
 
 
 def video_to_images(list_of_videos, output_directory=None, output_format='jpeg',
