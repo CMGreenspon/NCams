@@ -264,7 +264,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
     if ik_file is not None:
         if ik_xml_str is None:
             ik_xml_str = IK_XML_STR.format(model_file="Unassigned")
-        print('Making IK file {}'.format(ik_file))
+        if verbose > 0:
+            print('Making IK file {}'.format(ik_file))
         root = ET.fromstring(ik_xml_str)
         if root.tag != 'OpenSimDocument':
             raise ValueError('Wrong structure of the IK string. OpenSimDocument is not present at '
