@@ -26,11 +26,13 @@ IK_XML_STR = r'''<?xml version="1.0" encoding="UTF-8" ?>
         <!--Directory for input files-->
         <input_directory />
         <!--Name of the model file (.osim) to use for inverse kinematics.-->
-        <model_file>Unassigned</model_file>
+        <model_file>{model_file}</model_file>
         <!--A positive scalar that weights the relative importance of satisfying constraints. A weighting of 'Infinity' (the default) results in the constraints being strictly enforced. Otherwise, the weighted-squared constraint errors are appended to the cost function.-->
         <constraint_weight>Inf</constraint_weight>
         <!--The accuracy of the solution in absolute terms. Default is 1e-5. It determines the number of significant digits to which the solution can be trusted.-->
         <accuracy>1.0000000000000001e-05</accuracy>
+        <adaptiveAccuracy>true</adaptiveAccuracy>
+        <ignoreConvergenceErrors>true</ignoreConvergenceErrors>
         <!--Markers and coordinates to be considered (tasks) and their weightings. The sum of weighted-squared task errors composes the cost function.-->
         <IKTaskSet>
             <objects />
@@ -58,7 +60,7 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                         runtime_data_check=None, rotation=None,
                         ik_file=None, ik_weight_type='nans',
                         ik_xml_str=None, ik_out_mot_file='out_inv_kin_mot',
-                        static_triang_csv=None):
+                        static_triang_csv=None, verbose=0):
     '''Transforms triangulated data from NCams/DLC format into OpenSim trc.
 
     Arguments:
@@ -98,12 +100,14 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             'likelihood' -- not implemented.
             (default: 'nans')
         ik_xml_str {str} -- XML structure of the output inverse kinematic file. See
-            ncams.inverse_kinematics.IK_XML_STR for an example of input. (default:
-            ncams.inverse_kinematics.IK_XML_STR)
+            ncams.inverse_kinematics.IK_XML_STR for an example of input. The default structure has
+            a formattable field for model filename. (default:
+            ncams.inverse_kinematics.IK_XML_STR.format(model_file="Unassigned"))
         ik_out_mot_file {str} --  filename of the output inverse kinematics file.
             {default: 'out_inv_kin_mot'}
         static_triang_csv {str} -- additional triangulated data file, specifically for static
             markers that don't move during experiment. {default: None}
+        verbose {int} -- verbosity level. Higher verbosity prints more output {default: 0}.
     '''
     if data_unit_convert is None:
         data_unit_convert = lambda x: x*100  # dm to mm
@@ -240,9 +244,10 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
         else:
             time_range = [0, i*period]
 
-        print('Portion of the data being data and not NaNs:')
-        print('\n'.join('\t{}: {:.3f}'.format(marker_name_dict[bp], num_dats[bp]/n_frames)
-                        for bp in bodyparts))
+        if verbose > 0:
+            print('Portion of the data being data and not NaNs:')
+            print('\n'.join('\t{}: {:.3f}'.format(marker_name_dict[bp], num_dats[bp]/n_frames)
+                            for bp in bodyparts))
 
         # add copies
         frame_start_copy = i+2
@@ -252,13 +257,13 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 lo = [frame_n, (frame_n-1)*period]
                 lo += dc
                 wrr.writerow(lo)
-        if repeat > 0:
+        if repeat > 0 and verbose > 0:
             print('Added {} copies of data.'.format(repeat))
 
     # make inverse kinematic config file for OSim
     if ik_file is not None:
         if ik_xml_str is None:
-            ik_xml_str = IK_XML_STR
+            ik_xml_str = IK_XML_STR.format(model_file="Unassigned")
         print('Making IK file {}'.format(ik_file))
         root = ET.fromstring(ik_xml_str)
         if root.tag != 'OpenSimDocument':
@@ -274,6 +279,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
             ikt.append(ET.Element('model_file', text='Unassigned'))
             ikt.append(ET.Element('constraint_weight', text='Inf'))
             ikt.append(ET.Element('accuracy', text='1.e-05'))
+            ikt.append(ET.Element('adaptiveAccuracy', text='true'))
+            ikt.append(ET.Element('ignoreConvergenceErrors', text='true'))
             ikt.append(ET.Element('coordinate_file', text='Unassigned'))
             ikt.append(ET.Element('report_errors', text='true'))
             ikt.append(ET.Element('report_marker_locations', text='false'))
