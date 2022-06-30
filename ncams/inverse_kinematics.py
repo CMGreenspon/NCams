@@ -60,7 +60,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                         runtime_data_check=None, rotation=None,
                         ik_file=None, ik_weight_type='nans',
                         ik_xml_str=None, ik_out_mot_file='out_inv_kin_mot',
-                        static_triang_csv=None, verbose=0):
+                        static_triang_csv=None, verbose=0,
+                        reflect=False):
     '''Transforms triangulated data from NCams/DLC format into OpenSim trc.
 
     Arguments:
@@ -108,6 +109,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
         static_triang_csv {str} -- additional triangulated data file, specifically for static
             markers that don't move during experiment. {default: None}
         verbose {int} -- verbosity level. Higher verbosity prints more output {default: 0}.
+        reflect {bool} -- reflects the data along an axis (y = -y). Needed when processing data
+            from a left-handed experiment to right-handed model. {default: False}
     '''
     if data_unit_convert is None:
         data_unit_convert = lambda x: x*100  # dm to mm
@@ -215,6 +218,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                     value_dict[bp] = rotation([[data_unit_convert(float(li[ix])-zero_x),
                                                 data_unit_convert(float(li[iy])-zero_y),
                                                 data_unit_convert(float(li[iz])-zero_z)]])
+                    if reflect:
+                        value_dict[bp][0] = -value_dict[bp][0]
                     num_dats[bp] += 1
 
             lo = [i+1, i*period]
@@ -225,6 +230,8 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
                 lo += rotation([[data_unit_convert(float(v[0])-zero_x),
                                  data_unit_convert(float(v[1])-zero_y),
                                  data_unit_convert(float(v[2])-zero_z)]])
+                if reflect:
+                    lo[-3] = -lo[-3]
 
             if repeat > 0:
                 data_copy.append(deepcopy(lo[2:]))

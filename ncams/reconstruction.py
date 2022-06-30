@@ -424,6 +424,8 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
 
     '''Triangulates points from multiple cameras and exports them into a csv.
 
+    TODO: Calculate a confidence metric for a 3D point based on the confidence of 2D points.
+
     Arguments:
         ncams_config {dict} -- see help(ncams.camera_tools). This function uses following keys:
             serials {list of numbers} -- list of camera serials.
