@@ -109,7 +109,7 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
         static_triang_csv {str} -- additional triangulated data file, specifically for static
             markers that don't move during experiment. {default: None}
         verbose {int} -- verbosity level. Higher verbosity prints more output {default: 0}.
-        reflect {bool} -- reflects the data along an axis (y = -y). Needed when processing data
+        reflect {bool} -- reflects the data along an axis (x = -x). Needed when processing data
             from a left-handed experiment to right-handed model. {default: False}
     '''
     if data_unit_convert is None:
