@@ -321,6 +321,8 @@ def dic_from_csv(fname, keyword, value, key_cast=None, value_cast=None):
 def import_csv(filename):
     '''Imports csv into a simple structure.
 
+    TO BE moved to io_tools
+
     Arguments:
         filename {str} -- filename to import.
     Returns a tuple of:
@@ -355,6 +357,8 @@ def import_csv(filename):
 
 def export_csv(filename, column_names, values):
     '''Exports from a structure into a csv file.
+
+    TO BE moved to io_tools
 
     Arguments:
         filename {str} -- filename to write.
