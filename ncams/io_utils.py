@@ -14,15 +14,17 @@ import ntpath
 
 
 ############################### CSV
-def import_csv(filename):
+def import_csv(filename, cast=float):
     '''Imports csv into a simple structure.
 
     Arguments:
         filename {str} -- filename to import.
+    Keyword Arguments:
+        cast {callable} -- class of variables to return. Defaults to float.
     Returns a tuple of:
         column_names {list of M str} -- list of all column names.
-        values {list [M][N] of float if possible, str otherwise} -- list of all column values. First
-            index corresponds to column number.
+        values {list [M][N] of cast type if possible, str otherwise} -- list of all column values.
+            First index corresponds to column number.
     '''
     with open(filename, 'r') as f:
         rdr = csv.reader(f)
@@ -35,7 +37,7 @@ def import_csv(filename):
         for li in rdr:
             for idof, vdof in enumerate(li):
                 try:
-                    v = float(vdof)
+                    v = cast(vdof)
                 except ValueError:
                     v = vdof
                 values[idof].append(v)

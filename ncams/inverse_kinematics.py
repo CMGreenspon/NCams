@@ -131,24 +131,23 @@ SC_XML_STR = '''\
 
 SC_EMPTY_MEASUREMENT = '''
                     <Measurement name="{name}">
-                        <!--Flag to turn on and off scaling for this measurement.-->
-                        <apply>false</apply>
-                        <!--Set of marker pairs used to determine the scale factors.-->
+                        <apply>true</apply>
                         <MarkerPairSet>
-                            <objects>
-                                <MarkerPair>
-                                    <!--Names of two markers, the distance between which is used to compute a body scale factor.-->
-                                    <markers> Unassigned Unassigned </markers>
-                                </MarkerPair>
-                            </objects>
+                            <objects />
                             <groups />
                         </MarkerPairSet>
-                        <!--Set of bodies to be scaled by this measurement.-->
                         <BodyScaleSet>
-                            <objects />
+                            <objects>
+{body_scales}
+                            </objects>
                             <groups />
                         </BodyScaleSet>
                     </Measurement>
+'''
+SC_BODY_SCALE = '''
+                                <BodyScale name="{}">
+                                    <axes> X Y Z</axes>
+                                </BodyScale>
 '''
 
 
@@ -234,6 +233,10 @@ def triangulated_to_trc(triang_csv, trc_file, marker_name_dict, data_unit_conver
     if rotation is not None:
         for ibp, _ in enumerate(bodyparts):
             points[:, ibp, :] = rotation(points[:, ibp, :])
+
+    # reflect
+    if reflect:
+        points[:, :, 0] = - points[:, :, 0]
 
     # calculate how much data is nans
     n_frames = len(points)
@@ -335,12 +338,16 @@ def make_sc_file(filename, tool_name, measurements, marker_file, time_range,
     ms = _add_xml_element(sct, 'ModelScaler')
     mset = _add_xml_element(ms, 'MeasurementSet')
     _add_xml_element(mset, 'groups')
-    mseto = _add_xml_element(ms, 'objects', text='\n' + ' '*16, tail='\n' + ' '*12)
+    mseto = _add_xml_element(mset, 'objects', text='\n' + ' '*20, tail='\n' + ' '*16)
 
-    for measurement in measurements:
-        sc_meas = SC_EMPTY_MEASUREMENT.format(name=measurement)
+    for measurement, body_scales in measurements.items():
+        sc_meas = SC_EMPTY_MEASUREMENT.format(
+            name=measurement,
+            body_scales=''.join([SC_BODY_SCALE.format(body_scale) for body_scale in body_scales]))
         meas = ET.fromstring(sc_meas)
+        meas.tail = '\n' + ' ' * 20
         mseto.append(meas)
+    meas.tail = '\n' + ' ' * 16
 
     tree = ET.ElementTree(element=root)
     tree.write(filename, encoding='UTF-8', xml_declaration=True)
@@ -464,3 +471,18 @@ def smooth_motion(in_fname, ou_fname, median_kernel_size=11, ou_rate=None, filte
 
     # output
     export_mot(ou_fname, dof_names, times, dofs)
+
+
+def set_opensim_model_default_position(osim_model_in, osim_model_ou, positions, lock=False):
+    tree = ET.parse(osim_model_in)
+    root = tree.getroot()
+
+    for dof_name, position in positions.items():
+        coordinate = root.find(".//Coordinate[@name='{}']".format(dof_name))
+        c_defval = coordinate.find("default_value")
+        c_defval.text = str(position)
+        if lock:
+            c_locked = coordinate.find("locked")
+            c_locked.text = 'true'
+
+    tree.write(osim_model_ou, encoding='UTF-8', xml_declaration=True)

@@ -456,6 +456,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     '''
     cam_serials = ncams_config['serials']
 
+    # TODO here or upstream, check if configs are not None
     camera_matrices = intrinsics_config['camera_matrices']
     if not undistorted_data:
         distortion_coefficients = intrinsics_config['distortion_coefficients']
