@@ -417,10 +417,153 @@ def load_labelled_csvs(list_of_csvs, threshold=0.9, filtering=False, only_bodypa
     return bodyparts, num_frames, image_coordinates, ic_confidences
 
 
+def undistort_point(distorted_points, camera_matrix, distortion_coefficient):
+    return np.squeeze(cv2.undistortPoints(
+        distorted_points, camera_matrix, distortion_coefficient, None,
+        P=camera_matrix))
+
+
+def triangulate_point(method, num_cameras, uics, iccs, projection_matrices, best_n=2,
+                      centroid_threshold=2.5):
+    cam_image_points = np.empty((2, num_cameras))
+    cam_image_points.fill(np.nan)
+
+    if method == 'full_rank' or method == 'centroid':
+        for icam in range(num_cameras):
+            cam_image_points[:, icam] = uics[icam]
+    elif method == 'best_n':
+        # decorate-sort-undecorate sort to find the icams for the highest likelihood
+        best_likelh = [b[0] for b in sorted(
+            zip(range(num_cameras), [iccs[icam].astype(np.float64) for icam in range(num_cameras)]),
+            key=lambda x: x[1], reverse=True)][:best_n]
+        for icam in [icam for icam in range(num_cameras) if icam in best_likelh]:
+            cam_image_points[:, icam] = uics[icam]
+
+    # Check how many cameras detected the bodypart in that frame
+    cams_detecting = ~np.isnan(cam_image_points[0, :])
+    cam_idx = np.where(cams_detecting)[0]
+    if np.sum(cams_detecting) < 2:
+        return None
+
+    if method == 'full_rank' or method == 'best_n':
+        # Create the image point and projection matrices
+        tri_projection_mats, tri_image_points = [], []
+        for cam in cam_idx:
+            tri_image_points.append(cam_image_points[:, cam])
+            tri_projection_mats.append(projection_matrices[cam])
+
+        return triangulate(tri_image_points, tri_projection_mats)
+
+    elif method == 'centroid':
+        cam_comb_list = list(combinations(cam_idx, 2))
+        num_combs = len(cam_comb_list)
+        t_points = np.zeros((num_combs, 3))
+        for c in range(num_combs):
+            tri_projection_mats, tri_image_points = [], []
+            for cam in cam_comb_list[c]:
+                tri_image_points.append(cam_image_points[:, cam])
+                tri_projection_mats.append(projection_matrices[cam])
+
+            t_points[c, :] = triangulate(tri_image_points, tri_projection_mats)
+        # Take the centroid of the points
+        t_centroid = np.mean(t_points, axis=0)
+
+        # Check for outliers if there are sufficient points to do so
+        if num_combs > 3:
+            t_cent_dist = []
+            for c in range(num_combs):
+                t_cent_dist.append(euclidean(t_centroid, t_points[c, :]))
+            t_cent_dist = np.vstack(t_cent_dist)
+            # Get z-scores for the distances from the centroid
+            euclid_sd = np.std(t_cent_dist)
+            euclid_threshold = euclid_sd * centroid_threshold
+            dist_bool = t_cent_dist < euclid_threshold
+
+            if np.sum(dist_bool) < num_combs:  # Recalculate the centroid
+                cent_idx = np.where(dist_bool)[0]
+                t_points_filt = t_points[cent_idx, :]
+                t_centroid = np.mean(t_points_filt, axis=0)
+
+        return t_centroid
+
+
+def triangulate_points(
+        ncams_config, intrinsics_config, extrinsics_config,
+        bodyparts, num_frames, image_coordinates, ic_confidences,
+        threshold=0.9, method='full_rank', best_n=2,
+        centroid_threshold=2.5, undistorted_data=False,
+        filter_3D=False):
+    # check if configs are not None
+    if intrinsics_config is None:
+        raise ValueError('No intrinsic configuration provided.')
+    if extrinsics_config is None:
+        raise ValueError('No extrinsics configuration provided.')
+
+    camera_matrices = intrinsics_config['camera_matrices']
+    if not undistorted_data:
+        distortion_coefficients = intrinsics_config['distortion_coefficients']
+
+    world_locations = extrinsics_config['world_locations']
+    world_orientations = extrinsics_config['world_orientations']
+
+    if method not in ('full_rank', 'best_n', 'centroid'):
+        raise ValueError('"{}" is not an accepted method. '
+                         'Please use "full_rank", "best_n", or "centroid".'.format(method))
+
+    num_cameras = len(ncams_config['serials'])
+    num_bodyparts = len(bodyparts)
+
+    if not undistorted_data:  # Undistort points
+        undistorted_image_coordinates = []
+        # for each camera
+        for cam_image_coordinates, camera_matrix, distortion_coefficient in zip(
+                image_coordinates, camera_matrices, distortion_coefficients):
+            undistorted_csv_array = np.empty(cam_image_coordinates.shape)
+            undistorted_csv_array.fill(np.nan)
+            for bp in range(num_bodyparts):
+                undistorted_csv_array[:, :, bp] = undistort_point(
+                    cam_image_coordinates[:, :, bp],
+                    camera_matrix, distortion_coefficient)
+
+            undistorted_image_coordinates.append(undistorted_csv_array)
+
+    else:
+        undistorted_image_coordinates = image_coordinates
+
+    # Triangulation
+    # Make the projection matrices
+    projection_matrices = []
+    for icam in range(num_cameras):
+        projection_matrices.append(camera_tools.make_projection_matrix(
+            camera_matrices[icam], world_orientations[icam], world_locations[icam]))
+
+    # Triangulate the points
+    triangulated_points = np.empty((num_frames, 3, len(bodyparts)))
+    triangulated_points.fill(np.nan)
+
+    for iframe in range(num_frames):
+        for bodypart in range(len(bodyparts)):
+            triangulated_point = triangulate_point(
+                method, num_cameras,
+                [undistorted_image_coordinates[icam][iframe, :, bodypart]
+                 for icam in range(num_cameras)],
+                [ic_confidences[icam][iframe, bodypart] for icam in range(num_cameras)],
+                projection_matrices,
+                best_n=best_n, centroid_threshold=centroid_threshold)
+
+            if triangulated_point is not None:
+                triangulated_points[iframe, :, bodypart] = triangulated_point
+
+    if filter_3D:
+        triangulated_points = process_points(triangulated_points, '3D', threshold=threshold)
+
+    return triangulated_points
+
+
 def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsics_config,
-                     output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
-                     centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
-                     filter_2D=False, filter_3D=False):
+                    output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
+                    centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
+                    filter_2D=False, filter_3D=False):
 
     '''Triangulates points from multiple cameras and exports them into a csv.
 
@@ -454,19 +597,6 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         output_csv {csv file} -- csv containing all triangulated points.
         output_csv_fname {string} -- returns the filename of the produced file.
     '''
-    cam_serials = ncams_config['serials']
-
-    # TODO here or upstream, check if configs are not None
-    camera_matrices = intrinsics_config['camera_matrices']
-    if not undistorted_data:
-        distortion_coefficients = intrinsics_config['distortion_coefficients']
-
-    world_locations = extrinsics_config['world_locations']
-    world_orientations = extrinsics_config['world_orientations']
-
-    if not method in ('full_rank', 'best_n', 'centroid'):
-        raise ValueError('{} is not an accepted method. '
-                         'Please use "full_rank", "best_n", or "centroid".'.format('"'+method+'"'))
 
     # Check if the source CSV path exists
     if not os.path.exists(labeled_csv_path):
@@ -480,122 +610,31 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
     bodyparts, num_frames, image_coordinates, ic_confidences = load_labelled_csvs(
         list_of_csvs, threshold=threshold, filtering=filter_2D)
 
-    num_cameras = len(list_of_csvs)
-    num_bodyparts = len(bodyparts)
-
-    if not undistorted_data: # Undistort points
-        undistorted_image_coordinates = []
-        for icam in range(num_cameras):
-            undistorted_csv_array = np.empty(image_coordinates[icam].shape)
-            undistorted_csv_array.fill(np.nan)
-            for bp in range(num_bodyparts):
-                # Get the distorted points
-                distorted_points = image_coordinates[icam][:, :, bp]
-                undistorted_points = np.squeeze(
-                    cv2.undistortPoints(distorted_points, camera_matrices[icam],
-                                        distortion_coefficients[icam], None, P=camera_matrices[icam]))
-                undistorted_csv_array[:,:,bp] = undistorted_points
-
-            undistorted_image_coordinates.append(undistorted_csv_array)
-
-    else:
-        undistorted_image_coordinates = image_coordinates
-
-    # Triangulation
-    # Make the projection matrices
-    projection_matrices = []
-    for icam in range(num_cameras):
-        projection_matrices.append(camera_tools.make_projection_matrix(
-            camera_matrices[icam], world_orientations[icam], world_locations[icam]))
-
-    # Triangulate the points
-    triangulated_points = np.empty((num_frames, 3, num_bodyparts))
-    triangulated_points.fill(np.nan)
-
-    for iframe in range(num_frames):
-        for bodypart in range(num_bodyparts):
-            cam_image_points = np.empty((2, num_cameras))
-            cam_image_points.fill(np.nan)
-
-            if method == 'full_rank' or method == 'centroid':
-                for icam in range(num_cameras):
-                    cam_image_points[:, icam] = undistorted_image_coordinates[icam][iframe, :, bodypart]
-            elif method == 'best_n':
-                # decorate-sort-undecorate sort to find the icams for the highest likelihood
-                best_likelh = [b[0] for b in sorted(
-                    zip(range(num_cameras),
-                        [ic_confidences[icam][iframe, bodypart].astype(np.float64)
-                         for icam in range(num_cameras)]),
-                    key=lambda x: x[1], reverse=True)][:best_n]
-                for icam in [icam for icam in range(num_cameras) if icam in best_likelh]:
-                    cam_image_points[:, icam] = undistorted_image_coordinates[icam][iframe, :, bodypart]
-
-            # Check how many cameras detected the bodypart in that frame
-            cams_detecting = ~np.isnan(cam_image_points[0, :])
-            cam_idx = np.where(cams_detecting)[0]
-            if np.sum(cams_detecting) < 2:
-                continue
-
-            if method == 'full_rank' or method == 'best_n':
-                # Create the image point and projection matrices
-                tri_projection_mats, tri_image_points = [], []
-                for cam in cam_idx:
-                    tri_image_points.append(cam_image_points[:, cam])
-                    tri_projection_mats.append(projection_matrices[cam])
-
-                triangulated_points[iframe, :, bodypart] = triangulate(tri_image_points, tri_projection_mats)
-
-            elif method == 'centroid':
-                cam_comb_list = list(combinations(cam_idx,2))
-                num_combs = len(cam_comb_list)
-                t_points = np.zeros((num_combs,3))
-                for c in range(num_combs):
-                    tri_projection_mats, tri_image_points = [], []
-                    for cam in cam_comb_list[c]:
-                        tri_image_points.append(cam_image_points[:, cam])
-                        tri_projection_mats.append(projection_matrices[cam])
-
-                    t_points[c, :] = triangulate(tri_image_points, tri_projection_mats)
-                # Take the centroid of the points
-                t_centroid = np.mean(t_points, axis=0)
-
-                if num_combs > 3: # Check for outliers if there are sufficient points to do so
-                    t_cent_dist = []
-                    for c in range(num_combs):
-                        t_cent_dist.append(euclidean(t_centroid, t_points[c, :]))
-                    t_cent_dist = np.vstack(t_cent_dist)
-                    # Get z-scores for the distances from the centroid
-                    euclid_sd = np.std(t_cent_dist)
-                    euclid_threshold = euclid_sd * centroid_threshold
-                    dist_bool = t_cent_dist < euclid_threshold
-
-                    if np.sum(dist_bool) < num_combs: # Recalculate the centroid
-                        cent_idx = np.where(dist_bool)[0]
-                        t_points_filt = t_points[cent_idx, :]
-                        t_centroid = np.mean(t_points_filt, axis=0)
-
-                triangulated_points[iframe, :, bodypart] = t_centroid
-
-    if filter_3D:
-        triangulated_points = process_points(triangulated_points, '3D', threshold=threshold)
+    triangulated_points = triangulate_points(
+        ncams_config, intrinsics_config, extrinsics_config,
+        bodyparts, num_frames, image_coordinates, ic_confidences,
+        threshold=threshold, method=method, best_n=best_n,
+        centroid_threshold=centroid_threshold, undistorted_data=undistorted_data,
+        filter_3D=filter_3D)
 
     if output_csv_fname is None:
         _, dir_name = os.path.split(labeled_csv_path)
         output_csv_fname = os.path.join(labeled_csv_path, dir_name + '_triangulated.csv')
-    else: # check if correct delimiter
+    else:  # check if correct delimiter
         if not os.path.split(output_csv_fname)[1][-4:] == '.csv':
             output_csv_fname = output_csv_fname + '.csv'
 
+    # TODO use io_tools
     with open(output_csv_fname, 'w', newline='') as f:
         triagwriter = csv.writer(f)
         bps_line = ['bodyparts']
         for bp in bodyparts:
             bps_line += [bp]*3
         triagwriter.writerow(bps_line)
-        triagwriter.writerow(['coords'] + ['x', 'y', 'z']*num_bodyparts)
+        triagwriter.writerow(['coords'] + ['x', 'y', 'z']*len(bodyparts))
         for iframe in range(num_frames):
             rw = [iframe]
-            for ibp in range(num_bodyparts):
+            for ibp in range(len(bodyparts)):
                 rw += [triangulated_points[iframe, 0, ibp],
                        triangulated_points[iframe, 1, ibp],
                        triangulated_points[iframe, 2, ibp]]
