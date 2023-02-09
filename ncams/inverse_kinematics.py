@@ -18,6 +18,7 @@ import scipy.signal
 from . import io_utils
 
 
+# Default accuracy of 1e-5 does not produce precise enough results for hand and finger movements.
 IK_XML_STR = '''\
 <?xml version="1.0" encoding="UTF-8" ?>
 <OpenSimDocument Version="40000">
@@ -31,7 +32,7 @@ IK_XML_STR = '''\
         <!--A positive scalar that weights the relative importance of satisfying constraints. A weighting of 'Infinity' (the default) results in the constraints being strictly enforced. Otherwise, the weighted-squared constraint errors are appended to the cost function.-->
         <constraint_weight>Inf</constraint_weight>
         <!--The accuracy of the solution in absolute terms. Default is 1e-5. It determines the number of significant digits to which the solution can be trusted.-->
-        <accuracy>1.0000000000000001e-05</accuracy>
+        <accuracy>1.0000000000000001e-06</accuracy>
         <adaptiveAccuracy>true</adaptiveAccuracy>
         <ignoreConvergenceErrors>true</ignoreConvergenceErrors>
         <!--Markers and coordinates to be considered (tasks) and their weightings. The sum of weighted-squared task errors composes the cost function.-->
