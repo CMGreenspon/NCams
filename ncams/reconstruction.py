@@ -492,7 +492,7 @@ def triangulate_points(
         bodyparts, num_frames, image_coordinates, ic_confidences,
         threshold=0.9, method='full_rank', best_n=2,
         centroid_threshold=2.5, undistorted_data=False,
-        filter_3D=False):
+        filter_3D=False, custom_3D_filter=None):
     # check if configs are not None
     if intrinsics_config is None:
         raise ValueError('No intrinsic configuration provided.')
@@ -557,13 +557,16 @@ def triangulate_points(
     if filter_3D:
         triangulated_points = process_points(triangulated_points, '3D', threshold=threshold)
 
+    if custom_3D_filter is not None:
+        triangulated_points = custom_3D_filter(bodyparts, triangulated_points)
+
     return triangulated_points
 
 
 def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsics_config,
                     output_csv_fname=None, threshold=0.9, method='full_rank', best_n=2,
                     centroid_threshold=2.5, iteration=None, undistorted_data=False, file_prefix='',
-                    filter_2D=False, filter_3D=False):
+                    filter_2D=False, filter_3D=False, custom_3D_filter=None):
 
     '''Triangulates points from multiple cameras and exports them into a csv.
 
@@ -593,6 +596,9 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         file_prefix {string} -- prefix of the csv file to search for in the folder. (default: {''})
         filter_2D {bool} -- filter the imported 2D data. (default: False)
         filter_3D {bool} -- filter the produced 3D data. (default: False)
+        custom_3D_filter {None or callable} -- optional processing the 3D data after filter_3D. For
+            example, remove outlier points. Has to accept (bodyparts, triangulated_points) and
+            return triangulate_points. (default: None)
     Output:
         output_csv {csv file} -- csv containing all triangulated points.
         output_csv_fname {string} -- returns the filename of the produced file.
@@ -615,7 +621,7 @@ def triangulate_csv(ncams_config, labeled_csv_path, intrinsics_config, extrinsic
         bodyparts, num_frames, image_coordinates, ic_confidences,
         threshold=threshold, method=method, best_n=best_n,
         centroid_threshold=centroid_threshold, undistorted_data=undistorted_data,
-        filter_3D=filter_3D)
+        filter_3D=filter_3D, custom_3D_filter=custom_3D_filter)
 
     if output_csv_fname is None:
         _, dir_name = os.path.split(labeled_csv_path)
