@@ -27,7 +27,7 @@ NCams is installed as a Python module with several submodules that include camer
 
 ## Getting Started
 
-This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example [raw data](https://uchicago.box.com/s/x6v8h67qt1de01dbvhy6uriuscavk1nr) and [raw images](https://uchicago.box.com/s/ot4q2huebbxalmb2opav4km4pbz6n49w) are available online.
+This project's code is available on [GitHub](https://github.com/CMGreenspon/NCams). The example [raw data](https://uchicago.box.com/s/x6v8h67qt1de01dbvhy6uriuscavk1nr) and [raw images](https://uchicago.box.com/s/x6v8h67qt1de01dbvhy6uriuscavk1nr) are available online.
 
 ### Prerequisites
 
