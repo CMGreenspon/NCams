@@ -839,7 +839,7 @@ def adjust_calibration_origin(world_rotation_vector, world_translation_vector,
 
 #################### Pose assessement functions
 def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extrinsics_info,
-                            error_threshold=0.1, world_points=None):
+                            error_threshold=0.1, world_points=None, debug=None):
     ''' Examines the outputs of the pose estimate (currently only supports one_shot_multi_PnP) to
     provide metrics pertaining to the system accuracy (triangulation and 2D reprojection accuracy).
 
@@ -970,6 +970,7 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
     # Back project the points for measuring 2d error
     projected_world_points = []
     reprojection_error = []
+    debug['ptps'] = []
     for icam, serial in enumerate(serials):
         # Get the points to compare
         p_idx = extrinsics_info[serial]['charuco_ids']
@@ -980,6 +981,12 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
                               world_locations[icam], camera_matrices[icam],
                               distortion_coefficients[icam])[0])
         projected_world_points.append(world_points_2d)
+        ptp = cv2.projectPoints(
+            debug['tps'].T, world_orientations[icam],
+            world_locations[icam], camera_matrices[icam],
+            distortion_coefficients[icam])[0]
+        ptp = np.squeeze(ptp)
+        debug['ptps'].append(ptp)
         # Measure the error
         detected_points = np.squeeze(extrinsics_info[serial]['charuco_corners'])
         reproj_error = np.zeros((len(p_idx),1))
@@ -1008,6 +1015,8 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
         # Load and plot the image
         img = matplotlib.image.imread(extrinsics_info[serial]['image_path'])
         axs[vert_ind, horz_ind].imshow(img)
+
+        # axs[vert_ind, horz_ind].imshow(ncams_config['video_frames'][icam])
         
         # Overlay the matching world and detected points
         axs[vert_ind, horz_ind].scatter(projected_world_points[icam][:,0],
@@ -1016,6 +1025,16 @@ def inspect_extrinsics(ncams_config, intrinsics_config, extrinsics_config, extri
         axs[vert_ind, horz_ind].scatter(extrinsics_info[serial]['charuco_corners'][:,0,0],
                                         extrinsics_info[serial]['charuco_corners'][:,0,1],
                                         color='darkorange', marker='x')
+
+        if debug is not None:
+            axs[vert_ind, horz_ind].scatter(debug['ptps'][icam][:, 0],
+                                            debug['ptps'][icam][:, 1],
+                                            color='b')
+            axs[vert_ind, horz_ind].scatter(debug['ics'][icam][0, :],
+                                            debug['ics'][icam][1, :],
+                                            color='darkorange', marker='x')
+
+
         # Clean up the graph
         axs[vert_ind, horz_ind].set_title(names[icam])
         axs[vert_ind, horz_ind].set_xticks([])
