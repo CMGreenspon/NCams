@@ -102,9 +102,13 @@ def make_projection_matrix(camera_matrix, world_orientation, world_location):
     # Make matrix if necessary
     if world_orientation.shape == (3, 1) or world_orientation.shape == (1, 3):
         world_orientation = cv2.Rodrigues(world_orientation)[0]  # Convert to matrix
+    else:
+        raise ValueError('Wrong world_orientation shape.')
 
     if world_location.shape == (1, 3):  # Format
         world_location = np.transpose(world_location)
+    if world_location.shape != (3, 1):
+        raise ValueError('Wrong world_location shape.')
 
     projection_matrix = np.matmul(camera_matrix, np.hstack((world_orientation, world_location)))
 
@@ -201,7 +205,7 @@ def create_board(ncams_config, output=False, plotting=False, dpi=300, output_for
             warnings.warn('Invalid scale unit given. Defaulting to centimeters')
             scale_unit = 10
         
-        secondary_length = check_size * 0.6 # What portion of the check the aruco marker takes up
+        secondary_length = check_size * 0.6  # What portion of the check the aruco marker takes up
         output_board = cv2.aruco.CharucoBoard_create(board_dim[0], board_dim[1],
                                                      check_size/scale_unit,
                                                      secondary_length/scale_unit,
