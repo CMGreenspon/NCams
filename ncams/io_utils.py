@@ -265,7 +265,7 @@ def import_triangulated_csv(filename):
         for li in rdr:
             frame_numbers.append(int(li[0]))
             for i, el in enumerate(li[1:]):
-                data_raw[i].append(float(el))
+                data_raw[i].append(float(el) if el != '' else math.nan)
 
     # transform into a dictionary
     for i, (i1, i2) in enumerate(zip(li1[1:], li2[1:])):
